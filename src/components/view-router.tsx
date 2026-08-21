@@ -1,30 +1,31 @@
 'use client';
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useStore } from '@/lib/store';
 import type { ViewId } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const viewComponents: Record<ViewId, React.LazyExoticComponent<React.ComponentType>> = {
-  dashboard: lazy(() => import('@/views/dashboard')),
-  subjects: lazy(() => import('@/views/subjects')),
-  'subject-detail': lazy(() => import('@/views/subject-detail')),
-  syllabus: lazy(() => import('@/views/subject-detail')),
-  marks: lazy(() => import('@/views/marks')),
-  attendance: lazy(() => import('@/views/attendance')),
-  focus: lazy(() => import('@/views/focus')),
-  revision: lazy(() => import('@/views/revision')),
-  notes: lazy(() => import('@/views/notes')),
-  calendar: lazy(() => import('@/views/calendar')),
-  timetable: lazy(() => import('@/views/timetable')),
-  tasks: lazy(() => import('@/views/tasks')),
-  analytics: lazy(() => import('@/views/analytics')),
-  'er-center': lazy(() => import('@/views/er-center')),
-  exams: lazy(() => import('@/views/exams')),
-  assignments: lazy(() => import('@/views/assignments')),
-  settings: lazy(() => import('@/views/settings')),
-  'ai-tutor': lazy(() => import('@/views/ai-tutor')),
-  report: lazy(() => import('@/views/report')),
+const viewComponents: Record<ViewId, React.ComponentType> = {
+  dashboard: dynamic(() => import('@/views/dashboard'), { ssr: false }),
+  subjects: dynamic(() => import('@/views/subjects'), { ssr: false }),
+  'subject-detail': dynamic(() => import('@/views/subject-detail'), { ssr: false }),
+  syllabus: dynamic(() => import('@/views/subject-detail'), { ssr: false }),
+  marks: dynamic(() => import('@/views/marks'), { ssr: false }),
+  attendance: dynamic(() => import('@/views/attendance'), { ssr: false }),
+  focus: dynamic(() => import('@/views/focus'), { ssr: false }),
+  revision: dynamic(() => import('@/views/revision'), { ssr: false }),
+  notes: dynamic(() => import('@/views/notes'), { ssr: false }),
+  calendar: dynamic(() => import('@/views/calendar'), { ssr: false }),
+  timetable: dynamic(() => import('@/views/timetable'), { ssr: false }),
+  tasks: dynamic(() => import('@/views/tasks'), { ssr: false }),
+  analytics: dynamic(() => import('@/views/analytics'), { ssr: false }),
+  'er-center': dynamic(() => import('@/views/er-center'), { ssr: false }),
+  exams: dynamic(() => import('@/views/exams'), { ssr: false }),
+  assignments: dynamic(() => import('@/views/assignments'), { ssr: false }),
+  settings: dynamic(() => import('@/views/settings'), { ssr: false }),
+  'ai-tutor': dynamic(() => import('@/views/ai-tutor'), { ssr: false }),
+  report: dynamic(() => import('@/views/report'), { ssr: false }),
 };
 
 function ViewLoadingFallback() {

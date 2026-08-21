@@ -1,99 +1,80 @@
 'use client';
+/* eslint-disable @typescript-eslint/tsx-one-expression-per-line */
 
-import { useStore, getSubjectProgress, getSubjectAttendance, getSubjectMarks, getStudyTimeThisWeek, getDueRevisionItems } from '@/lib/store';
+import { useEffect, useState } from 'react';
+import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, Minus, BookOpen, UserCheck, Timer, BrainCircuit, BarChart3, Clock, Target, Flame } from 'lucide-react';
-import { useMemo } from 'react';
-import { format, subDays, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { Clock, BarChart3, BrainCircuit, Target, Flame } from 'lucide-react';
+import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
+
+type SubjectSummary = { id: string; name: string; color: string; percentage: number };
+type HeatmapDay = { dateStr: string; minutes: number };
+type StudyDistItem = { subjectId: string; name: string; color: string; minutes: number };
+type AssessSummary = { id: string; name: string; obtainedMarks: number; maxMarks: number };
 
 export default function AnalyticsView() {
-  const { subjects, studySessions, assessments, attendance, revisionItems, tasks, profile, calendarEvents } = useStore();
+  const [ready, setReady] = useState(false);
+  const [weekMinutes, setWeekMinutes] = useState(0);
+  const [weekSessions, setWeekSessions] = useState(0);
+  const [avgSession, setAvgSession] = useState(0);
+  const [uniqueSubjects, setUniqueSubjects] = useState(0);
+  const [assessmentAvgPct, setAssessmentAvgPct] = useState(0);
+  const [assessmentCount, setAssessmentCount] = useState(0);
+  const [dueRevisionCount, setDueRevisionCount] = useState(0);
+  const [heatmap, setHeatmap] = useState<HeatmapDay[]>([]);
+  const [attendanceTrend, setAttendanceTrend] = useState<SubjectSummary[]>([]);
+  const [syllabusTrend, setSyllabusTrend] = useState<SubjectSummary[]>([]);
+  const [studyDist, setStudyDist] = useState<StudyDistItem[]>([]);
+  const [recentAssessments, setRecentAssessments] = useState<AssessSummary[]>([]);
+  const [threshold, setThreshold] = useState(75);
 
-  const activeSubjects = subjects.filter((s) => !s.archived);
-
-  // Study heatmap data (last 35 days)
-  const heatmapData = useMemo(() => {
-    const days = eachDayOfInterval({ start: subDays(new Date(), 34), end: new Date() });
-    return days.map((day) => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const totalSeconds = studySessions
-        .filter((s) => s.date === dayStr)
-        .reduce((acc, s) => acc + s.duration, 0);
-      return { date: day, dateStr: dayStr, minutes: Math.round(totalSeconds / 60) };
-    });
-  }, [studySessions]);
-
-  const maxMinutes = Math.max(...heatmapData.map((d) => d.minutes), 1);
-
-  // Study distribution per subject
-  const studyDistribution = useMemo(() => {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    return activeSubjects.map((sub) => {
-      const seconds = studySessions
-        .filter((s) => s.subjectId === sub.id && parseISO(s.date) >= weekStart)
-        .reduce((acc, s) => acc + s.duration, 0);
-      return { subject: sub, minutes: Math.round(seconds / 60) };
-    }).filter((d) => d.minutes > 0).sort((a, b) => b.minutes - a.minutes);
-  }, [activeSubjects, studySessions]);
-
-  // Weekly stats
-  const weekStats = useMemo(() => {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const weekSessions = studySessions.filter((s) => parseISO(s.date) >= weekStart);
-    const totalMinutes = weekSessions.reduce((acc, s) => acc + s.duration, 0);
-    return {
-      totalSessions: weekSessions.length,
-      totalMinutes: Math.round(totalMinutes / 60),
-      avgPerSession: weekSessions.length > 0 ? Math.round(totalMinutes / weekSessions.length / 60) : 0,
-      uniqueSubjects: new Set(weekSessions.map((s) => s.subjectId)).size,
+  useEffect(() => {
+    const compute = () => {
+      const s = useStore.getState();
+      const active = s.subjects.filter((x) => !x.archived);
+      const days = eachDayOfInterval({ start: subDays(new Date(), 34), end: new Date() });
+      const hm = days.map((day) => {
+        const ds = format(day, 'yyyy-MM-dd');
+        const secs = s.studySessions.filter((x) => x.date === ds).reduce((a, x) => a + x.duration, 0);
+        return { dateStr: ds, minutes: Math.round(secs / 60) };
+      });
+      setHeatmap(hm);
+      const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const wsList = s.studySessions.filter((x) => parseISO(x.date) >= ws);
+      const totalSec = wsList.reduce((a, x) => a + x.duration, 0);
+      setWeekMinutes(Math.round(totalSec / 60));
+      setWeekSessions(wsList.length);
+      setAvgSession(wsList.length > 0 ? Math.round(totalSec / wsList.length / 60) : 0);
+      setUniqueSubjects(new Set(wsList.map((x) => x.subjectId)).size);
+      const aCount = s.assessments.length;
+      setAssessmentCount(aCount);
+      setAssessmentAvgPct(aCount > 0 ? Math.round(s.assessments.reduce((a, x) => a + (x.obtainedMarks / x.maxMarks) * 100, 0) / aCount) : 0);
+      setRecentAssessments([...s.assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5));
+      setAttendanceTrend(active.map((sub) => {
+        const att = getSubjectAttendance({ attendance: s.attendance }, sub.id);
+        return { id: sub.id, name: sub.name, color: sub.color, percentage: att.percentage };
+      }));
+      setSyllabusTrend(active.map((sub) => {
+        const p = getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id);
+        return { id: sub.id, name: sub.name, color: sub.color, percentage: p.percentage };
+      }));
+      setStudyDist(
+        active
+          .map((sub) => ({
+            subjectId: sub.id, name: sub.name, color: sub.color,
+            minutes: Math.round(s.studySessions.filter((x) => x.subjectId === sub.id && parseISO(x.date) >= ws).reduce((a, x) => a + x.duration, 0) / 60),
+          }))
+          .filter((d) => d.minutes > 0)
+          .sort((a, b) => b.minutes - a.minutes),
+      );
+      setDueRevisionCount(getDueRevisionItems({ revisionItems: s.revisionItems }).length);
+      setThreshold(s.profile.attendanceThreshold);
+      setReady(true);
     };
-  }, [studySessions]);
-
-  // Attendance trends
-  const attendanceTrend = useMemo(() => {
-    return activeSubjects.map((sub) => {
-      const att = getSubjectAttendance(sub.id);
-      return { subject: sub, ...att };
-    });
-  }, [activeSubjects]);
-
-  // Assessment performance
-  const assessmentStats = useMemo(() => {
-    const total = assessments.length;
-    const avgPct = total > 0 ? Math.round(assessments.reduce((acc, a) => acc + (a.obtainedMarks / a.maxMarks) * 100, 0) / total) : 0;
-    const latest5 = [...assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-    return { total, avgPct, latest: latest5 };
-  }, [assessments]);
-
-  // Interpretation messages
-  const interpretations = useMemo(() => {
-    const msgs: string[] = [];
-    if (weekStats.totalMinutes > 0) {
-      msgs.push(`You studied ${weekStats.totalMinutes} minutes across ${weekStats.totalSessions} sessions this week.`);
-    }
-    if (weekStats.uniqueSubjects > 0) {
-      msgs.push(`You covered ${weekStats.uniqueSubjects} subject${weekStats.uniqueSubjects > 1 ? 's' : ''} this week.`);
-    }
-    const lowAtt = attendanceTrend.filter((a) => a.percentage < profile.attendanceThreshold);
-    if (lowAtt.length > 0) {
-      msgs.push(`${lowAtt.length} subject${lowAtt.length > 1 ? 's have' : ' has'} attendance below your ${profile.attendanceThreshold}% threshold.`);
-    }
-    if (assessmentStats.latest.length >= 2) {
-      const last = assessmentStats.latest[0];
-      const prev = assessmentStats.latest[1];
-      const lastPct = (last.obtainedMarks / last.maxMarks) * 100;
-      const prevPct = (prev.obtainedMarks / prev.maxMarks) * 100;
-      if (lastPct > prevPct) msgs.push('CA performance improved in your latest assessment.');
-      else if (lastPct < prevPct) msgs.push('CA performance dipped in your latest assessment.');
-    }
-    const dueRevision = getDueRevisionItems().length;
-    if (dueRevision > 0) {
-      msgs.push(`${dueRevision} revision item${dueRevision > 1 ? 's are' : ' is'} overdue.`);
-    }
-    return msgs;
-  }, [weekStats, attendanceTrend, assessmentStats, profile.attendanceThreshold]);
+    compute();
+    const unsub = useStore.subscribe(compute);
+    return () => unsub();
+  }, []);
 
   const getColor = (pct: number) => {
     if (pct >= 75) return 'text-[var(--delulu-success)]';
@@ -109,13 +90,26 @@ export default function AnalyticsView() {
     return 'bg-[var(--delulu-danger)]';
   };
 
-  const getHeatColor = (minutes: number) => {
-    if (minutes === 0) return 'bg-border';
-    if (minutes < 15) return 'bg-primary/20';
-    if (minutes < 30) return 'bg-primary/40';
-    if (minutes < 60) return 'bg-primary/60';
+  const getHeatColor = (m: number) => {
+    if (m === 0) return 'bg-border';
+    if (m < 15) return 'bg-primary/20';
+    if (m < 30) return 'bg-primary/40';
+    if (m < 60) return 'bg-primary/60';
     return 'bg-primary';
   };
+
+  if (!ready) {
+    return (
+      <div className="p-6">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -124,39 +118,64 @@ export default function AnalyticsView() {
         <p className="text-muted-foreground text-sm mt-1">Your academic performance insights</p>
       </div>
 
-      {/* Weekly Summary Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Clock className="w-3.5 h-3.5" /> Study Time</div>
-            <div className="text-2xl font-bold tabular-nums">{weekStats.totalMinutes}m</div>
-            <div className="text-xs text-muted-foreground mt-1">{weekStats.totalSessions} sessions this week</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <Clock className="w-3.5 h-3.5" />
+              Study Time
+            </div>
+            <div className="text-2xl font-bold tabular-nums">{weekMinutes}m</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {weekSessions} sessions this week
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Target className="w-3.5 h-3.5" /> Avg Session</div>
-            <div className="text-2xl font-bold tabular-nums">{weekStats.avgPerSession}m</div>
-            <div className="text-xs text-muted-foreground mt-1">minutes per session</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <Target className="w-3.5 h-3.5" />
+              Avg Session
+            </div>
+            <div className="text-2xl font-bold tabular-nums">{avgSession}m</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              minutes per session
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><BarChart3 className="w-3.5 h-3.5" /> CA Average</div>
-            <div className={`text-2xl font-bold tabular-nums ${getColor(assessmentStats.avgPct)}`}>{assessmentStats.avgPct}%</div>
-            <div className="text-xs text-muted-foreground mt-1">{assessmentStats.total} assessments</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <BarChart3 className="w-3.5 h-3.5" />
+              CA Average
+            </div>
+            <div
+              className={`text-2xl font-bold tabular-nums ${getColor(assessmentAvgPct)}`}
+              {assessmentAvgPct}%
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {assessmentCount} assessments
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><BrainCircuit className="w-3.5 h-3.5" /> Revision Queue</div>
-            <div className="text-2xl font-bold tabular-nums">{getDueRevisionItems().length}</div>
-            <div className="text-xs text-muted-foreground mt-1">items due now</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <BrainCircuit className="w-3.5 h-3.5" />
+              Revision Queue
+            </div>
+            <div className="text-2xl font-bold tabular-nums">
+              {dueRevisionCount}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              items due now
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Study Heatmap */}
+      {/* Heatmap */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Study Activity</CardTitle>
@@ -164,11 +183,11 @@ export default function AnalyticsView() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-1.5">
-            {heatmapData.map((d) => (
+            {heatmap.map((d) => (
               <div
                 key={d.dateStr}
                 className={`w-3.5 h-3.5 rounded-sm ${getHeatColor(d.minutes)} transition-colors`}
-                title={`${format(d.date, 'MMM d')}: ${d.minutes} min`}
+                title={`${d.dateStr}: ${d.minutes}m`}
               />
             ))}
           </div>
@@ -186,30 +205,33 @@ export default function AnalyticsView() {
         </CardContent>
       </Card>
 
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Study Distribution */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Study Distribution</CardTitle>
             <CardDescription>This week by subject</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {studyDistribution.length === 0 ? (
+            {studyDist.length === 0 ? (
               <p className="text-sm text-muted-foreground">No study sessions this week.</p>
             ) : (
-              studyDistribution.map((d) => {
-                const maxM = Math.max(...studyDistribution.map((x) => x.minutes), 1);
+              studyDist.map((d) => {
+                const mx = Math.max(...studyDist.map((x) => x.minutes), 1);
                 return (
-                  <div key={d.subject.id} className="space-y-1.5">
+                  <div key={d.subjectId} className="space-y-1.5">
                     <div className="flex justify-between items-center text-sm">
                       <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.subject.color }} />
-                        <span className="truncate max-w-[160px]">{d.subject.name}</span>
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                        <span className="truncate max-w-[160px]">{d.name}</span>
                       </div>
                       <span className="font-medium tabular-nums">{d.minutes}m</span>
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${(d.minutes / maxM) * 100}%`, backgroundColor: d.subject.color }} />
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${(d.minutes / mx) * 100}%`, backgroundColor: d.color }}
+                      />
                     </div>
                   </div>
                 );
@@ -218,7 +240,6 @@ export default function AnalyticsView() {
           </CardContent>
         </Card>
 
-        {/* Attendance Overview */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Attendance Overview</CardTitle>
@@ -229,16 +250,19 @@ export default function AnalyticsView() {
               <p className="text-sm text-muted-foreground">No attendance data.</p>
             ) : (
               attendanceTrend.map((a) => (
-                <div key={a.subject.id} className="space-y-1.5">
+                <div key={a.id} className="space-y-1.5">
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.subject.color }} />
-                      <span className="truncate max-w-[160px]">{a.subject.name}</span>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }} />
+                      <span className="truncate max-w-[160px]">{a.name}</span>
                     </div>
                     <span className={`font-medium tabular-nums ${getColor(a.percentage)}`}>{a.percentage.toFixed(0)}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${getBarColor(a.percentage)}`} style={{ width: `${Math.min(a.percentage, 100)}%` }} />
+                    <div
+                      className={`h-full rounded-full transition-all ${getBarColor(a.percentage)}`}
+                      style={{ width: `${Math.min(a.percentage, 100)}%` }}
+                    />
                   </div>
                 </div>
               ))
@@ -246,49 +270,47 @@ export default function AnalyticsView() {
           </CardContent>
         </Card>
 
-        {/* Subject Progress Overview */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Syllabus Coverage</CardTitle>
             <CardDescription>Per subject</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {activeSubjects.length === 0 ? (
+            {syllabusTrend.length === 0 ? (
               <p className="text-sm text-muted-foreground">No subjects.</p>
             ) : (
-              activeSubjects.map((sub) => {
-                const prog = getSubjectProgress(sub.id);
-                return (
-                  <div key={sub.id} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sub.color }} />
-                        <span className="truncate max-w-[160px]">{sub.name}</span>
-                      </div>
-                      <span className={`font-medium tabular-nums ${getColor(prog.percentage)}`}>{prog.percentage.toFixed(0)}%</span>
+              syllabusTrend.map((s) => (
+                <div key={s.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="truncate max-w-[160px]">{s.name}</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${getBarColor(prog.percentage)}`} style={{ width: `${prog.percentage}%` }} />
-                    </div>
+                    <span className={`font-medium tabular-nums ${getColor(s.percentage)}`}>{s.percentage.toFixed(0)}%</span>
                   </div>
-                );
-              })
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${getBarColor(s.percentage)}`}
+                      style={{ width: `${s.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))
             )}
           </CardContent>
         </Card>
 
-        {/* Recent Assessment Performance */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Recent Assessments</CardTitle>
             <CardDescription>Last 5 performance scores</CardDescription>
           </CardHeader>
           <CardContent>
-            {assessmentStats.latest.length === 0 ? (
+            {recentAssessments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No assessments yet.</p>
             ) : (
               <div className="space-y-3">
-                {assessmentStats.latest.map((a, i) => {
+                {recentAssessments.map((a, i) => {
                   const pct = (a.obtainedMarks / a.maxMarks) * 100;
                   return (
                     <div key={a.id} className="flex items-center gap-3">
@@ -311,25 +333,38 @@ export default function AnalyticsView() {
         </Card>
       </div>
 
-      {/* AI Interpretations */}
-      {interpretations.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><Flame className="w-4 h-4" /> Insights</CardTitle>
-            <CardDescription>Based on your actual data</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {interpretations.map((msg, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                  {msg}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      {/* Insights */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Flame className="w-4 h-4" />
+            Insights
+          </CardTitle>
+          <CardDescription>Based on your data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {weekMinutes > 0 && (
+              <li className="flex items-start gap-2 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                You studied {weekMinutes} minutes across {weekSessions} sessions this week.
+              </li>
+            )}
+            {uniqueSubjects > 0 && (
+              <li className="flex items-start gap-2 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                You covered {uniqueSubjects} subject{uniqueSubjects > 1 ? 's' : ''} this week.
+              </li>
+            )}
+            {attendanceTrend.filter((a) => a.percentage < threshold).length > 0 && (
+              <li className="flex items-start gap-2 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                {attendanceTrend.filter((a) => a.percentage < threshold).length} subject(s) below {threshold}% attendance threshold.
+              </li>
+            )}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

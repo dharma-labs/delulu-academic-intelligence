@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { format, isToday, parseISO, compareDesc } from 'date-fns';
+import { format, isToday, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -156,13 +156,19 @@ const fadeUp = {
 // Overview Tab
 // ======================================================================
 function OverviewTab({ subjectId }: { subjectId: string }) {
-  const subject = useStore((s) => s.subjects.find((x) => x.id === subjectId));
-  const syllabusUnits = useStore((s) => s.syllabusUnits.filter((u) => u.subjectId === subjectId));
-  const assessments = useStore((s) => s.assessments.filter((a) => a.subjectId === subjectId));
-  const attendance = useStore((s) => s.attendance.filter((a) => a.subjectId === subjectId));
-  const studySessions = useStore((s) => s.studySessions.filter((s) => s.subjectId === subjectId));
-  const exams = useStore((s) => s.exams.filter((e) => e.subjectId === subjectId));
+  const subjects = useStore((s) => s.subjects);
+  const allSyllabusUnits = useStore((s) => s.syllabusUnits);
+  const allAssessments = useStore((s) => s.assessments);
+  const allAttendance = useStore((s) => s.attendance);
+  const allStudySessions = useStore((s) => s.studySessions);
+  const allExams = useStore((s) => s.exams);
   const profile = useStore((s) => s.profile);
+  const subject = subjects.find((x) => x.id === subjectId);
+  const syllabusUnits = useMemo(() => allSyllabusUnits.filter((u) => u.subjectId === subjectId), [allSyllabusUnits, subjectId]);
+  const assessments = useMemo(() => allAssessments.filter((a) => a.subjectId === subjectId), [allAssessments, subjectId]);
+  const attendance = useMemo(() => allAttendance.filter((a) => a.subjectId === subjectId), [allAttendance, subjectId]);
+  const studySessions = useMemo(() => allStudySessions.filter((s) => s.subjectId === subjectId), [allStudySessions, subjectId]);
+  const exams = useMemo(() => allExams.filter((e) => e.subjectId === subjectId), [allExams, subjectId]);
 
   const progress = getSubjectProgress({ syllabusUnits }, subjectId);
   const att = getSubjectAttendance({ attendance }, subjectId);
@@ -345,7 +351,8 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
 // Syllabus Tab
 // ======================================================================
 function SyllabusTab({ subjectId }: { subjectId: string }) {
-  const units = useStore((s) => s.syllabusUnits.filter((u) => u.subjectId === subjectId).sort((a, b) => a.order - b.order));
+  const allUnits = useStore((s) => s.syllabusUnits);
+  const units = useMemo(() => allUnits.filter((u) => u.subjectId === subjectId).sort((a, b) => a.order - b.order), [allUnits, subjectId]);
   const addSyllabusUnit = useStore((s) => s.addSyllabusUnit);
   const updateSyllabusUnit = useStore((s) => s.updateSyllabusUnit);
   const deleteSyllabusUnit = useStore((s) => s.deleteSyllabusUnit);
@@ -607,8 +614,10 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
 // Marks Tab
 // ======================================================================
 function MarksTab({ subjectId }: { subjectId: string }) {
-  const assessments = useStore((s) => s.assessments.filter((a) => a.subjectId === subjectId));
-  const subject = useStore((s) => s.subjects.find((x) => x.id === subjectId));
+  const allAssessments = useStore((s) => s.assessments);
+  const assessments = useMemo(() => allAssessments.filter((a) => a.subjectId === subjectId), [allAssessments, subjectId]);
+  const subjects = useStore((s) => s.subjects);
+  const subject = subjects.find((x) => x.id === subjectId);
   const addAssessment = useStore((s) => s.addAssessment);
   const updateAssessment = useStore((s) => s.updateAssessment);
   const deleteAssessment = useStore((s) => s.deleteAssessment);
@@ -927,7 +936,8 @@ function MarksTab({ subjectId }: { subjectId: string }) {
 // Attendance Tab
 // ======================================================================
 function AttendanceTab({ subjectId }: { subjectId: string }) {
-  const records = useStore((s) => s.attendance.filter((a) => a.subjectId === subjectId));
+  const allRecords = useStore((s) => s.attendance);
+  const records = useMemo(() => allRecords.filter((a) => a.subjectId === subjectId), [allRecords, subjectId]);
   const profile = useStore((s) => s.profile);
   const addAttendance = useStore((s) => s.addAttendance);
   const deleteAttendance = useStore((s) => s.deleteAttendance);
@@ -1092,7 +1102,8 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
 // Revision Tab
 // ======================================================================
 function RevisionTab({ subjectId }: { subjectId: string }) {
-  const items = useStore((s) => s.revisionItems.filter((r) => r.subjectId === subjectId));
+  const allItems = useStore((s) => s.revisionItems);
+  const items = useMemo(() => allItems.filter((r) => r.subjectId === subjectId), [allItems, subjectId]);
   const store = useStore();
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
@@ -1189,7 +1200,8 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
 // Notes Tab
 // ======================================================================
 function NotesTab({ subjectId }: { subjectId: string }) {
-  const notes = useStore((s) => s.notes.filter((n) => n.subjectId === subjectId));
+  const allNotes = useStore((s) => s.notes);
+  const notes = useMemo(() => allNotes.filter((n) => n.subjectId === subjectId), [allNotes, subjectId]);
   const addNote = useStore((s) => s.addNote);
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
@@ -1309,7 +1321,8 @@ function NotesTab({ subjectId }: { subjectId: string }) {
 // Exams Tab
 // ======================================================================
 function ExamsTab({ subjectId }: { subjectId: string }) {
-  const exams = useStore((s) => s.exams.filter((e) => e.subjectId === subjectId));
+  const allExams = useStore((s) => s.exams);
+  const exams = useMemo(() => allExams.filter((e) => e.subjectId === subjectId), [allExams, subjectId]);
   const addExam = useStore((s) => s.addExam);
   const updateExam = useStore((s) => s.updateExam);
   const deleteExam = useStore((s) => s.deleteExam);
