@@ -50,6 +50,7 @@
 
 :root {
   --radius: 0.5rem;
+  --primary-rgb: 99, 91, 255;
   /* Light Mode - Delulu Premium Palette */
   --background: #F7F8FC;
   --foreground: #171923;
@@ -91,6 +92,7 @@
 
 .dark {
   /* Dark Mode - Delulu Cinematic Palette */
+  --primary-rgb: 129, 116, 255;
   --background: #08090B;
   --foreground: #F5F7FA;
   --card: #101216;
@@ -147,15 +149,69 @@
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
+    padding: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: var(--border);
-    border-radius: 3px;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: var(--muted-foreground);
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+
+  /* Glassmorphism */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-delulu-purple;
+  }
+
+  /* Subtle glow for active elements */
+  .glow-sm {
+    box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.15);
+  }
+
+  /* Page transition animation */
+  .animate-fade-slide-in {
+    animation: fadeSlideIn 0.3s ease-out;
+  }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 2s ease-in-out infinite;
+}
+
+/* Selection color */
+::selection {
+  @apply bg-primary/20;
+}
+
+/* Better focus-visible */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-primary/50;
 }

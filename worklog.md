@@ -52,3 +52,32 @@ Delulu 4.0 is a comprehensive academic operating system for university students,
 ## Data Model
 All data persisted to localStorage under key `delulu-v4-data`. No backend required.
 5 subjects with full syllabus, assessments, attendance, timetable, tasks, etc. pre-seeded.
+
+---
+Task ID: 8
+Agent: frontend-styling-expert
+Task: Enhance global CSS, dashboard styling, and sidebar polish
+
+Work Log:
+- Added `--primary-rgb` CSS variable to both `:root` and `.dark` for glow utility
+- Added card-hover, glass, gradient-text, glow-sm CSS utility classes
+- Added fadeSlideIn and pulse-gentle keyframe animations with utility classes
+- Enhanced scrollbar: rounded thumb with padding via background-clip trick
+- Added `::selection` and `*:focus-visible` global styles
+- Dashboard: gradient accent line below greeting (border-b-2 border-primary/20)
+- Dashboard: health score number uses `.gradient-text`, Card uses `.card-hover`
+- Dashboard: 4 metric divs get `.card-hover` + `transition-all duration-200`
+- Dashboard: focus recommendation items get `.card-hover`, action buttons use primary variant
+- Dashboard: progress bars now h-2.5 with `transition-all duration-500`
+- Dashboard: quick action buttons changed to `ghost` variant with `group card-hover` and icon hover color
+- Dashboard: outer div gets `scroll-mt-4`
+- Sidebar: brand "DELULU" uses `.gradient-text` (both desktop and mobile)
+- Sidebar: search button gets `hover:border-primary/30 focus-within:border-primary/50 transition-all duration-200`
+- Sidebar: desktop aside uses `border-border/50` for subtler separator
+- Sidebar: active nav item gets `border-l-2 border-primary` left indicator with adjusted padding
+- Sidebar: mobile bottom nav uses `.glass` class and `border-border/50`
+- Sidebar: nav group labels changed to `text-[10px] tracking-[0.1em]`
+
+Stage Summary:
+- All styling enhancements applied, lint passes clean
+- Key files: globals.css, dashboard.tsx, app-shell.tsx

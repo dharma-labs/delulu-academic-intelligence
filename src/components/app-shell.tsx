@@ -42,6 +42,7 @@ import {
   ChevronLeft,
   GraduationCap,
   Ellipsis,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -90,6 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'calendar', label: 'Calendar', icon: CalendarDays },
       { id: 'timetable', label: 'Timetable', icon: Clock },
       { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+      { id: 'assignments', label: 'Assignments', icon: ClipboardList },
     ],
   },
   {
@@ -135,13 +137,13 @@ function SidebarNavItem({
     <button
       onClick={() => navigate(item.id)}
       title={collapsed ? item.label : undefined}
-      className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150
+      className={`flex w-full items-center gap-3 rounded-md py-2 text-sm transition-colors duration-150
         ${
           isActive
-            ? 'bg-accent text-primary font-medium'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            ? 'bg-accent text-primary font-medium border-l-2 border-primary pl-[10px] pr-3'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground pl-3 pr-3'
         }
-        ${collapsed ? 'justify-center px-2' : ''}
+        ${collapsed ? 'justify-center px-2 border-l-0' : ''}
       `}
     >
       <Icon className="size-[18px] shrink-0" />
@@ -161,7 +163,7 @@ function MobileBottomNav({
   const navigate = useStore((s) => s.navigate);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border bg-card md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/50 glass md:hidden">
       <div className="flex h-full items-center justify-around px-2">
         {MOBILE_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -209,7 +211,6 @@ function MobileMoreSheet({
   const allItems = useMemo(() => {
     const items: NavItem[] = [
       ...NAV_GROUPS.flatMap((g) => g.items),
-      { id: 'assignments', label: 'Assignments', icon: FileText },
       { id: 'analytics', label: 'Analytics', icon: TrendingUp },
       { id: 'er-center', label: 'ER Center', icon: FileSearch },
       { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
@@ -463,14 +464,14 @@ function DesktopSidebar() {
 
   return (
     <aside
-      className={`hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-150 shrink-0
+      className={`hidden md:flex flex-col border-r border-border/50 bg-sidebar h-screen sticky top-0 transition-all duration-150 shrink-0
         ${collapsed ? 'w-16' : 'w-[240px]'}
       `}
     >
       {/* Brand + Collapse toggle */}
       <div className="flex items-center justify-between px-3 h-14 shrink-0">
         {!collapsed && (
-          <span className="text-lg font-bold tracking-tight text-foreground select-none">
+          <span className="gradient-text text-lg font-bold tracking-tight select-none">
             DELULU
           </span>
         )}
@@ -493,7 +494,7 @@ function DesktopSidebar() {
       <div className={`px-3 mb-2 shrink-0 ${collapsed ? 'px-2' : ''}`}>
         <button
           onClick={() => setCommandOpen(true)}
-          className={`flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent transition-colors duration-150
+          className={`flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:border-primary/30 focus-within:border-primary/50 hover:bg-accent transition-all duration-200
             ${collapsed ? 'justify-center px-2' : ''}
           `}
           aria-label="Open command palette"
@@ -519,7 +520,7 @@ function DesktopSidebar() {
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             {!collapsed && (
-              <p className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground px-3 mt-4 mb-1">
+              <p className="text-[10px] font-semibold tracking-[0.1em] uppercase text-muted-foreground px-3 mt-4 mb-1">
                 {group.label}
               </p>
             )}
@@ -575,7 +576,7 @@ export function AppShell() {
           {/* Mobile header bar */}
           <div className="flex items-center justify-between mb-6 md:mb-0">
             <div className="md:hidden flex items-center gap-3">
-              <span className="text-lg font-bold tracking-tight">DELULU</span>
+              <span className="gradient-text text-lg font-bold tracking-tight">DELULU</span>
             </div>
             <button
               onClick={() => setCommandOpen(true)}

@@ -55,7 +55,7 @@ export default function AnalyticsView() {
       }));
       setSyllabusTrend(active.map((sub) => {
         const p = getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id);
-        return { id: sub.id, name: sub.name, color: sub.color, percentage: p.percentage };
+        return { id: sub.id, name: sub.name, color: sub.color, percentage: p };
       }));
       setStudyDist(
         active
@@ -149,8 +149,7 @@ export default function AnalyticsView() {
               <BarChart3 className="w-3.5 h-3.5" />
               CA Average
             </div>
-            <div
-              className={`text-2xl font-bold tabular-nums ${getColor(assessmentAvgPct)}`}
+            <div className={`text-2xl font-bold tabular-nums ${getColor(assessmentAvgPct)}`}>
               {assessmentAvgPct}%
             </div>
             <div className="text-xs text-muted-foreground mt-1">

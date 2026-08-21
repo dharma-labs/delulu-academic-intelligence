@@ -338,14 +338,14 @@ export default function DashboardView() {
 
   return (
     <motion.div
-      className="space-y-8"
+      className="space-y-8 scroll-mt-4"
       variants={container}
       initial="hidden"
       animate="show"
     >
       {/* 1. GREETING SECTION */}
       <motion.div variants={fadeUp}>
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div className="border-b-2 border-primary/20 pb-4 mb-2 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               {greeting}, {profile.name}
@@ -363,13 +363,13 @@ export default function DashboardView() {
 
       {/* 2. SEMESTER HEALTH CARD */}
       <motion.div variants={fadeUp}>
-        <Card className="lg:col-span-3">
+        <Card className="card-hover lg:col-span-3">
           <CardContent className="p-6">
             {/* Main score + status */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div className="flex items-baseline gap-4">
                 <span
-                  className="font-bold tracking-tighter leading-none"
+                  className="gradient-text font-bold tracking-tighter leading-none"
                   style={{ fontSize: '48px' }}
                 >
                   {healthScore}
@@ -386,7 +386,7 @@ export default function DashboardView() {
             {/* Supporting metric cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* CGPA */}
-              <div className="rounded-lg border border-border bg-background/50 p-4">
+              <div className="card-hover transition-all duration-200 rounded-lg border border-border bg-background/50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <BarChart3 className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -411,7 +411,7 @@ export default function DashboardView() {
               </div>
 
               {/* Attendance */}
-              <div className="rounded-lg border border-border bg-background/50 p-4">
+              <div className="card-hover transition-all duration-200 rounded-lg border border-border bg-background/50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <UserCheck className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -429,7 +429,7 @@ export default function DashboardView() {
               </div>
 
               {/* Syllabus */}
-              <div className="rounded-lg border border-border bg-background/50 p-4">
+              <div className="card-hover transition-all duration-200 rounded-lg border border-border bg-background/50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -445,7 +445,7 @@ export default function DashboardView() {
               </div>
 
               {/* Study Time */}
-              <div className="rounded-lg border border-border bg-background/50 p-4">
+              <div className="card-hover transition-all duration-200 rounded-lg border border-border bg-background/50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -493,7 +493,7 @@ export default function DashboardView() {
                   {recommendations.map((rec) => (
                     <div
                       key={rec.number}
-                      className="group flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
+                      className="card-hover group flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
                     >
                       <span className="text-xs font-bold text-muted-foreground/60 pt-1 min-w-[24px]">
                         {rec.number}
@@ -515,8 +515,8 @@ export default function DashboardView() {
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="shrink-0 text-xs font-semibold tracking-wide"
+                        variant="default"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 text-xs font-semibold tracking-wide"
                         onClick={() => handleAction(rec.actionView, rec.subjectId)}
                       >
                         {rec.actionLabel}
@@ -553,7 +553,7 @@ export default function DashboardView() {
                     </div>
                     <Progress
                       value={metric.value}
-                      className={`h-2 ${progressColor(metric.value)}`}
+                      className={`h-2.5 transition-all duration-500 ${progressColor(metric.value)}`}
                     />
                     <p className="text-[11px] text-muted-foreground/70 mt-1">
                       {progressLabel(metric.value)}
@@ -578,11 +578,11 @@ export default function DashboardView() {
                   return (
                     <Button
                       key={action.view}
-                      variant="outline"
-                      className="h-auto flex-col gap-2.5 py-5 px-3 hover:bg-accent transition-colors"
+                      variant="ghost"
+                      className="group card-hover h-auto flex-col gap-2.5 py-5 px-3 hover:bg-accent transition-colors"
                       onClick={() => navigate(action.view)}
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-5 group-hover:text-primary transition-colors" />
                       <span className="text-xs font-medium">{action.label}</span>
                     </Button>
                   );

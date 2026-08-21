@@ -15,15 +15,16 @@ export default function ReportView() {
   const activeSubjects = subjects.filter((s) => !s.archived);
 
   const reportData = useMemo(() => {
-    const sgpa = calculateSGPA();
-    const cgpa = calculateCGPA();
-    const weekMinutes = getStudyTimeThisWeek();
+    const state = useStore.getState();
+    const sgpa = calculateSGPA({ subjects: state.subjects, assessments: state.assessments });
+    const cgpa = calculateCGPA({ subjects: state.subjects, assessments: state.assessments });
+    const weekMinutes = getStudyTimeThisWeek({ studySessions: state.studySessions });
 
     const subjectReports = activeSubjects.map((sub) => {
-      const progress = getSubjectProgress(sub.id);
-      const att = getSubjectAttendance(sub.id);
-      const marks = getSubjectMarks(sub.id);
-      const grade = getSubjectGrade(sub.id);
+      const progress = getSubjectProgress({ syllabusUnits: state.syllabusUnits }, sub.id);
+      const att = getSubjectAttendance({ attendance: state.attendance }, sub.id);
+      const marks = getSubjectMarks({ assessments: state.assessments }, sub.id);
+      const grade = getSubjectGrade({ assessments: state.assessments }, sub.id);
       return { subject: sub, progress, attendance: att, marks, grade };
     });
 
@@ -77,7 +78,7 @@ export default function ReportView() {
       <div class="section">
         <div class="section-title">Subject Performance</div>
         <table><thead><tr><th>Subject</th><th>Code</th><th>Credits</th><th>Grade</th><th>Attendance</th><th>Syllabus</th><th>CA Score</th></tr></thead><tbody>
-        ${reportData.subjectReports.map(r => `<tr><td>${r.subject.name}</td><td>${r.subject.code}</td><td>${r.subject.credits}</td><td>${r.grade}</td><td>${r.attendance.percentage.toFixed(0)}%</td><td>${r.progress.percentage.toFixed(0)}%</td><td>${r.marks.percentage.toFixed(0)}%</td></tr>`).join('')}
+        ${reportData.subjectReports.map(r => `<tr><td>${r.subject.name}</td><td>${r.subject.code}</td><td>${r.subject.credits}</td><td>${r.grade}</td><td>${r.attendance.percentage.toFixed(0)}%</td><td>${r.progress.toFixed(0)}%</td><td>${r.marks.percentage.toFixed(0)}%</td></tr>`).join('')}
         </tbody></table>
       </div>
 
@@ -182,7 +183,7 @@ export default function ReportView() {
                     <td className="py-2.5 px-3 text-center tabular-nums">{r.subject.credits}</td>
                     <td className="py-2.5 px-3 text-center"><Badge variant="outline">{r.grade}</Badge></td>
                     <td className="py-2.5 px-3 text-center tabular-nums">{r.attendance.percentage.toFixed(0)}%</td>
-                    <td className="py-2.5 px-3 text-center tabular-nums hidden md:table-cell">{r.progress.percentage.toFixed(0)}%</td>
+                    <td className="py-2.5 px-3 text-center tabular-nums hidden md:table-cell">{r.progress.toFixed(0)}%</td>
                     <td className="py-2.5 px-3 text-center tabular-nums">{r.marks.percentage.toFixed(0)}%</td>
                   </tr>
                 ))}
