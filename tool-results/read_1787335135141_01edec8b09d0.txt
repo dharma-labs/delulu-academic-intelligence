@@ -1,0 +1,775 @@
+   400→        // ═══════════════════════════════════════════════════════════════
+   401→        // Assessment Actions
+   402→        // ═══════════════════════════════════════════════════════════════
+   403→        addAssessment: (assessment) =>
+   404→          set((state) => ({
+   405→            assessments: [
+   406→              ...state.assessments,
+   407→              { ...assessment, id: uid(), createdAt: new Date().toISOString() },
+   408→            ],
+   409→          })),
+   410→
+   411→        updateAssessment: (id, data) =>
+   412→          set((state) => ({
+   413→            assessments: state.assessments.map((a) =>
+   414→              a.id === id ? { ...a, ...data } : a
+   415→            ),
+   416→          })),
+   417→
+   418→        deleteAssessment: (id) =>
+   419→          set((state) => ({
+   420→            assessments: state.assessments.filter((a) => a.id !== id),
+   421→          })),
+   422→
+   423→        // ═══════════════════════════════════════════════════════════════
+   424→        // Attendance Actions
+   425→        // ═══════════════════════════════════════════════════════════════
+   426→        addAttendance: (record) =>
+   427→          set((state) => ({
+   428→            attendance: [...state.attendance, { ...record, id: uid() }],
+   429→          })),
+   430→
+   431→        updateAttendance: (id, data) =>
+   432→          set((state) => ({
+   433→            attendance: state.attendance.map((a) =>
+   434→              a.id === id ? { ...a, ...data } : a
+   435→            ),
+   436→          })),
+   437→
+   438→        deleteAttendance: (id) =>
+   439→          set((state) => ({
+   440→            attendance: state.attendance.filter((a) => a.id !== id),
+   441→          })),
+   442→
+   443→        // ═══════════════════════════════════════════════════════════════
+   444→        // Study Session Actions
+   445→        // ═══════════════════════════════════════════════════════════════
+   446→        addStudySession: (session) =>
+   447→          set((state) => ({
+   448→            studySessions: [
+   449→              ...state.studySessions,
+   450→              { ...session, id: uid() },
+   451→            ],
+   452→          })),
+   453→
+   454→        // ═══════════════════════════════════════════════════════════════
+   455→        // Revision Actions (with SM-2 algorithm)
+   456→        // ═══════════════════════════════════════════════════════════════
+   457→        addRevisionItem: (item) =>
+   458→          set((state) => ({
+   459→            revisionItems: [
+   460→              ...state.revisionItems,
+   461→              { ...item, id: uid(), createdAt: new Date().toISOString() },
+   462→            ],
+   463→          })),
+   464→
+   465→        updateRevisionItem: (id, data) =>
+   466→          set((state) => ({
+   467→            revisionItems: state.revisionItems.map((r) =>
+   468→              r.id === id ? { ...r, ...data } : r
+   469→            ),
+   470→          })),
+   471→
+   472→        deleteRevisionItem: (id) =>
+   473→          set((state) => ({
+   474→            revisionItems: state.revisionItems.filter((r) => r.id !== id),
+   475→          })),
+   476→
+   477→        // ═══════════════════════════════════════════════════════════════
+   478→        // Notes Actions
+   479→        // ═══════════════════════════════════════════════════════════════
+   480→        addNote: (note) => {
+   481→          const now = new Date().toISOString();
+   482→          set((state) => ({
+   483→            notes: [
+   484→              ...state.notes,
+   485→              { ...note, id: uid(), createdAt: now, updatedAt: now },
+   486→            ],
+   487→          }));
+   488→        },
+   489→
+   490→        updateNote: (id, data) =>
+   491→          set((state) => ({
+   492→            notes: state.notes.map((n) =>
+   493→              n.id === id
+   494→                ? { ...n, ...data, updatedAt: new Date().toISOString() }
+   495→                : n
+   496→            ),
+   497→          })),
+   498→
+   499→        deleteNote: (id) =>
+   500→          set((state) => ({
+   501→            notes: state.notes.filter((n) => n.id !== id),
+   502→          })),
+   503→
+   504→        // ═══════════════════════════════════════════════════════════════
+   505→        // Task Actions
+   506→        // ═══════════════════════════════════════════════════════════════
+   507→        addTask: (task) =>
+   508→          set((state) => ({
+   509→            tasks: [
+   510→              ...state.tasks,
+   511→              { ...task, id: uid(), createdAt: new Date().toISOString() },
+   512→            ],
+   513→          })),
+   514→
+   515→        updateTask: (id, data) =>
+   516→          set((state) => ({
+   517→            tasks: state.tasks.map((t) =>
+   518→              t.id === id ? { ...t, ...data } : t
+   519→            ),
+   520→          })),
+   521→
+   522→        deleteTask: (id) =>
+   523→          set((state) => ({
+   524→            tasks: state.tasks.filter((t) => t.id !== id),
+   525→          })),
+   526→
+   527→        toggleTaskComplete: (id) =>
+   528→          set((state) => ({
+   529→            tasks: state.tasks.map((t) =>
+   530→              t.id === id ? { ...t, completed: !t.completed } : t
+   531→            ),
+   532→          })),
+   533→
+   534→        // ═══════════════════════════════════════════════════════════════
+   535→        // Timetable Actions
+   536→        // ═══════════════════════════════════════════════════════════════
+   537→        addTimetableSlot: (slot) =>
+   538→          set((state) => ({
+   539→            timetableSlots: [...state.timetableSlots, { ...slot, id: uid() }],
+   540→          })),
+   541→
+   542→        updateTimetableSlot: (id, data) =>
+   543→          set((state) => ({
+   544→            timetableSlots: state.timetableSlots.map((t) =>
+   545→              t.id === id ? { ...t, ...data } : t
+   546→            ),
+   547→          })),
+   548→
+   549→        deleteTimetableSlot: (id) =>
+   550→          set((state) => ({
+   551→            timetableSlots: state.timetableSlots.filter((t) => t.id !== id),
+   552→          })),
+   553→
+   554→        // ═══════════════════════════════════════════════════════════════
+   555→        // Calendar Actions
+   556→        // ═══════════════════════════════════════════════════════════════
+   557→        addCalendarEvent: (event) =>
+   558→          set((state) => ({
+   559→            calendarEvents: [...state.calendarEvents, { ...event, id: uid() }],
+   560→          })),
+   561→
+   562→        updateCalendarEvent: (id, data) =>
+   563→          set((state) => ({
+   564→            calendarEvents: state.calendarEvents.map((e) =>
+   565→              e.id === id ? { ...e, ...data } : e
+   566→            ),
+   567→          })),
+   568→
+   569→        deleteCalendarEvent: (id) =>
+   570→          set((state) => ({
+   571→            calendarEvents: state.calendarEvents.filter((e) => e.id !== id),
+   572→          })),
+   573→
+   574→        // ═══════════════════════════════════════════════════════════════
+   575→        // Assignment Actions
+   576→        // ═══════════════════════════════════════════════════════════════
+   577→        addAssignment: (assignment) =>
+   578→          set((state) => ({
+   579→            assignments: [
+   580→              ...state.assignments,
+   581→              { ...assignment, id: uid(), createdAt: new Date().toISOString() },
+   582→            ],
+   583→          })),
+   584→
+   585→        updateAssignment: (id, data) =>
+   586→          set((state) => ({
+   587→            assignments: state.assignments.map((a) =>
+   588→              a.id === id ? { ...a, ...data } : a
+   589→            ),
+   590→          })),
+   591→
+   592→        deleteAssignment: (id) =>
+   593→          set((state) => ({
+   594→            assignments: state.assignments.filter((a) => a.id !== id),
+   595→          })),
+   596→
+   597→        // ═══════════════════════════════════════════════════════════════
+   598→        // Exam Actions
+   599→        // ═══════════════════════════════════════════════════════════════
+   600→        addExam: (exam) =>
+   601→          set((state) => ({
+   602→            exams: [
+   603→              ...state.exams,
+   604→              { ...exam, id: uid(), createdAt: new Date().toISOString() },
+   605→            ],
+   606→          })),
+   607→
+   608→        updateExam: (id, data) =>
+   609→          set((state) => ({
+   610→            exams: state.exams.map((e) =>
+   611→              e.id === id ? { ...e, ...data } : e
+   612→            ),
+   613→          })),
+   614→
+   615→        deleteExam: (id) =>
+   616→          set((state) => ({
+   617→            exams: state.exams.filter((e) => e.id !== id),
+   618→          })),
+   619→
+   620→        // ═══════════════════════════════════════════════════════════════
+   621→        // PYQ Actions
+   622→        // ═══════════════════════════════════════════════════════════════
+   623→        addPYQ: (pyq) =>
+   624→          set((state) => ({
+   625→            pyqs: [...state.pyqs, { ...pyq, id: uid() }],
+   626→          })),
+   627→
+   628→        updatePYQ: (id, data) =>
+   629→          set((state) => ({
+   630→            pyqs: state.pyqs.map((p) =>
+   631→              p.id === id ? { ...p, ...data } : p
+   632→            ),
+   633→          })),
+   634→
+   635→        deletePYQ: (id) =>
+   636→          set((state) => ({
+   637→            pyqs: state.pyqs.filter((p) => p.id !== id),
+   638→          })),
+   639→
+   640→        // ═══════════════════════════════════════════════════════════════
+   641→        // ER Paper Actions
+   642→        // ═══════════════════════════════════════════════════════════════
+   643→        addERPaper: (paper) =>
+   644→          set((state) => ({
+   645→            erPapers: [
+   646→              ...state.erPapers,
+   647→              { ...paper, id: uid(), createdAt: new Date().toISOString() },
+   648→            ],
+   649→          })),
+   650→
+   651→        updateERPaper: (id, data) =>
+   652→          set((state) => ({
+   653→            erPapers: state.erPapers.map((e) =>
+   654→              e.id === id ? { ...e, ...data } : e
+   655→            ),
+   656→          })),
+   657→
+   658→        deleteERPaper: (id) =>
+   659→          set((state) => ({
+   660→            erPapers: state.erPapers.filter((e) => e.id !== id),
+   661→          })),
+   662→
+   663→        // ═══════════════════════════════════════════════════════════════
+   664→        // Focus Actions
+   665→        // ═══════════════════════════════════════════════════════════════
+   666→        startFocus: (subjectId, topicId, topicName) =>
+   667→          set({
+   668→            focusActive: true,
+   669→            focusSubjectId: subjectId,
+   670→            focusTopicId: topicId ?? null,
+   671→            focusStartTime: Date.now(),
+   672→            focusElapsed: 0,
+   673→          }),
+   674→
+   675→        stopFocus: (notes) => {
+   676→          const state = get();
+   677→          if (!state.focusActive || !state.focusStartTime || !state.focusSubjectId) return;
+   678→
+   679→          const duration = Math.round((Date.now() - state.focusStartTime) / 1000);
+   680→          const session: StudySession = {
+   681→            id: uid(),
+   682→            subjectId: state.focusSubjectId,
+   683→            topicId: state.focusTopicId ?? undefined,
+   684→            topicName: state.focusTopicId
+   685→              ? state.revisionItems.find((r) => r.topicId === state.focusTopicId)?.topicName
+   686→              : topicName,
+   687→            duration,
+   688→            date: todayStr(),
+   689→            type: 'focus',
+   690→            notes,
+   691→          };
+   692→
+   693→          set({
+   694→            focusActive: false,
+   695→            focusSubjectId: null,
+   696→            focusTopicId: null,
+   697→            focusStartTime: null,
+   698→            focusElapsed: 0,
+   699→            studySessions: [...state.studySessions, session],
+   700→          });
+   701→        },
+   702→
+   703→        // ═══════════════════════════════════════════════════════════════
+   704→        // Data Management
+   705→        // ═══════════════════════════════════════════════════════════════
+   706→        exportData: () => {
+   707→          const state = get();
+   708→          const dataToExport = {
+   709→            profile: state.profile,
+   710→            subjects: state.subjects,
+   711→            syllabusUnits: state.syllabusUnits,
+   712→            assessments: state.assessments,
+   713→            attendance: state.attendance,
+   714→            studySessions: state.studySessions,
+   715→            revisionItems: state.revisionItems,
+   716→            notes: state.notes,
+   717→            tasks: state.tasks,
+   718→            timetableSlots: state.timetableSlots,
+   719→            calendarEvents: state.calendarEvents,
+   720→            assignments: state.assignments,
+   721→            exams: state.exams,
+   722→            pyqs: state.pyqs,
+   723→            erPapers: state.erPapers,
+   724→          };
+   725→          return JSON.stringify(dataToExport, null, 2);
+   726→        },
+   727→
+   728→        importData: (json) => {
+   729→          try {
+   730→            const data = JSON.parse(json);
+   731→            if (typeof data !== 'object' || data === null) {
+   732→              throw new Error('Invalid data format');
+   733→            }
+   734→
+   735→            // Validate required fields
+   736→            const validKeys: (keyof typeof data)[] = [
+   737→              'profile', 'subjects', 'syllabusUnits', 'assessments',
+   738→              'attendance', 'studySessions', 'revisionItems', 'notes',
+   739→              'tasks', 'timetableSlots', 'calendarEvents', 'assignments',
+   740→              'exams', 'pyqs', 'erPapers',
+   741→            ];
+   742→
+   743→            const updates: Partial<AppState> = {};
+   744→            for (const key of validKeys) {
+   745→              if (Array.isArray(data[key]) || (key === 'profile' && typeof data[key] === 'object')) {
+   746→                (updates as Record<string, unknown>)[key] = data[key];
+   747→              }
+   748→            }
+   749→
+   750→            set({
+   751→              ...updates,
+   752→              profile: data.profile ? { ...DEFAULT_PROFILE, ...data.profile } : DEFAULT_PROFILE,
+   753→            } as Partial<AppState>);
+   754→          } catch {
+   755→            console.error('Failed to import data: invalid JSON or structure');
+   756→          }
+   757→        },
+   758→
+   759→        resetData: () => {
+   760→          const seed = seedDemoData();
+   761→          set({
+   762→            profile: { ...DEFAULT_PROFILE },
+   763→            subjects: seed.subjects,
+   764→            syllabusUnits: seed.syllabusUnits,
+   765→            assessments: seed.assessments,
+   766→            attendance: seed.attendance,
+   767→            studySessions: [],
+   768→            revisionItems: seed.revisionItems,
+   769→            notes: seed.notes,
+   770→            tasks: seed.tasks,
+   771→            timetableSlots: seed.timetableSlots,
+   772→            calendarEvents: seed.calendarEvents,
+   773→            assignments: seed.assignments,
+   774→            exams: seed.exams,
+   775→            pyqs: [],
+   776→            erPapers: [],
+   777→            currentView: 'dashboard' as const,
+   778→            selectedSubjectId: null,
+   779→            previousView: null,
+   780→            focusActive: false,
+   781→            focusSubjectId: null,
+   782→            focusTopicId: null,
+   783→            focusStartTime: null,
+   784→            focusElapsed: 0,
+   785→          });
+   786→        },
+   787→      };
+   788→    },
+   789→    {
+   790→      name: 'delulu-v4-data',
+   791→      storage: createJSONStorage(() => localStorage),
+   792→      // Only persist data, not navigation or transient state
+   793→      partialize: (state) => ({
+   794→        profile: state.profile,
+   795→        subjects: state.subjects,
+   796→        syllabusUnits: state.syllabusUnits,
+   797→        assessments: state.assessments,
+   798→        attendance: state.attendance,
+   799→        studySessions: state.studySessions,
+   800→        revisionItems: state.revisionItems,
+   801→        notes: state.notes,
+   802→        tasks: state.tasks,
+   803→        timetableSlots: state.timetableSlots,
+   804→        calendarEvents: state.calendarEvents,
+   805→        assignments: state.assignments,
+   806→        exams: state.exams,
+   807→        pyqs: state.pyqs,
+   808→        erPapers: state.erPapers,
+   809→      }),
+   810→    }
+   811→  )
+   812→);
+   813→
+   814→// ═════════════════════════════════════════════════════════════════════
+   815→// SM-2 Revision Review Helper
+   816→// ═════════════════════════════════════════════════════════════════════
+   817→/**
+   818→ * Review a revision item using the SM-2 algorithm.
+   819→ * @param store - the zustand store
+   820→ * @param itemId - the revision item id
+   821→ * @param quality - quality of recall (0-5). >= 3 means pass.
+   822→ * @returns void (mutates the store)
+   823→ */
+   824→export function reviewRevisionItem(
+   825→  store: ReturnType<typeof useStore>,
+   826→  itemId: string,
+   827→  quality: number
+   828→) {
+   829→  const item = store.getState().revisionItems.find((r) => r.id === itemId);
+   830→  if (!item) return;
+   831→
+   832→  const q = Math.max(0, Math.min(5, quality));
+   833→  let { easeFactor, interval, repetitions } = item;
+   834→
+   835→  if (q >= 3) {
+   836→    // Good response
+   837→    if (repetitions === 0) {
+   838→      interval = 1;
+   839→    } else if (repetitions === 1) {
+   840→      interval = 6;
+   841→    } else {
+   842→      interval = Math.round(interval * easeFactor);
+   843→    }
+   844→    repetitions += 1;
+   845→    easeFactor =
+   846→      Math.max(1.3, easeFactor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+   847→  } else {
+   848→    // Bad response - reset
+   849→    repetitions = 0;
+   850→    interval = 1;
+   851→  }
+   852→
+   853→  const nextReviewDate = new Date();
+   854→  nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+   855→  const nextReview = nextReviewDate.toISOString().split('T')[0];
+   856→
+   857→  store.getState().updateRevisionItem(itemId, {
+   858→    easeFactor,
+   859→    interval,
+   860→    repetitions,
+   861→    nextReview,
+   862→    lastReview: todayStr(),
+   863→  });
+   864→}
+   865→
+   866→// ═════════════════════════════════════════════════════════════════════
+   867→// Computed Helper Methods
+   868→// ═════════════════════════════════════════════════════════════════════
+   869→
+   870→/** Syllabus completion % for a subject */
+   871→export function getSubjectProgress(
+   872→  state: Pick<AppState, 'syllabusUnits'>,
+   873→  subjectId: string
+   874→): number {
+   875→  const units = state.syllabusUnits.filter((u) => u.subjectId === subjectId);
+   876→  const allTopics = units.flatMap((u) => u.topics);
+   877→  if (allTopics.length === 0) return 0;
+   878→  const completed = allTopics.filter((t) => t.completed).length;
+   879→  return Math.round((completed / allTopics.length) * 100);
+   880→}
+   881→
+   882→/** Attendance stats for a subject */
+   883→export function getSubjectAttendance(
+   884→  state: Pick<AppState, 'attendance'>,
+   885→  subjectId: string
+   886→): { present: number; total: number; percentage: number } {
+   887→  const records = state.attendance.filter((a) => a.subjectId === subjectId);
+   888→  const total = records.reduce((sum, r) => sum + r.totalClasses, 0);
+   889→  const present = records.filter((r) => r.present).reduce((sum, r) => sum + r.totalClasses, 0);
+   890→  const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+   891→  return { present, total, percentage };
+   892→}
+   893→
+   894→/** Marks summary for a subject */
+   895→export function getSubjectMarks(
+   896→  state: Pick<AppState, 'assessments'>,
+   897→  subjectId: string
+   898→): { obtained: number; max: number; percentage: number } {
+   899→  const assessments = state.assessments.filter((a) => a.subjectId === subjectId);
+   900→  const obtained = assessments.reduce((sum, a) => sum + a.obtainedMarks, 0);
+   901→  const max = assessments.reduce((sum, a) => sum + a.maxMarks, 0);
+   902→  const percentage = max > 0 ? Math.round((obtained / max) * 100) : 0;
+   903→  return { obtained, max, percentage };
+   904→}
+   905→
+   906→/** Projected grade for a subject based on current marks */
+   907→export function getSubjectGrade(
+   908→  state: Pick<AppState, 'assessments'>,
+   909→  subjectId: string
+   910→): string {
+   911→  const { percentage } = getSubjectMarks(state, subjectId);
+   912→  return GRADE_FROM_PERCENTAGE(percentage);
+   913→}
+   914→
+   915→/** Current semester SGPA */
+   916→export function calculateSGPA(state: Pick<AppState, 'subjects' | 'assessments'>): number {
+   917→  const activeSubjects = state.subjects.filter((s) => !s.archived);
+   918→  if (activeSubjects.length === 0) return 0;
+   919→
+   920→  let totalWeightedPoints = 0;
+   921→  let totalCredits = 0;
+   922→
+   923→  for (const subject of activeSubjects) {
+   924→    const grade = getSubjectGrade(state, subject.id);
+   925→    const gradePoint = GRADE_POINTS[grade] ?? 0;
+   926→    totalWeightedPoints += gradePoint * subject.credits;
+   927→    totalCredits += subject.credits;
+   928→  }
+   929→
+   930→  return totalCredits > 0
+   931→    ? Math.round((totalWeightedPoints / totalCredits) * 100) / 100
+   932→    : 0;
+   933→}
+   934→
+   935→/** Overall CGPA (currently same as SGPA for single semester data) */
+   936→export function calculateCGPA(state: Pick<AppState, 'subjects' | 'assessments'>): number {
+   937→  return calculateSGPA(state);
+   938→}
+   939→
+   940→/** Revision items due today or earlier */
+   941→export function getDueRevisionItems(
+   942→  state: Pick<AppState, 'revisionItems'>
+   943→): RevisionItem[] {
+   944→  const today = todayStr();
+   945→  return state.revisionItems.filter((r) => r.nextReview <= today);
+   946→}
+   947→
+   948→/** Tasks due today */
+   949→export function getTodayTasks(
+   950→  state: Pick<AppState, 'tasks'>
+   951→): Task[] {
+   952→  const today = todayStr();
+   953→  return state.tasks.filter(
+   954→    (t) => t.dueDate === today && !t.completed
+   955→  );
+   956→}
+   957→
+   958→/** Overdue tasks (past due, not completed) */
+   959→export function getOverdueTasks(
+   960→  state: Pick<AppState, 'tasks'>
+   961→): Task[] {
+   962→  const today = todayStr();
+   963→  return state.tasks.filter(
+   964→    (t) => t.dueDate && t.dueDate < today && !t.completed
+   965→  );
+   966→}
+   967→
+   968→/** Health signal for a subject */
+   969→export function getSubjectSignal(
+   970→  state: AppState,
+   971→  subjectId: string
+   972→): SignalStatus {
+   973→  const att = getSubjectAttendance(state, subjectId);
+   974→  const progress = getSubjectProgress(state, subjectId);
+   975→  const marks = getSubjectMarks(state, subjectId);
+   976→  const dueRevisions = getDueRevisionItems(state).filter(
+   977→    (r) => r.subjectId === subjectId
+   978→  );
+   979→
+   980→  // No data at all
+   981→  if (att.total === 0 && marks.max === 0 && progress === 0) {
+   982→    return 'nodata';
+   983→  }
+   984→
+   985→  // Critical: attendance below threshold or very low marks
+   986→  if (
+   987→    att.total > 0 && att.percentage < 60
+   988→  ) {
+   989→    return 'critical';
+   990→  }
+   991→
+   992→  if (
+   993→    marks.max > 0 && marks.percentage < 40
+   994→  ) {
+   995→    return 'critical';
+   996→  }
+   997→
+   998→  // Attention: attendance near threshold, many overdue revisions, or low marks
+   999→  if (
+  1000→    (att.total > 0 && att.percentage < state.profile.attendanceThreshold) ||
+  1001→    dueRevisions.length >= 3 ||
+  1002→    (marks.max > 0 && marks.percentage < 55)
+  1003→  ) {
+  1004→    return 'attention';
+  1005→  }
+  1006→
+  1007→  // Improving: some progress but not great
+  1008→  if (
+  1009→    progress > 0 && progress < 50 &&
+  1010→    (marks.max === 0 || marks.percentage < 70)
+  1011→  ) {
+  1012→    return 'improving';
+  1013→  }
+  1014→
+  1015→  // Healthy: good attendance, decent progress
+  1016→  if (
+  1017→    (att.total === 0 || att.percentage >= state.profile.attendanceThreshold) &&
+  1018→    progress >= 50
+  1019→  ) {
+  1020→    return 'healthy';
+  1021→  }
+  1022→
+  1023→  return 'improving';
+  1024→}
+  1025→
+  1026→/** Overall semester health score 0-100 */
+  1027→export function getSemesterHealth(state: AppState): number {
+  1028→  const activeSubjects = state.subjects.filter((s) => !s.archived);
+  1029→  if (activeSubjects.length === 0) return 0;
+  1030→
+  1031→  let totalScore = 0;
+  1032→  let maxScore = 0;
+  1033→
+  1034→  for (const subject of activeSubjects) {
+  1035→    // Attendance score (30 points max)
+  1036→    const att = getSubjectAttendance(state, subject.id);
+  1037→    const attScore = att.total > 0 ? Math.min(30, (att.percentage / 100) * 30) : 10;
+  1038→
+  1039→    // Marks score (30 points max)
+  1040→    const marks = getSubjectMarks(state, subject.id);
+  1041→    const marksScore = marks.max > 0 ? (marks.percentage / 100) * 30 : 10;
+  1042→
+  1043→    // Syllabus progress (20 points max)
+  1044→    const progress = getSubjectProgress(state, subject.id);
+  1045→    const progressScore = (progress / 100) * 20;
+  1046→
+  1047→    // Revision health (20 points max)
+  1048→    const subjectRevisions = state.revisionItems.filter(
+  1049→      (r) => r.subjectId === subject.id
+  1050→    );
+  1051→    const overdueRevisions = subjectRevisions.filter(
+  1052→      (r) => r.nextReview <= todayStr()
+  1053→    ).length;
+  1054→    const revisionScore = subjectRevisions.length > 0
+  1055→      ? Math.max(0, 20 - overdueRevisions * 5)
+  1056→      : 10;
+  1057→
+  1058→    totalScore += attScore + marksScore + progressScore + revisionScore;
+  1059→    maxScore += 100;
+  1060→  }
+  1061→
+  1062→  return Math.round((totalScore / maxScore) * 100);
+  1063→}
+  1064→
+  1065→/** Total study time this week (in seconds) */
+  1066→export function getStudyTimeThisWeek(
+  1067→  state: Pick<AppState, 'studySessions'>
+  1068→): number {
+  1069→  const now = new Date();
+  1070→  const dayOfWeek = now.getDay(); // 0=Sun
+  1071→   // Start of week: Monday (day 1) or Sunday (day 0) — we use Sunday as start
+  1072→  const startOfWeek = new Date(now);
+  1073→  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  1074→  startOfWeek.setHours(0, 0, 0, 0);
+  1075→
+  1076→  const startStr = startOfWeek.toISOString().split('T')[0];
+  1077→
+  1078→  return state.studySessions
+  1079→    .filter((s) => s.date >= startStr)
+  1080→    .reduce((sum, s) => sum + s.duration, 0);
+  1081→}
+  1082→
+  1083→/** Study items for today's focus recommendations */
+  1084→export function getTodayFocus(state: AppState): {
+  1085→  subjectId: string;
+  1086→  subjectName: string;
+  1087→  topicName: string;
+  1088→  topicId: string;
+  1089→  reason: string;
+  1090→}[] {
+  1091→  const recommendations: {
+  1092→    subjectId: string;
+  1093→    subjectName: string;
+  1094→    topicName: string;
+  1095→    topicId: string;
+  1096→    reason: string;
+  1097→  }[] = [];
+  1098→
+  1099→  const today = todayStr();
+  1100→
+  1101→  // 1. Overdue revision items
+  1102→  for (const item of state.revisionItems) {
+  1103→    if (item.nextReview < today) {
+  1104→      const subject = state.subjects.find((s) => s.id === item.subjectId);
+  1105→      if (subject) {
+  1106→        recommendations.push({
+  1107→          subjectId: item.subjectId,
+  1108→          subjectName: subject.name,
+  1109→          topicName: item.topicName,
+  1110→          topicId: item.topicId,
+  1111→          reason: 'Overdue revision',
+  1112→        });
+  1113→      }
+  1114→    }
+  1115→  }
+  1116→
+  1117→  // 2. Due revision items (today)
+  1118→  for (const item of state.revisionItems) {
+  1119→    if (item.nextReview === today) {
+  1120→      const subject = state.subjects.find((s) => s.id === item.subjectId);
+  1121→      if (subject) {
+  1122→        recommendations.push({
+  1123→          subjectId: item.subjectId,
+  1124→          subjectName: subject.name,
+  1125→          topicName: item.topicName,
+  1126→          topicId: item.topicId,
+  1127→          reason: 'Due for revision today',
+  1128→        });
+  1129→      }
+  1130→    }
+  1131→  }
+  1132→
+  1133→  // 3. Incomplete syllabus topics for subjects with attention/critical signal
+  1134→  for (const unit of state.syllabusUnits) {
+  1135→    if (state.subjects.find((s) => s.id === unit.subjectId)?.archived) continue;
+  1136→    const signal = getSubjectSignal(state, unit.subjectId);
+  1137→    if (signal === 'attention' || signal === 'critical') {
+  1138→      for (const topic of unit.topics) {
+  1139→        if (!topic.completed) {
+  1140→          const subject = state.subjects.find((s) => s.id === unit.subjectId);
+  1141→          if (subject) {
+  1142→            recommendations.push({
+  1143→              subjectId: unit.subjectId,
+  1144→              subjectName: subject.name,
+  1145→              topicName: topic.name,
+  1146→              topicId: topic.id,
+  1147→              reason: `${signal === 'critical' ? 'Critical' : 'Needs attention'} — incomplete topic`,
+  1148→            });
+  1149→          }
+  1150→        }
+  1151→      }
+  1152→    }
+  1153→  }
+  1154→
+  1155→  // 4. Upcoming tasks due today
+  1156→  const todayTasks = getTodayTasks(state);
+  1157→  for (const task of todayTasks) {
+  1158→    if (task.subjectId) {
+  1159→      const subject = state.subjects.find((s) => s.id === task.subjectId);
+  1160→      if (subject) {
+  1161→        recommendations.push({
+  1162→          subjectId: task.subjectId,
+  1163→          subjectName: subject.name,
+  1164→          topicName: task.title,
+  1165→          topicId: '',
+  1166→          reason: 'Task due today',
+  1167→        });
+  1168→      }
+  1169→    }
+  1170→  }
+  1171→
+  1172→  return recommendations;
+  1173→}
+  1174→
