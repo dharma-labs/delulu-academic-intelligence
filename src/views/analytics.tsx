@@ -1,5 +1,4 @@
 'use client';
-/* eslint-disable @typescript-eslint/tsx-one-expression-per-line */
 
 import { useEffect, useState } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
