@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, formatDistanceToNow, startOfWeek, isAfter, isBefore, addDays } from 'date-fns';
 import {
   ArrowRight,
@@ -66,6 +66,47 @@ function signalDotClass(signal: SignalStatus): string {
 // ════════════════════════════════════════════════════════════════════
 // Dashboard
 // ════════════════════════════════════════════════════════════════════
+// ─── Weekly Heatmap ──────────────────────────────────────────────
+function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; duration: number; subjectId: string }[] }) {
+  const days = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(start, i);
+      const dateStr = d.toISOString().split('T')[0];
+      const daySessions = studySessions.filter((s) => s.date === dateStr);
+      const totalMinutes = Math.floor(daySessions.reduce((sum, s) => sum + s.duration / 60, 0));
+      return { date: d, dateStr, label: format(d, 'EEE'), totalMinutes, count: daySessions.length };
+    };
+  }, [studySessions]);
+
+  const maxMinutes = Math.max(...days.map((d) => d.totalMinutes), 1);
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="grid grid-cols-7 gap-1.5">
+      {days.map((d) => {
+        const intensity = Math.min(d.totalMinutes / maxMinutes, 1);
+        const isToday = d.dateStr === today;
+        const bgOpacity = d.count === 0 ? 0.08 : Math.max(0.15, intensity);
+        return (
+          <div key={d.dateStr} className="flex flex-col items-center gap-1">
+            <div
+              className={`w-full aspect-square rounded-md transition-colors ${
+                isToday ? 'ring-2 ring-primary/30' : ''
+              }`}
+              style={{ backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` }}
+            />
+            <span className={`text-[10px] ${isToday ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{d.label}</span>
+            {d.count > 0 && (
+              <span className="text-[9px] text-muted-foreground tabular-nums">{d.totalMinutes}m</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DashboardView() {
   const profile = useStore((s) => s.profile);
   const subjects = useStore((s) => s.subjects);
@@ -263,8 +304,8 @@ export default function DashboardView() {
       {/* ── Academic Health + Metrics Row ── */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
         {/* Health Score */}
-        <Card className="relative overflow-hidden">
-          <CardContent className="p-5">
+        <Card className="hero-card">
+          <CardContent className="p-5 pt-6">
             <span className="section-label">Academic Health</span>
             <div className="mt-3 mb-2">
               <span className="text-4xl font-bold tracking-tighter text-foreground leading-none">
@@ -315,6 +356,24 @@ export default function DashboardView() {
             onClick={() => navigate('analytics')}
           />
         </div>
+      </motion.div>
+
+      {/* ── Weekly Activity Heatmap ── */}
+      <motion.div variants={fadeUp}>
+        <Card>
+          <CardHeader className="pb-3 pt-4 px-5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="size-4 text-primary" />
+                This Week
+              </CardTitle>
+              <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
+            </div>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <WeeklyHeatmap studySessions={studySessions} />
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* ── Main Content Grid ── */}
@@ -418,6 +477,16 @@ export default function DashboardView() {
               )}
             </CardContent>
           </Card>
+
+          {/* Signal Legend */
+          {activeSubjects.length > 0 && (
+            <div className="signal-legend px-1">
+              <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
+              <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
+              <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+              <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
+            </div>
+          )}
         </motion.div>
 
         {/* Right Column */}

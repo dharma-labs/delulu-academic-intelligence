@@ -136,7 +136,7 @@ function SidebarNavItem({
       onClick={() => navigate(item.id as ViewId)}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-colors duration-150',
+        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-150',
         collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5',
         isActive
           ? 'bg-primary/10 text-primary font-medium'
