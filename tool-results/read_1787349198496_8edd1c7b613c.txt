@@ -1,0 +1,1691 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo, useCallback } from 'react';
+     4→import { format, isToday, parseISO } from 'date-fns';
+     5→import { motion } from 'framer-motion';
+     6→import {
+     7→  ArrowLeft,
+     8→  MoreHorizontal,
+     9→  Pencil,
+    10→  Trash2,
+    11→  Plus,
+    12→  Check,
+    13→  X,
+    14→  BookOpen,
+    15→  GraduationCap,
+    16→  ClipboardCheck,
+    17→  BarChart3,
+    18→  CalendarDays,
+    19→  FileText,
+    20→  Target,
+    21→  AlertTriangle,
+    22→  CheckCircle2,
+    23→  Clock,
+    24→  ChevronRight,
+    25→  Brain,
+    26→  Timer,
+    27→  Flame,
+    28→  Save,
+    29→  Undo2,
+    30→  RotateCcw,
+    31→  Eye,
+    32→  Trash,
+    33→  Edit3,
+    34→} from 'lucide-react';
+    35→
+    36→import { useStore } from '@/lib/store';
+    37→import {
+    38→  getSubjectProgress,
+    39→  getSubjectAttendance,
+    40→  getSubjectMarks,
+    41→  getSubjectGrade,
+    42→  getSubjectSignal,
+    43→  reviewRevisionItem,
+    44→} from '@/lib/store';
+    45→import { SUBJECT_COLORS, SIGNAL_COLORS, GRADE_POINTS, GRADE_FROM_PERCENTAGE } from '@/lib/types';
+    46→import type { SignalStatus, Assessment, Exam, RevisionItem, Note, SyllabusUnit, SyllabusTopic } from '@/lib/types';
+    47→
+    48→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    49→import { Button } from '@/components/ui/button';
+    50→import { Input } from '@/components/ui/input';
+    51→import { Label } from '@/components/ui/label';
+    52→import { Badge } from '@/components/ui/badge';
+    53→import { Progress } from '@/components/ui/progress';
+    54→import { Separator } from '@/components/ui/separator';
+    55→import { Textarea } from '@/components/ui/textarea';
+    56→import { Checkbox } from '@/components/ui/checkbox';
+    57→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    58→import {
+    59→  Accordion,
+    60→  AccordionContent,
+    61→  AccordionItem,
+    62→  AccordionTrigger,
+    63→} from '@/components/ui/accordion';
+    64→import {
+    65→  Dialog,
+    66→  DialogContent,
+    67→  DialogHeader,
+    68→  DialogTitle,
+    69→  DialogFooter,
+    70→  DialogDescription,
+    71→} from '@/components/ui/dialog';
+    72→import {
+    73→  Select,
+    74→  SelectContent,
+    75→  SelectItem,
+    76→  SelectTrigger,
+    77→  SelectValue,
+    78→} from '@/components/ui/select';
+    79→import {
+    80→  AlertDialog,
+    81→  AlertDialogAction,
+    82→  AlertDialogCancel,
+    83→  AlertDialogContent,
+    84→  AlertDialogDescription,
+    85→  AlertDialogFooter,
+    86→  AlertDialogHeader,
+    87→  AlertDialogTitle,
+    88→} from '@/components/ui/alert-dialog';
+    89→import {
+    90→  DropdownMenu,
+    91→  DropdownMenuContent,
+    92→  DropdownMenuItem,
+    93→  DropdownMenuTrigger,
+    94→} from '@/components/ui/dropdown-menu';
+    95→import {
+    96→  Table,
+    97→  TableBody,
+    98→  TableCell,
+    99→  TableHead,
+   100→  TableHeader,
+   101→  TableRow,
+   102→} from '@/components/ui/table';
+   103→
+   104→// -- Helpers ------------------------------------------------------------
+   105→
+   106→const GRADE_OPTIONS = Object.keys(GRADE_POINTS);
+   107→const ASSESSMENT_CATEGORIES: { value: Assessment['category']; label: string }[] = [
+   108→  { value: 'ca_test', label: 'CA Test' },
+   109→  { value: 'assignment', label: 'Assignment' },
+   110→  { value: 'quiz', label: 'Quiz' },
+   111→  { value: 'practical', label: 'Practical' },
+   112→  { value: 'other', label: 'Other' },
+   113→];
+   114→
+   115→const EXAM_TYPES: { value: Exam['type']; label: string }[] = [
+   116→  { value: 'midsem', label: 'Mid-Semester' },
+   117→  { value: 'endsem', label: 'End-Semester' },
+   118→  { value: 'quiz', label: 'Quiz' },
+   119→  { value: 'practical', label: 'Practical' },
+   120→  { value: 'other', label: 'Other' },
+   121→];
+   122→
+   123→function signalBadge(signal: SignalStatus) {
+   124→  const map: Record<SignalStatus, { label: string; className: string }> = {
+   125→    healthy: { label: 'Healthy', className: 'bg-[var(--delulu-success)]/15 text-[var(--delulu-success)] border-[var(--delulu-success)]/20' },
+   126→    improving: { label: 'Improving', className: 'bg-[var(--delulu-info)]/15 text-[var(--delulu-info)] border-[var(--delulu-info)]/20' },
+   127→    attention: { label: 'Needs Attention', className: 'bg-[var(--delulu-warning)]/15 text-[var(--delulu-warning)] border-[var(--delulu-warning)]/20' },
+   128→    critical: { label: 'Critical', className: 'bg-[var(--delulu-danger)]/15 text-[var(--delulu-danger)] border-[var(--delulu-danger)]/20' },
+   129→    upcoming: { label: 'Upcoming', className: 'bg-[var(--delulu-purple)]/15 text-[var(--delulu-purple)] border-[var(--delulu-purple)]/20' },
+   130→    nodata: { label: 'No Data', className: 'bg-muted text-muted-foreground border-border' },
+   131→  };
+   132→  const s = map[signal];
+   133→  return <Badge variant="outline" className={s.className}>{s.label}</Badge>;
+   134→}
+   135→
+   136→function pctColor(pct: number): string {
+   137→  if (pct >= 75) return 'text-[var(--delulu-success)]';
+   138→  if (pct >= 50) return 'text-[var(--delulu-info)]';
+   139→  if (pct >= 30) return 'text-[var(--delulu-warning)]';
+   140→  return 'text-[var(--delulu-danger)]';
+   141→}
+   142→
+   143→function formatDuration(seconds: number): string {
+   144→  const h = Math.floor(seconds / 3600);
+   145→  const m = Math.floor((seconds % 3600) / 60);
+   146→  if (h > 0) return `${h}h ${m}m`;
+   147→  return `${m}m`;
+   148→}
+   149→
+   150→const fadeUp = {
+   151→  hidden: { opacity: 0, y: 12 },
+   152→  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+   153→};
+   154→
+   155→// ======================================================================
+   156→// Overview Tab
+   157→// ======================================================================
+   158→function OverviewTab({ subjectId }: { subjectId: string }) {
+   159→  const subjects = useStore((s) => s.subjects);
+   160→  const allSyllabusUnits = useStore((s) => s.syllabusUnits);
+   161→  const allAssessments = useStore((s) => s.assessments);
+   162→  const allAttendance = useStore((s) => s.attendance);
+   163→  const allStudySessions = useStore((s) => s.studySessions);
+   164→  const allExams = useStore((s) => s.exams);
+   165→  const profile = useStore((s) => s.profile);
+   166→  const subject = subjects.find((x) => x.id === subjectId);
+   167→  const syllabusUnits = useMemo(() => allSyllabusUnits.filter((u) => u.subjectId === subjectId), [allSyllabusUnits, subjectId]);
+   168→  const assessments = useMemo(() => allAssessments.filter((a) => a.subjectId === subjectId), [allAssessments, subjectId]);
+   169→  const attendance = useMemo(() => allAttendance.filter((a) => a.subjectId === subjectId), [allAttendance, subjectId]);
+   170→  const studySessions = useMemo(() => allStudySessions.filter((s) => s.subjectId === subjectId), [allStudySessions, subjectId]);
+   171→  const exams = useMemo(() => allExams.filter((e) => e.subjectId === subjectId), [allExams, subjectId]);
+   172→
+   173→  const progress = getSubjectProgress({ syllabusUnits }, subjectId);
+   174→  const att = getSubjectAttendance({ attendance }, subjectId);
+   175→  const marks = getSubjectMarks({ assessments }, subjectId);
+   176→  const grade = getSubjectGrade({ assessments }, subjectId);
+   177→
+   178→  // CA performance (average assessment %)
+   179→  const caPct = assessments.length > 0
+   180→    ? Math.round(assessments.reduce((sum, a) => sum + (a.maxMarks > 0 ? (a.obtainedMarks / a.maxMarks) * 100 : 0), 0) / assessments.length)
+   181→    : 0;
+   182→
+   183→  // Next upcoming exam
+   184→  const nextExam = exams
+   185→    .filter((e) => e.status === 'upcoming')
+   186→    .sort((a, b) => a.date.localeCompare(b.date))[0];
+   187→
+   188→  // Recommended action
+   189→  const recommendation = useMemo(() => {
+   190→    const recs: string[] = [];
+   191→    if (att.total > 0 && att.percentage < profile.attendanceThreshold) {
+   192→      recs.push(`Attendance is below ${profile.attendanceThreshold}% threshold. Focus on attending classes.`);
+   193→    }
+   194→    if (progress < 50 && progress > 0) {
+   195→      recs.push('Syllabus is less than halfway done. Prioritize completing more topics.');
+   196→    }
+   197→    if (progress === 0) {
+   198→      recs.push('No syllabus progress yet. Start by adding topics to your units.');
+   199→    }
+   200→    if (marks.percentage < 50 && marks.max > 0) {
+   201→      recs.push('Assessment scores need improvement. Review weak areas before the next test.');
+   202→    }
+   203→    if (nextExam) {
+   204→      const daysUntil = Math.ceil((parseISO(nextExam.date).getTime() - Date.now()) / 86400000);
+   205→      if (daysUntil <= 7) {
+   206→        recs.push(`${nextExam.name} is in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}. Intensive revision recommended.`);
+   207→      }
+   208→    }
+   209→    if (recs.length === 0) {
+   210→      if (progress >= 80 && marks.percentage >= 70) {
+   211→        recs.push('Great progress! Keep up the consistency and start revising for exams.');
+   212→      } else {
+   213→        recs.push('Add more data (attendance, marks, study sessions) to get personalized recommendations.');
+   214→      }
+   215→    }
+   216→    return recs[0];
+   217→  }, [att, progress, marks, nextExam, profile.attendanceThreshold]);
+   218→
+   219→  // Recent activity (last 5 items combined from sessions and assessments)
+   220→  const recentActivity = useMemo(() => {
+   221→    const items: { type: string; label: string; date: string }[] = [];
+   222→    studySessions.forEach((s) =>
+   223→      items.push({ type: 'session', label: `Studied for ${formatDuration(s.duration)}`, date: s.date })
+   224→    );
+   225→    assessments.forEach((a) =>
+   226→      items.push({ type: 'assessment', label: `${a.name}: ${a.obtainedMarks}/${a.maxMarks}`, date: a.date })
+   227→    );
+   228→    return items.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+   229→  }, [studySessions, assessments]);
+   230→
+   231→  if (!subject) return null;
+   232→
+   233→  const metrics = [
+   234→    {
+   235→      label: 'Current Grade',
+   236→      value: marks.max > 0 ? grade : '--',
+   237→      sub: marks.max > 0 ? `${marks.percentage}% average` : 'No assessments yet',
+   238→      icon: GraduationCap,
+   239→      color: marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground',
+   240→    },
+   241→    {
+   242→      label: 'Attendance',
+   243→      value: att.total > 0 ? `${att.percentage}%` : '--',
+   244→      sub: att.total > 0 ? `${att.present}/${att.total} classes` : 'No records yet',
+   245→      icon: ClipboardCheck,
+   246→      color: att.total > 0
+   247→        ? att.percentage >= profile.attendanceThreshold
+   248→          ? 'text-[var(--delulu-success)]'
+   249→          : 'text-[var(--delulu-danger)]'
+   250→        : 'text-muted-foreground',
+   251→    },
+   252→    {
+   253→      label: 'Syllabus',
+   254→      value: `${progress}%`,
+   255→      sub: progress > 0 ? 'topics completed' : 'No topics yet',
+   256→      icon: BookOpen,
+   257→      color: progress >= 75 ? 'text-[var(--delulu-success)]' : progress >= 40 ? 'text-[var(--delulu-info)]' : 'text-muted-foreground',
+   258→    },
+   259→    {
+   260→      label: 'CA Performance',
+   261→      value: caPct > 0 ? `${caPct}%` : '--',
+   262→      sub: caPct > 0 ? `across ${assessments.length} assessment${assessments.length !== 1 ? 's' : ''}` : 'No assessments yet',
+   263→      icon: BarChart3,
+   264→      color: caPct > 0 ? pctColor(caPct) : 'text-muted-foreground',
+   265→    },
+   266→  ];
+   267→
+   268→  return (
+   269→    <div className="space-y-6">
+   270→      {/* 4 metric cards */}
+   271→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   272→        {metrics.map((m) => (
+   273→          <motion.div key={m.label} variants={fadeUp} initial="hidden" animate="show">
+   274→            <Card className="p-4">
+   275→              <div className="flex items-center gap-2 mb-2">
+   276→                <m.icon className="h-4 w-4 text-muted-foreground" />
+   277→                <span className="text-xs text-muted-foreground font-medium">{m.label}</span>
+   278→              </div>
+   279→              <p className={`text-2xl font-semibold ${m.color}`}>{m.value}</p>
+   280→              <p className="text-xs text-muted-foreground mt-1">{m.sub}</p>
+   281→            </Card>
+   282→          </motion.div>
+   283→        ))}
+   284→      </div>
+   285→
+   286→      {/* Next Assessment + Recommendation */}
+   287→      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   288→        <motion.div variants={fadeUp} initial="hidden" animate="show">
+   289→          <Card className="p-4">
+   290→            <div className="flex items-center gap-2 mb-3">
+   291→              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+   292→              <span className="text-sm font-medium">Next Assessment</span>
+   293→            </div>
+   294→            {nextExam ? (
+   295→              <div>
+   296→                <p className="font-medium">{nextExam.name}</p>
+   297→                <p className="text-sm text-muted-foreground mt-1">
+   298→                  {format(parseISO(nextExam.date), 'dd MMM yyyy')}
+   299→                </p>
+   300→                <Badge variant="outline" className="mt-2 capitalize">{nextExam.type}</Badge>
+   301→              </div>
+   302→            ) : (
+   303→              <p className="text-sm text-muted-foreground">No upcoming assessments</p>
+   304→            )}
+   305→          </Card>
+   306→        </motion.div>
+   307→
+   308→        <motion.div variants={fadeUp} initial="hidden" animate="show">
+   309→          <Card className="p-4">
+   310→            <div className="flex items-center gap-2 mb-3">
+   311→              <Target className="h-4 w-4 text-muted-foreground" />
+   312→              <span className="text-sm font-medium">Recommended Action</span>
+   313→            </div>
+   314→            <p className="text-sm leading-relaxed">{recommendation}</p>
+   315→          </Card>
+   316→        </motion.div>
+   317→      </div>
+   318→
+   319→      {/* Recent Activity */}
+   320→      <motion.div variants={fadeUp} initial="hidden" animate="show">
+   321→        <Card className="p-4">
+   322→          <h3 className="text-sm font-medium mb-3">Recent Activity</h3>
+   323→          {recentActivity.length > 0 ? (
+   324→            <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-thin">
+   325→              {recentActivity.map((item, i) => (
+   326→                <div key={i} className="flex items-center gap-3">
+   327→                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+   328→                    {item.type === 'session' ? (
+   329→                      <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+   330→                    ) : (
+   331→                      <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+   332→                    )}
+   333→                  </div>
+   334→                  <div className="min-w-0 flex-1">
+   335→                    <p className="text-sm truncate">{item.label}</p>
+   336→                    <p className="text-xs text-muted-foreground">{item.date}</p>
+   337→                  </div>
+   338→                </div>
+   339→              ))}
+   340→            </div>
+   341→          ) : (
+   342→            <p className="text-sm text-muted-foreground">No recent activity recorded</p>
+   343→          )}
+   344→        </Card>
+   345→      </motion.div>
+   346→    </div>
+   347→  );
+   348→}
+   349→
+   350→// ======================================================================
+   351→// Syllabus Tab
+   352→// ======================================================================
+   353→function SyllabusTab({ subjectId }: { subjectId: string }) {
+   354→  const allUnits = useStore((s) => s.syllabusUnits);
+   355→  const units = useMemo(() => allUnits.filter((u) => u.subjectId === subjectId).sort((a, b) => a.order - b.order), [allUnits, subjectId]);
+   356→  const addSyllabusUnit = useStore((s) => s.addSyllabusUnit);
+   357→  const updateSyllabusUnit = useStore((s) => s.updateSyllabusUnit);
+   358→  const deleteSyllabusUnit = useStore((s) => s.deleteSyllabusUnit);
+   359→  const addSyllabusTopic = useStore((s) => s.addSyllabusTopic);
+   360→  const updateSyllabusTopic = useStore((s) => s.updateSyllabusTopic);
+   361→  const deleteSyllabusTopic = useStore((s) => s.deleteSyllabusTopic);
+   362→  const toggleTopicComplete = useStore((s) => s.toggleTopicComplete);
+   363→
+   364→  const [newTopicMap, setNewTopicMap] = useState<Record<string, string>>({});
+   365→  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+   366→  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+   367→  const [editValue, setEditValue] = useState('');
+   368→  const [showAddUnit, setShowAddUnit] = useState(false);
+   369→  const [newUnitName, setNewUnitName] = useState('');
+   370→
+   371→  const totalTopics = units.reduce((sum, u) => sum + u.topics.length, 0);
+   372→  const completedTopics = units.reduce((sum, u) => sum + u.topics.filter((t) => t.completed).length, 0);
+   373→  const overallPct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+   374→
+   375→  const handleAddTopic = (unitId: string) => {
+   376→    const name = newTopicMap[unitId]?.trim();
+   377→    if (!name) return;
+   378→    const unit = units.find((u) => u.id === unitId);
+   379→    addSyllabusTopic({
+   380→      unitId,
+   381→      subjectId,
+   382→      name,
+   383→      completed: false,
+   384→      order: unit ? unit.topics.length + 1 : 1,
+   385→    });
+   386→    setNewTopicMap((prev) => ({ ...prev, [unitId]: '' }));
+   387→  };
+   388→
+   389→  const handleAddUnit = () => {
+   390→    const name = newUnitName.trim();
+   391→    if (!name) return;
+   392→    addSyllabusUnit({
+   393→      subjectId,
+   394→      name,
+   395→      order: units.length + 1,
+   396→    });
+   397→    setNewUnitName('');
+   398→    setShowAddUnit(false);
+   399→  };
+   400→
+   401→  const startEditUnit = (unit: SyllabusUnit) => {
+   402→    setEditingUnitId(unit.id);
+   403→    setEditValue(unit.name);
+   404→  };
+   405→
+   406→  const saveEditUnit = () => {
+   407→    if (editingUnitId && editValue.trim()) {
+   408→      updateSyllabusUnit(editingUnitId, { name: editValue.trim() });
+   409→    }
+   410→    setEditingUnitId(null);
+   411→    setEditValue('');
+   412→  };
+   413→
+   414→  const startEditTopic = (topic: SyllabusTopic) => {
+   415→    setEditingTopicId(topic.id);
+   416→    setEditValue(topic.name);
+   417→  };
+   418→
+   419→  const saveEditTopic = () => {
+   420→    if (editingTopicId && editValue.trim()) {
+   421→      updateSyllabusTopic(editingTopicId, { name: editValue.trim() });
+   422→    }
+   423→    setEditingTopicId(null);
+   424→    setEditValue('');
+   425→  };
+   426→
+   427→  return (
+   428→    <div className="space-y-4">
+   429→      {/* Overall progress */}
+   430→      <Card className="p-4">
+   431→        <div className="flex items-center justify-between mb-2">
+   432→          <span className="text-sm font-medium">Overall Progress</span>
+   433→          <span className="text-sm font-semibold">{completedTopics}/{totalTopics} topics ({overallPct}%)</span>
+   434→        </div>
+   435→        <Progress value={overallPct} className="h-2" />
+   436→      </Card>
+   437→
+   438→      {/* Units */}
+   439→      {units.length === 0 && !showAddUnit ? (
+   440→        <div className="text-center py-12">
+   441→          <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+   442→          <h3 className="text-sm font-medium mb-1">No syllabus units yet</h3>
+   443→          <p className="text-xs text-muted-foreground mb-4">Add units to start tracking your syllabus progress</p>
+   444→          <Button size="sm" onClick={() => setShowAddUnit(true)}>
+   445→            <Plus className="h-4 w-4 mr-1" /> Add Unit
+   446→          </Button>
+   447→        </div>
+   448→      ) : (
+   449→        <Accordion type="multiple" className="space-y-2">
+   450→          {units.map((unit) => {
+   451→            const completed = unit.topics.filter((t) => t.completed).length;
+   452→            const total = unit.topics.length;
+   453→            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+   454→
+   455→            return (
+   456→              <AccordionItem key={unit.id} value={unit.id} className="border rounded-lg px-0">
+   457→                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 rounded-t-lg">
+   458→                  <div className="flex items-center gap-3 flex-1 text-left">
+   459→                    {/* Inline edit unit name */}
+   460→                    {editingUnitId === unit.id ? (
+   461→                      <div className="flex items-center gap-2 flex-1">
+   462→                        <Input
+   463→                          value={editValue}
+   464→                          onChange={(e) => setEditValue(e.target.value)}
+   465→                          onKeyDown={(e) => {
+   466→                            if (e.key === 'Enter') saveEditUnit();
+   467→                            if (e.key === 'Escape') setEditingUnitId(null);
+   468→                          }}
+   469→                          className="h-8 text-sm"
+   470→                          autoFocus
+   471→                          onClick={(e) => e.stopPropagation()}
+   472→                        />
+   473→                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); saveEditUnit(); }}>
+   474→                          <Check className="h-3.5 w-3.5" />
+   475→                        </Button>
+   476→                      </div>
+   477→                    ) : (
+   478→                      <>
+   479→                        <span className="font-medium text-sm flex-1" onDoubleClick={(e) => { e.stopPropagation(); startEditUnit(unit); }}>{unit.name}</span>
+   480→                        <span className="text-xs text-muted-foreground">{completed}/{total}</span>
+   481→                        <div className="w-20">
+   482→                          <Progress value={pct} className="h-1.5" />
+   483→                        </div>
+   484→                      </>
+   485→                    )}
+   486→                  </div>
+   487→                </AccordionTrigger>
+   488→                <AccordionContent className="px-4 pb-3">
+   489→                  <div className="space-y-1">
+   490→                    {unit.topics.map((topic) => (
+   491→                      <div
+   492→                        key={topic.id}
+   493→                        className="flex items-center gap-2 group py-1.5 px-2 rounded-md hover:bg-muted/50"
+   494→                      >
+   495→                        <Checkbox
+   496→                          checked={topic.completed}
+   497→                          onCheckedChange={() => toggleTopicComplete(topic.id)}
+   498→                          className="shrink-0"
+   499→                        />
+   500→
+   501→                        {editingTopicId === topic.id ? (
+   502→                          <div className="flex items-center gap-2 flex-1">
+   503→                            <Input
+   504→                              value={editValue}
+   505→                              onChange={(e) => setEditValue(e.target.value)}
+   506→                              onKeyDown={(e) => {
+   507→                                if (e.key === 'Enter') saveEditTopic();
+   508→                                if (e.key === 'Escape') setEditingTopicId(null);
+   509→                              }}
+   510→                              className="h-7 text-sm"
+   511→                              autoFocus
+   512→                            />
+   513→                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={saveEditTopic}>
+   514→                              <Check className="h-3 w-3" />
+   515→                            </Button>
+   516→                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingTopicId(null)}>
+   517→                              <X className="h-3 w-3" />
+   518→                            </Button>
+   519→                          </div>
+   520→                        ) : (
+   521→                          <>
+   522→                            <span
+   523→                              className={`text-sm flex-1 ${topic.completed ? 'line-through text-muted-foreground' : ''}`}
+   524→                              onDoubleClick={() => startEditTopic(topic)}
+   525→                            >
+   526→                              {topic.name}
+   527→                            </span>
+   528→                            <Button
+   529→                              size="icon"
+   530→                              variant="ghost"
+   531→                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+   532→                              onClick={() => deleteSyllabusTopic(topic.id)}
+   533→                            >
+   534→                              <Trash className="h-3 w-3 text-muted-foreground" />
+   535→                            </Button>
+   536→                          </>
+   537→                        )}
+   538→                      </div>
+   539→                    ))}
+   540→
+   541→                    {/* Add topic input */}
+   542→                    <div className="flex items-center gap-2 mt-2 pl-7">
+   543→                      <Input
+   544→                        placeholder="Add topic..."
+   545→                        value={newTopicMap[unit.id] || ''}
+   546→                        onChange={(e) =>
+   547→                          setNewTopicMap((prev) => ({ ...prev, [unit.id]: e.target.value }))
+   548→                        }
+   549→                        onKeyDown={(e) => e.key === 'Enter' && handleAddTopic(unit.id)}
+   550→                        className="h-8 text-sm"
+   551→                      />
+   552→                      <Button
+   553→                        size="icon"
+   554→                        variant="ghost"
+   555→                        className="h-8 w-8 shrink-0"
+   556→                        onClick={() => handleAddTopic(unit.id)}
+   557→                      >
+   558→                        <Plus className="h-4 w-4" />
+   559→                      </Button>
+   560→                    </div>
+   561→
+   562→                    {/* Delete unit */}
+   563→                    <div className="flex justify-end mt-2">
+   564→                      <Button
+   565→                        size="sm"
+   566→                        variant="ghost"
+   567→                        className="text-xs text-muted-foreground h-7"
+   568→                        onClick={() => deleteSyllabusUnit(unit.id)}
+   569→                      >
+   570→                        <Trash2 className="h-3 w-3 mr-1" /> Delete unit
+   571→                      </Button>
+   572→                    </div>
+   573→                  </div>
+   574→                </AccordionContent>
+   575→              </AccordionItem>
+   576→            );
+   577→          })}
+   578→        </Accordion>
+   579→      )}
+   580→
+   581→      {/* Add unit */}
+   582→      {showAddUnit ? (
+   583→        <Card className="p-4">
+   584→          <div className="flex items-center gap-2">
+   585→            <Input
+   586→              placeholder="Unit name..."
+   587→              value={newUnitName}
+   588→              onChange={(e) => setNewUnitName(e.target.value)}
+   589→              onKeyDown={(e) => {
+   590→                if (e.key === 'Enter') handleAddUnit();
+   591→                if (e.key === 'Escape') setShowAddUnit(false);
+   592→              }}
+   593→              className="h-8 text-sm"
+   594→              autoFocus
+   595→            />
+   596→            <Button size="sm" onClick={handleAddUnit} disabled={!newUnitName.trim()}>
+   597→              <Check className="h-4 w-4 mr-1" /> Add
+   598→            </Button>
+   599→            <Button size="sm" variant="ghost" onClick={() => setShowAddUnit(false)}>
+   600→              <X className="h-4 w-4" />
+   601→            </Button>
+   602→          </div>
+   603→        </Card>
+   604→      ) : units.length > 0 ? (
+   605→        <Button variant="outline" size="sm" onClick={() => setShowAddUnit(true)}>
+   606→          <Plus className="h-4 w-4 mr-1" /> Add Unit
+   607→        </Button>
+   608→      ) : null}
+   609→    </div>
+   610→  );
+   611→}
+   612→
+   613→// ======================================================================
+   614→// Marks Tab
+   615→// ======================================================================
+   616→function MarksTab({ subjectId }: { subjectId: string }) {
+   617→  const allAssessments = useStore((s) => s.assessments);
+   618→  const assessments = useMemo(() => allAssessments.filter((a) => a.subjectId === subjectId), [allAssessments, subjectId]);
+   619→  const subjects = useStore((s) => s.subjects);
+   620→  const subject = subjects.find((x) => x.id === subjectId);
+   621→  const addAssessment = useStore((s) => s.addAssessment);
+   622→  const updateAssessment = useStore((s) => s.updateAssessment);
+   623→  const deleteAssessment = useStore((s) => s.deleteAssessment);
+   624→  const updateSubject = useStore((s) => s.updateSubject);
+   625→
+   626→  const [showAdd, setShowAdd] = useState(false);
+   627→  const [editingId, setEditingId] = useState<string | null>(null);
+   628→  const [editMarks, setEditMarks] = useState('');
+   629→  const [form, setForm] = useState({
+   630→    name: '',
+   631→    category: 'ca_test' as Assessment['category'],
+   632→    maxMarks: 100,
+   633→    obtainedMarks: 0,
+   634→    date: new Date().toISOString().split('T')[0],
+   635→    notes: '',
+   636→  });
+   637→
+   638→  const marks = getSubjectMarks({ assessments }, subjectId);
+   639→  const grade = getSubjectGrade({ assessments }, subjectId);
+   640→
+   641→  // Target simulator
+   642→  const targetGrade = subject?.targetGrade || 'A';
+   643→  const targetPct = GRADE_POINTS[targetGrade]
+   644→    ? (() => {
+   645→        // Reverse lookup approximate percentage for grade
+   646→        const thresholds: [number, string][] = [
+   647→          [90, 'O'], [80, 'A'], [70, 'A-'], [60, 'B+'], [55, 'B'], [50, 'B-'], [45, 'C'], [40, 'P'],
+   648→        ];
+   649→        const entry = thresholds.find(([, g]) => g === targetGrade);
+   650→        return entry ? entry[0] : 80;
+   651→      })()
+   652→    : 80;
+   653→
+   654→  const caAssessments = assessments.filter((a) => a.category !== 'other');
+   655→  const caTotal = caAssessments.reduce((s, a) => s + a.maxMarks, 0);
+   656→  const caObtained = caAssessments.reduce((s, a) => s + a.obtainedMarks, 0);
+   657→  const caWeight = caTotal > 0 ? caTotal / 100 * 40 : 0; // Assume CA is 40%
+   658→  const endSemWeight = 60; // Assume end-sem is 60%
+   659→  const endSemTotal = 100;
+   660→  const requiredEndSemPct = caTotal > 0
+   661→    ? Math.max(0, ((targetPct - (caObtained / Math.max(1, caTotal)) * 40) / 60) * 100)
+   662→    : targetPct;
+   663→  const isReachable = requiredEndSemPct <= 100;
+   664→
+   665→  const handleSubmit = () => {
+   666→    if (!form.name.trim()) return;
+   667→    addAssessment({
+   668→      subjectId,
+   669→      name: form.name.trim(),
+   670→      category: form.category,
+   671→      maxMarks: form.maxMarks,
+   672→      obtainedMarks: form.obtainedMarks,
+   673→      date: form.date,
+   674→      notes: form.notes,
+   675→    });
+   676→    setForm({ name: '', category: 'ca_test', maxMarks: 100, obtainedMarks: 0, date: new Date().toISOString().split('T')[0], notes: '' });
+   677→    setShowAdd(false);
+   678→  };
+   679→
+   680→  const startEditMarks = (a: Assessment) => {
+   681→    setEditingId(a.id);
+   682→    setEditMarks(String(a.obtainedMarks));
+   683→  };
+   684→
+   685→  const saveEditMarks = () => {
+   686→    if (editingId) {
+   687→      updateAssessment(editingId, { obtainedMarks: parseFloat(editMarks) || 0 });
+   688→    }
+   689→    setEditingId(null);
+   690→  };
+   691→
+   692→  const categoryLabel = (c: Assessment['category']) =>
+   693→    ASSESSMENT_CATEGORIES.find((x) => x.value === c)?.label || c;
+   694→
+   695→  return (
+   696→    <div className="space-y-6">
+   697→      {/* Summary cards */}
+   698→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   699→        <Card className="p-4">
+   700→          <span className="text-xs text-muted-foreground font-medium">Total Marks</span>
+   701→          <p className="text-xl font-semibold mt-1">{marks.obtained}/{marks.max}</p>
+   702→        </Card>
+   703→        <Card className="p-4">
+   704→          <span className="text-xs text-muted-foreground font-medium">Percentage</span>
+   705→          <p className={`text-xl font-semibold mt-1 ${pctColor(marks.percentage)}`}>{marks.percentage}%</p>
+   706→        </Card>
+   707→        <Card className="p-4">
+   708→          <span className="text-xs text-muted-foreground font-medium">Current Grade</span>
+   709→          <p className={`text-xl font-semibold mt-1 ${pctColor(marks.percentage)}`}>{marks.max > 0 ? grade : '--'}</p>
+   710→        </Card>
+   711→        <Card className="p-4">
+   712→          <span className="text-xs text-muted-foreground font-medium">Target Grade</span>
+   713→          <Select value={targetGrade} onValueChange={(v) => subject && updateSubject(subjectId, { targetGrade: v })}>
+   714→            <SelectTrigger className="h-8 mt-1 text-base font-semibold">
+   715→              <SelectValue />
+   716→            </SelectTrigger>
+   717→            <SelectContent>
+   718→              {GRADE_OPTIONS.map((g) => (
+   719→                <SelectItem key={g} value={g}>{g}</SelectItem>
+   720→              ))}
+   721→            </SelectContent>
+   722→          </Select>
+   723→        </Card>
+   724→      </div>
+   725→
+   726→      {/* Target Simulator */}
+   727→      <Card className="p-4">
+   728→        <div className="flex items-center gap-2 mb-2">
+   729→          <Target className="h-4 w-4 text-muted-foreground" />
+   730→          <span className="text-sm font-medium">Target Simulator</span>
+   731→        </div>
+   732→        {marks.max > 0 ? (
+   733→          isReachable ? (
+   734→            <p className="text-sm">
+   735→              You need <span className={`font-semibold ${pctColor(requiredEndSemPct)}`}>{Math.ceil(requiredEndSemPct)}%</span> in the end-semester exam to reach your target grade of <span className="font-semibold">{targetGrade}</span>.
+   736→            </p>
+   737→          ) : (
+   738→            <div className="flex items-center gap-2">
+   739→              <AlertTriangle className="h-4 w-4 text-[var(--delulu-danger)]" />
+   740→              <p className="text-sm text-[var(--delulu-danger)] font-medium">
+   741→                Target grade {targetGrade} may be unreachable with current CA scores.
+   742→              </p>
+   743→            </div>
+   744→          )
+   745→        ) : (
+   746→          <p className="text-sm text-muted-foreground">Add assessments to see your target simulation.</p>
+   747→        )}
+   748→      </Card>
+   749→
+   750→      {/* Assessment List */}
+   751→      <div className="flex items-center justify-between">
+   752→        <h3 className="text-sm font-medium">Assessments ({assessments.length})</h3>
+   753→        <Button size="sm" onClick={() => setShowAdd(true)}>
+   754→          <Plus className="h-4 w-4 mr-1" /> Add Assessment
+   755→        </Button>
+   756→      </div>
+   757→
+   758→      {assessments.length === 0 ? (
+   759→        <Card className="p-8 text-center">
+   760→          <BarChart3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+   761→          <p className="text-sm text-muted-foreground">No assessments recorded yet</p>
+   762→        </Card>
+   763→      ) : (
+   764→        <>
+   765→          {/* Desktop table */}
+   766→          <div className="hidden md:block">
+   767→            <div className="rounded-lg border overflow-hidden">
+   768→              <Table>
+   769→                <TableHeader>
+   770→                  <TableRow>
+   771→                    <TableHead>Name</TableHead>
+   772→                    <TableHead>Category</TableHead>
+   773→                    <TableHead className="text-right">Obtained</TableHead>
+   774→                    <TableHead className="text-right">Max</TableHead>
+   775→                    <TableHead className="text-right">%</TableHead>
+   776→                    <TableHead>Date</TableHead>
+   777→                    <TableHead className="w-10"></TableHead>
+   778→                  </TableRow>
+   779→                </TableHeader>
+   780→                <TableBody>
+   781→                  {assessments.sort((a, b) => b.date.localeCompare(a.date)).map((a) => {
+   782→                    const pct = a.maxMarks > 0 ? Math.round((a.obtainedMarks / a.maxMarks) * 100) : 0;
+   783→                    return (
+   784→                      <TableRow key={a.id}>
+   785→                        <TableCell className="font-medium">
+   786→                          {editingId === a.id ? (
+   787→                            <Input
+   788→                              value={editMarks}
+   789→                              onChange={(e) => setEditMarks(e.target.value)}
+   790→                              onKeyDown={(e) => { if (e.key === 'Enter') saveEditMarks(); if (e.key === 'Escape') setEditingId(null); }}
+   791→                              className="h-7 w-20"
+   792→                              autoFocus
+   793→                              type="number"
+   794→                            />
+   795→                          ) : (
+   796→                            <span className="cursor-pointer hover:underline" onClick={() => startEditMarks(a)}>{a.name}</span>
+   797→                          )}
+   798→                        </TableCell>
+   799→                        <TableCell>
+   800→                          <Badge variant="outline" className="text-xs capitalize">{categoryLabel(a.category)}</Badge>
+   801→                        </TableCell>
+   802→                        <TableCell className="text-right font-mono">
+   803→                          {editingId === a.id ? (
+   804→                            <Button size="sm" variant="ghost" className="h-6 px-2" onClick={saveEditMarks}>
+   805→                              <Save className="h-3 w-3 mr-1" /> Save
+   806→                            </Button>
+   807→                          ) : (
+   808→                            <span>{a.obtainedMarks}</span>
+   809→                          )}
+   810→                        </TableCell>
+   811→                        <TableCell className="text-right font-mono">{a.maxMarks}</TableCell>
+   812→                        <TableCell className={`text-right font-mono font-medium ${pctColor(pct)}`}>{pct}%</TableCell>
+   813→                        <TableCell className="text-right text-muted-foreground text-sm">{a.date}</TableCell>
+   814→                        <TableCell>
+   815→                          <DropdownMenu>
+   816→                            <DropdownMenuTrigger asChild>
+   817→                              <Button variant="ghost" size="icon" className="h-7 w-7">
+   818→                                <MoreHorizontal className="h-4 w-4" />
+   819→                              </Button>
+   820→                            </DropdownMenuTrigger>
+   821→                            <DropdownMenuContent align="end">
+   822→                              <DropdownMenuItem onClick={() => startEditMarks(a)}>
+   823→                                <Pencil className="h-4 w-4 mr-2" /> Edit marks
+   824→                              </DropdownMenuItem>
+   825→                              <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteAssessment(a.id)}>
+   826→                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+   827→                              </DropdownMenuItem>
+   828→                            </DropdownMenuContent>
+   829→                          </DropdownMenu>
+   830→                        </TableCell>
+   831→                      </TableRow>
+   832→                    );
+   833→                  })}
+   834→                </TableBody>
+   835→              </Table>
+   836→            </div>
+   837→          </div>
+   838→
+   839→          {/* Mobile cards */}
+   840→          <div className="md:hidden space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+   841→            {assessments.sort((a, b) => b.date.localeCompare(a.date)).map((a) => {
+   842→              const pct = a.maxMarks > 0 ? Math.round((a.obtainedMarks / a.maxMarks) * 100) : 0;
+   843→              return (
+   844→                <Card key={a.id} className="p-4">
+   845→                  <div className="flex items-start justify-between">
+   846→                    <div>
+   847→                      <p className="font-medium text-sm">{a.name}</p>
+   848→                      <Badge variant="outline" className="text-xs capitalize mt-1">{categoryLabel(a.category)}</Badge>
+   849→                    </div>
+   850→                    <div className="flex items-center gap-1">
+   851→                      {editingId === a.id ? (
+   852→                        <>
+   853→                          <Input value={editMarks} onChange={(e) => setEditMarks(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEditMarks(); }} className="h-7 w-16 text-sm" autoFocus type="number" />
+   854→                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveEditMarks}><Check className="h-3 w-3" /></Button>
+   855→                        </>
+   856→                      ) : (
+   857→                        <span className={`text-lg font-semibold ${pctColor(pct)}`}>{pct}%</span>
+   858→                      )}
+   859→                      <DropdownMenu>
+   860→                        <DropdownMenuTrigger asChild>
+   861→                          <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
+   862→                        </DropdownMenuTrigger>
+   863→                        <DropdownMenuContent align="end">
+   864→                          <DropdownMenuItem onClick={() => startEditMarks(a)}><Pencil className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
+   865→                          <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteAssessment(a.id)}><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+   866→                        </DropdownMenuContent>
+   867→                      </DropdownMenu>
+   868→                    </div>
+   869→                  </div>
+   870→                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+   871→                    <span>{a.obtainedMarks}/{a.maxMarks}</span>
+   872→                    <span>{a.date}</span>
+   873→                  </div>
+   874→                </Card>
+   875→              );
+   876→            })}
+   877→          </div>
+   878→        </>
+   879→      )}
+   880→
+   881→      {/* Add Assessment Dialog */}
+   882→      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+   883→        <DialogContent className="sm:max-w-md">
+   884→          <DialogHeader>
+   885→            <DialogTitle>Add Assessment</DialogTitle>
+   886→            <DialogDescription>Record a new assessment for this subject.</DialogDescription>
+   887→          </DialogHeader>
+   888→          <div className="grid gap-4 py-2">
+   889→            <div className="grid gap-2">
+   890→              <Label htmlFor="assess-name">Name *</Label>
+   891→              <Input id="assess-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Mid-Semester Test 1" />
+   892→            </div>
+   893→            <div className="grid grid-cols-2 gap-4">
+   894→              <div className="grid gap-2">
+   895→                <Label>Category</Label>
+   896→                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as Assessment['category'] }))}>
+   897→                  <SelectTrigger><SelectValue /></SelectTrigger>
+   898→                  <SelectContent>
+   899→                    {ASSESSMENT_CATEGORIES.map((c) => (
+   900→                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+   901→                    ))}
+   902→                  </SelectContent>
+   903→                </Select>
+   904→              </div>
+   905→              <div className="grid gap-2">
+   906→                <Label htmlFor="assess-date">Date</Label>
+   907→                <Input id="assess-date" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+   908→              </div>
+   909→            </div>
+   910→            <div className="grid grid-cols-2 gap-4">
+   911→              <div className="grid gap-2">
+   912→                <Label htmlFor="assess-max">Max Marks</Label>
+   913→                <Input id="assess-max" type="number" min={1} value={form.maxMarks} onChange={(e) => setForm((f) => ({ ...f, maxMarks: Math.max(1, parseInt(e.target.value) || 1) }))} />
+   914→              </div>
+   915→              <div className="grid gap-2">
+   916→                <Label htmlFor="assess-obt">Obtained Marks</Label>
+   917→                <Input id="assess-obt" type="number" min={0} value={form.obtainedMarks} onChange={(e) => setForm((f) => ({ ...f, obtainedMarks: Math.max(0, parseFloat(e.target.value) || 0) }))} />
+   918→              </div>
+   919→            </div>
+   920→            <div className="grid gap-2">
+   921→              <Label htmlFor="assess-notes">Notes</Label>
+   922→              <Textarea id="assess-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." rows={2} />
+   923→            </div>
+   924→          </div>
+   925→          <DialogFooter>
+   926→            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+   927→            <Button onClick={handleSubmit} disabled={!form.name.trim()}>Add Assessment</Button>
+   928→          </DialogFooter>
+   929→        </DialogContent>
+   930→      </Dialog>
+   931→    </div>
+   932→  );
+   933→}
+   934→
+   935→// ======================================================================
+   936→// Attendance Tab
+   937→// ======================================================================
+   938→function AttendanceTab({ subjectId }: { subjectId: string }) {
+   939→  const allRecords = useStore((s) => s.attendance);
+   940→  const records = useMemo(() => allRecords.filter((a) => a.subjectId === subjectId), [allRecords, subjectId]);
+   941→  const profile = useStore((s) => s.profile);
+   942→  const addAttendance = useStore((s) => s.addAttendance);
+   943→  const deleteAttendance = useStore((s) => s.deleteAttendance);
+   944→
+   945→  const att = getSubjectAttendance({ attendance: records }, subjectId);
+   946→  const today = new Date().toISOString().split('T')[0];
+   947→
+   948→  const todayRecord = records.find((r) => r.date === today);
+   949→
+   950→  const status = att.total === 0
+   951→    ? 'NO DATA'
+   952→    : att.percentage >= profile.attendanceThreshold
+   953→      ? 'SAFE'
+   954→      : att.percentage >= profile.attendanceThreshold - 10
+   955→        ? 'WATCH'
+   956→        : 'RISK';
+   957→
+   958→  const statusColor =
+   959→    status === 'SAFE' ? 'text-[var(--delulu-success)]' :
+   960→    status === 'WATCH' ? 'text-[var(--delulu-warning)]' :
+   961→    status === 'RISK' ? 'text-[var(--delulu-danger)]' :
+   962→    'text-muted-foreground';
+   963→
+   964→  // How many more classes can be missed
+   965→  const canMiss = useMemo(() => {
+   966→    if (att.total === 0) return 'N/A';
+   967→    const threshold = profile.attendanceThreshold;
+   968→    // (present) / (total + x) >= threshold/100
+   969→    // x <= (present * 100 / threshold) - total
+   970→    const maxMissable = Math.floor((att.present * 100) / threshold) - att.total;
+   971→    return Math.max(0, maxMissable);
+   972→  }, [att, profile.attendanceThreshold]);
+   973→
+   974→  const handleQuickMark = (present: boolean) => {
+   975→    if (todayRecord) return; // already marked today
+   976→    addAttendance({
+   977→      subjectId,
+   978→      date: today,
+   979→      present,
+   980→      totalClasses: 1,
+   981→    });
+   982→  };
+   983→
+   984→  return (
+   985→    <div className="space-y-6">
+   986→      {/* Stats cards */}
+   987→      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+   988→        <Card className="p-4">
+   989→          <span className="text-xs text-muted-foreground font-medium">Present</span>
+   990→          <p className="text-xl font-semibold mt-1 text-[var(--delulu-success)]">{att.present}</p>
+   991→        </Card>
+   992→        <Card className="p-4">
+   993→          <span className="text-xs text-muted-foreground font-medium">Absent</span>
+   994→          <p className="text-xl font-semibold mt-1 text-[var(--delulu-danger)]">{att.total - att.present}</p>
+   995→        </Card>
+   996→        <Card className="p-4">
+   997→          <span className="text-xs text-muted-foreground font-medium">Total</span>
+   998→          <p className="text-xl font-semibold mt-1">{att.total}</p>
+   999→        </Card>
+  1000→        <Card className="p-4">
+  1001→          <span className="text-xs text-muted-foreground font-medium">Percentage</span>
+  1002→          <p className={`text-xl font-semibold mt-1 ${statusColor}`}>{att.percentage}%</p>
+  1003→        </Card>
+  1004→        <Card className="p-4 col-span-2 md:col-span-1">
+  1005→          <span className="text-xs text-muted-foreground font-medium">Status</span>
+  1006→          <p className={`text-lg font-semibold mt-1 ${statusColor}`}>{status}</p>
+  1007→        </Card>
+  1008→      </div>
+  1009→
+  1010→      {/* Can miss info */}
+  1011→      <Card className="p-4">
+  1012→        <p className="text-sm">
+  1013→          {typeof canMiss === 'number' ? (
+  1014→            canMiss > 0 ? (
+  1015→              <>
+  1016→                You can miss <span className="font-semibold text-[var(--delulu-success)]">{canMiss} more class{canMiss !== 1 ? 'es' : ''}</span> before falling below the {profile.attendanceThreshold}% threshold.
+  1017→              </>
+  1018→            ) : (
+  1019→              <>
+  1020→                <AlertTriangle className="h-4 w-4 inline text-[var(--delulu-danger)] mr-1" />
+  1021→                You cannot miss any more classes. Your attendance is already at or below the threshold.
+  1022→              </>
+  1023→            )
+  1024→          ) : (
+  1025→            'Mark your first attendance to see predictions.'
+  1026→          )}
+  1027→        </p>
+  1028→      </Card>
+  1029→
+  1030→      {/* Quick mark */}
+  1031→      <Card className="p-4">
+  1032→        <h3 className="text-sm font-medium mb-3">Mark Today's Attendance</h3>
+  1033→        {todayRecord ? (
+  1034→          <div className="flex items-center gap-2">
+  1035→            <CheckCircle2 className={`h-5 w-5 ${todayRecord.present ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}`} />
+  1036→            <span className="text-sm">
+  1037→              Marked as <span className="font-medium">{todayRecord.present ? 'Present' : 'Absent'}</span> today
+  1038→            </span>
+  1039→            <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => deleteAttendance(todayRecord.id)}>
+  1040→              Undo
+  1041→            </Button>
+  1042→          </div>
+  1043→        ) : (
+  1044→          <div className="flex gap-3">
+  1045→            <Button
+  1046→              className="flex-1 bg-[var(--delulu-success)] hover:bg-[var(--delulu-success)]/90 text-white"
+  1047→              onClick={() => handleQuickMark(true)}
+  1048→            >
+  1049→              <Check className="h-4 w-4 mr-2" /> Present
+  1050→            </Button>
+  1051→            <Button
+  1052→              variant="outline"
+  1053→              className="flex-1 border-[var(--delulu-danger)]/30 text-[var(--delulu-danger)] hover:bg-[var(--delulu-danger)]/10"
+  1054→              onClick={() => handleQuickMark(false)}
+  1055→            >
+  1056→              <X className="h-4 w-4 mr-2" /> Absent
+  1057→            </Button>
+  1058→          </div>
+  1059→        )}
+  1060→      </Card>
+  1061→
+  1062→      {/* Attendance History */}
+  1063→      <div>
+  1064→        <h3 className="text-sm font-medium mb-3">Attendance History</h3>
+  1065→        {records.length === 0 ? (
+  1066→          <Card className="p-8 text-center">
+  1067→            <ClipboardCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+  1068→            <p className="text-sm text-muted-foreground">No attendance records yet</p>
+  1069→          </Card>
+  1070→        ) : (
+  1071→          <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
+  1072→            {records
+  1073→              .sort((a, b) => b.date.localeCompare(a.date))
+  1074→              .map((r) => (
+  1075→                <div key={r.id} className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+  1076→                  <div className="flex items-center gap-3">
+  1077→                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${r.present ? 'bg-[var(--delulu-success)]/10' : 'bg-[var(--delulu-danger)]/10'}`}>
+  1078→                      {r.present ? (
+  1079→                        <Check className="h-4 w-4 text-[var(--delulu-success)]" />
+  1080→                      ) : (
+  1081→                        <X className="h-4 w-4 text-[var(--delulu-danger)]" />
+  1082→                      )}
+  1083→                    </div>
+  1084→                    <div>
+  1085→                      <p className="text-sm font-medium">{r.present ? 'Present' : 'Absent'}</p>
+  1086→                      <p className="text-xs text-muted-foreground">{r.date}</p>
+  1087→                    </div>
+  1088→                  </div>
+  1089→                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteAttendance(r.id)}>
+  1090→                    <Trash className="h-3.5 w-3.5 text-muted-foreground" />
+  1091→                  </Button>
+  1092→                </div>
+  1093→              ))}
+  1094→          </div>
+  1095→        )}
+  1096→      </div>
+  1097→    </div>
+  1098→  );
+  1099→}
+  1100→
+  1101→// ======================================================================
+  1102→// Revision Tab
+  1103→// ======================================================================
+  1104→function RevisionTab({ subjectId }: { subjectId: string }) {
+  1105→  const allItems = useStore((s) => s.revisionItems);
+  1106→  const items = useMemo(() => allItems.filter((r) => r.subjectId === subjectId), [allItems, subjectId]);
+  1107→  const store = useStore();
+  1108→  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  1109→
+  1110→  const today = new Date().toISOString().split('T')[0];
+  1111→  const dueItems = items.filter((r) => r.nextReview <= today);
+  1112→  const upcomingItems = items.filter((r) => r.nextReview > today);
+  1113→
+  1114→  const handleReview = (itemId: string, quality: number) => {
+  1115→    reviewRevisionItem(store, itemId, quality);
+  1116→    setReviewingId(null);
+  1117→  };
+  1118→
+  1119→  return (
+  1120→    <div className="space-y-6">
+  1121→      {/* Due items */}
+  1122→      <div>
+  1123→        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+  1124→          <Flame className="h-4 w-4 text-[var(--delulu-danger)]" />
+  1125→          Due for Review ({dueItems.length})
+  1126→        </h3>
+  1127→        {dueItems.length === 0 ? (
+  1128→          <Card className="p-6 text-center">
+  1129→            <CheckCircle2 className="h-6 w-6 text-[var(--delulu-success)] mx-auto mb-2" />
+  1130→            <p className="text-sm text-muted-foreground">No items due for review. You're on track!</p>
+  1131→          </Card>
+  1132→        ) : (
+  1133→          <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
+  1134→            {dueItems.map((item) => (
+  1135→              <Card key={item.id} className="p-4 border-l-4 border-l-[var(--delulu-danger)]">
+  1136→                <div className="flex items-center justify-between">
+  1137→                  <div>
+  1138→                    <p className="text-sm font-medium">{item.topicName}</p>
+  1139→                    <p className="text-xs text-muted-foreground mt-0.5">
+  1140→                      Due: {item.nextReview}
+  1141→                      {item.lastReview && ` · Last reviewed: ${item.lastReview}`}
+  1142→                    </p>
+  1143→                    <div className="flex items-center gap-2 mt-1">
+  1144→                      <Badge variant="outline" className="text-xs">Rep: {item.repetitions}</Badge>
+  1145→                      <Badge variant="outline" className="text-xs">Interval: {item.interval}d</Badge>
+  1146→                    </div>
+  1147→                  </div>
+  1148→                  {reviewingId === item.id ? (
+  1149→                    <div className="flex gap-1">
+  1150→                      {[{ q: 1, label: 'Again', color: 'text-[var(--delulu-danger)]' }, { q: 3, label: 'Hard', color: 'text-[var(--delulu-warning)]' }, { q: 4, label: 'Good', color: 'text-[var(--delulu-info)]' }, { q: 5, label: 'Easy', color: 'text-[var(--delulu-success)]' }].map((btn) => (
+  1151→                        <Button key={btn.label} size="sm" variant="outline" className={`h-7 text-xs ${btn.color}`} onClick={() => handleReview(item.id, btn.q)}>
+  1152→                          {btn.label}
+  1153→                        </Button>
+  1154→                      ))}
+  1155→                    </div>
+  1156→                  ) : (
+  1157→                    <Button size="sm" variant="outline" onClick={() => setReviewingId(item.id)}>
+  1158→                      <Brain className="h-4 w-4 mr-1" /> Review
+  1159→                    </Button>
+  1160→                  )}
+  1161→                </div>
+  1162→              </Card>
+  1163→            ))}
+  1164→          </div>
+  1165→        )}
+  1166→      </div>
+  1167→
+  1168→      {/* Upcoming items */}
+  1169→      <div>
+  1170→        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+  1171→          <Clock className="h-4 w-4 text-muted-foreground" />
+  1172→          Upcoming ({upcomingItems.length})
+  1173→        </h3>
+  1174→        {upcomingItems.length === 0 && dueItems.length === 0 ? (
+  1175→          <Card className="p-6 text-center">
+  1176→            <Brain className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+  1177→            <p className="text-sm text-muted-foreground">No revision items for this subject. Add topics to your syllabus and create revision items from the Focus view.</p>
+  1178→          </Card>
+  1179→        ) : upcomingItems.length > 0 ? (
+  1180→          <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
+  1181→            {upcomingItems.sort((a, b) => a.nextReview.localeCompare(b.nextReview)).map((item) => (
+  1182→              <Card key={item.id} className="p-4">
+  1183→                <div className="flex items-center justify-between">
+  1184→                  <div>
+  1185→                    <p className="text-sm font-medium">{item.topicName}</p>
+  1186→                    <p className="text-xs text-muted-foreground mt-0.5">Next review: {item.nextReview}</p>
+  1187→                  </div>
+  1188→                  <Badge variant="outline" className="text-xs">In {Math.ceil((parseISO(item.nextReview).getTime() - Date.now()) / 86400000)}d</Badge>
+  1189→                </div>
+  1190→              </Card>
+  1191→            ))}
+  1192→          </div>
+  1193→        ) : null}
+  1194→      </div>
+  1195→    </div>
+  1196→  );
+  1197→}
+  1198→
+  1199→// ======================================================================
+  1200→// Notes Tab
+  1201→// ======================================================================
+  1202→function NotesTab({ subjectId }: { subjectId: string }) {
+  1203→  const allNotes = useStore((s) => s.notes);
+  1204→  const notes = useMemo(() => allNotes.filter((n) => n.subjectId === subjectId), [allNotes, subjectId]);
+  1205→  const addNote = useStore((s) => s.addNote);
+  1206→  const updateNote = useStore((s) => s.updateNote);
+  1207→  const deleteNote = useStore((s) => s.deleteNote);
+  1208→
+  1209→  const [showAdd, setShowAdd] = useState(false);
+  1210→  const [editingId, setEditingId] = useState<string | null>(null);
+  1211→  const [form, setForm] = useState({ title: '', content: '' });
+  1212→  const [editForm, setEditForm] = useState({ title: '', content: '' });
+  1213→
+  1214→  const handleAdd = () => {
+  1215→    if (!form.title.trim()) return;
+  1216→    addNote({ subjectId, title: form.title.trim(), content: form.content });
+  1217→    setForm({ title: '', content: '' });
+  1218→    setShowAdd(false);
+  1219→  };
+  1220→
+  1221→  const startEdit = (note: Note) => {
+  1222→    setEditingId(note.id);
+  1223→    setEditForm({ title: note.title, content: note.content });
+  1224→  };
+  1225→
+  1226→  const saveEdit = () => {
+  1227→    if (editingId && editForm.title.trim()) {
+  1228→      updateNote(editingId, {
+  1229→        title: editForm.title.trim(),
+  1230→        content: editForm.content,
+  1231→        updatedAt: new Date().toISOString(),
+  1232→      });
+  1233→    }
+  1234→    setEditingId(null);
+  1235→  };
+  1236→
+  1237→  const sortedNotes = [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  1238→
+  1239→  return (
+  1240→    <div className="space-y-4">
+  1241→      <div className="flex justify-end">
+  1242→        <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
+  1243→          <Plus className="h-4 w-4 mr-1" /> Add Note
+  1244→        </Button>
+  1245→      </div>
+  1246→
+  1247→      {/* Add note form */}
+  1248→      {showAdd && (
+  1249→        <Card className="p-4 space-y-3">
+  1250→          <Input
+  1251→            placeholder="Note title..."
+  1252→            value={form.title}
+  1253→            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+  1254→            className="font-medium"
+  1255→          />
+  1256→          <Textarea
+  1257→            placeholder="Write your note here..."
+  1258→            value={form.content}
+  1259→            onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+  1260→            rows={4}
+  1261→          />
+  1262→          <div className="flex gap-2 justify-end">
+  1263→            <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+  1264→            <Button size="sm" onClick={handleAdd} disabled={!form.title.trim()}>Save Note</Button>
+  1265→          </div>
+  1266→        </Card>
+  1267→      )}
+  1268→
+  1269→      {/* Notes list */}
+  1270→      {sortedNotes.length === 0 && !showAdd ? (
+  1271→        <Card className="p-8 text-center">
+  1272→          <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+  1273→          <p className="text-sm text-muted-foreground">No notes yet for this subject</p>
+  1274→        </Card>
+  1275→      ) : (
+  1276→        <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin">
+  1277→          {sortedNotes.map((note) => (
+  1278→            <Card key={note.id} className="p-4">
+  1279→              {editingId === note.id ? (
+  1280→                <div className="space-y-3">
+  1281→                  <Input
+  1282→                    value={editForm.title}
+  1283→                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+  1284→                    className="font-medium"
+  1285→                  />
+  1286→                  <Textarea
+  1287→                    value={editForm.content}
+  1288→                    onChange={(e) => setEditForm((f) => ({ ...f, content: e.target.value }))}
+  1289→                    rows={4}
+  1290→                  />
+  1291→                  <div className="flex gap-2 justify-end">
+  1292→                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+  1293→                    <Button size="sm" onClick={saveEdit}>Save</Button>
+  1294→                  </div>
+  1295→                </div>
+  1296→              ) : (
+  1297→                <div>
+  1298→                  <div className="flex items-start justify-between">
+  1299→                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => startEdit(note)}>
+  1300→                      <h4 className="font-medium text-sm">{note.title}</h4>
+  1301→                      <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-4">{note.content || 'No content'}</p>
+  1302→                      <p className="text-xs text-muted-foreground mt-2">
+  1303→                        Updated {format(parseISO(note.updatedAt), 'dd MMM yyyy, HH:mm')}
+  1304→                      </p>
+  1305→                    </div>
+  1306→                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 ml-2" onClick={() => deleteNote(note.id)}>
+  1307→                      <Trash className="h-3.5 w-3.5 text-muted-foreground" />
+  1308→                    </Button>
+  1309→                  </div>
+  1310→                </div>
+  1311→              )}
+  1312→            </Card>
+  1313→          ))}
+  1314→        </div>
+  1315→      )}
+  1316→    </div>
+  1317→  );
+  1318→}
+  1319→
+  1320→// ======================================================================
+  1321→// Exams Tab
+  1322→// ======================================================================
+  1323→function ExamsTab({ subjectId }: { subjectId: string }) {
+  1324→  const allExams = useStore((s) => s.exams);
+  1325→  const exams = useMemo(() => allExams.filter((e) => e.subjectId === subjectId), [allExams, subjectId]);
+  1326→  const addExam = useStore((s) => s.addExam);
+  1327→  const updateExam = useStore((s) => s.updateExam);
+  1328→  const deleteExam = useStore((s) => s.deleteExam);
+  1329→
+  1330→  const [showAdd, setShowAdd] = useState(false);
+  1331→  const [form, setForm] = useState({
+  1332→    name: '',
+  1333→    date: new Date().toISOString().split('T')[0],
+  1334→    type: 'midsem' as Exam['type'],
+  1335→    totalMarks: 100,
+  1336→    status: 'upcoming' as Exam['status'],
+  1337→    obtainedMarks: undefined as number | undefined,
+  1338→    preparationNotes: '',
+  1339→  });
+  1340→
+  1341→  const handleAdd = () => {
+  1342→    if (!form.name.trim()) return;
+  1343→    addExam({
+  1344→      subjectId,
+  1345→      name: form.name.trim(),
+  1346→      date: form.date,
+  1347→      type: form.type,
+  1348→      totalMarks: form.totalMarks,
+  1349→      status: form.status,
+  1350→      obtainedMarks: form.status === 'completed' ? form.obtainedMarks : undefined,
+  1351→      preparationNotes: form.preparationNotes,
+  1352→    });
+  1353→    setForm({ name: '', date: new Date().toISOString().split('T')[0], type: 'midsem', totalMarks: 100, status: 'upcoming', obtainedMarks: undefined, preparationNotes: '' });
+  1354→    setShowAdd(false);
+  1355→  };
+  1356→
+  1357→  const typeLabel = (t: Exam['type']) => EXAM_TYPES.find((x) => x.value === t)?.label || t;
+  1358→
+  1359→  const sortedExams = [...exams].sort((a, b) => b.date.localeCompare(a.date));
+  1360→
+  1361→  return (
+  1362→    <div className="space-y-4">
+  1363→      <div className="flex justify-end">
+  1364→        <Button size="sm" onClick={() => setShowAdd(true)}>
+  1365→          <Plus className="h-4 w-4 mr-1" /> Add Exam
+  1366→        </Button>
+  1367→      </div>
+  1368→
+  1369→      {sortedExams.length === 0 ? (
+  1370→        <Card className="p-8 text-center">
+  1371→          <GraduationCap className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+  1372→          <p className="text-sm text-muted-foreground">No exams scheduled yet</p>
+  1373→        </Card>
+  1374→      ) : (
+  1375→        <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+  1376→          {sortedExams.map((exam) => (
+  1377→            <Card key={exam.id} className="p-4">
+  1378→              <div className="flex items-start justify-between">
+  1379→                <div>
+  1380→                  <h4 className="font-medium text-sm">{exam.name}</h4>
+  1381→                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+  1382→                    <Badge variant="outline" className="text-xs">{typeLabel(exam.type)}</Badge>
+  1383→                    <Badge
+  1384→                      variant={exam.status === 'completed' ? 'secondary' : 'outline'}
+  1385→                      className={`text-xs ${exam.status === 'completed' ? 'bg-[var(--delulu-success)]/10 text-[var(--delulu-success)]' : ''}`}
+  1386→                    >
+  1387→                      {exam.status === 'completed' ? 'Completed' : 'Upcoming'}
+  1388→                    </Badge>
+  1389→                    <span className="text-xs text-muted-foreground">{exam.date}</span>
+  1390→                  </div>
+  1391→                  {exam.status === 'completed' && exam.obtainedMarks !== undefined && (
+  1392→                    <p className={`text-sm mt-2 font-medium ${pctColor(exam.totalMarks > 0 ? Math.round((exam.obtainedMarks / exam.totalMarks) * 100) : 0)}`}>
+  1393→                      {exam.obtainedMarks}/{exam.totalMarks}
+  1394→                    </p>
+  1395→                  )}
+  1396→                  <p className="text-xs text-muted-foreground mt-1">Total: {exam.totalMarks} marks</p>
+  1397→                </div>
+  1398→                <DropdownMenu>
+  1399→                  <DropdownMenuTrigger asChild>
+  1400→                    <Button variant="ghost" size="icon" className="h-7 w-7">
+  1401→                      <MoreHorizontal className="h-4 w-4" />
+  1402→                    </Button>
+  1403→                  </DropdownMenuTrigger>
+  1404→                  <DropdownMenuContent align="end">
+  1405→                    {exam.status === 'upcoming' && (
+  1406→                      <DropdownMenuItem onClick={() => updateExam(exam.id, { status: 'completed', obtainedMarks: 0 })}>
+  1407→                        <CheckCircle2 className="h-4 w-4 mr-2" /> Mark completed
+  1408→                      </DropdownMenuItem>
+  1409→                    )}
+  1410→                    <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteExam(exam.id)}>
+  1411→                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+  1412→                    </DropdownMenuItem>
+  1413→                  </DropdownMenuContent>
+  1414→                </DropdownMenu>
+  1415→              </div>
+  1416→            </Card>
+  1417→          ))}
+  1418→        </div>
+  1419→      )}
+  1420→
+  1421→      {/* Add Exam Dialog */}
+  1422→      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+  1423→        <DialogContent className="sm:max-w-md">
+  1424→          <DialogHeader>
+  1425→            <DialogTitle>Add Exam</DialogTitle>
+  1426→            <DialogDescription>Schedule a new exam for this subject.</DialogDescription>
+  1427→          </DialogHeader>
+  1428→          <div className="grid gap-4 py-2">
+  1429→            <div className="grid gap-2">
+  1430→              <Label htmlFor="exam-name">Name *</Label>
+  1431→              <Input id="exam-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. End Semester" />
+  1432→            </div>
+  1433→            <div className="grid grid-cols-2 gap-4">
+  1434→              <div className="grid gap-2">
+  1435→                <Label>Type</Label>
+  1436→                <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as Exam['type'] }))}>
+  1437→                  <SelectTrigger><SelectValue /></SelectTrigger>
+  1438→                  <SelectContent>
+  1439→                    {EXAM_TYPES.map((t) => (
+  1440→                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+  1441→                    ))}
+  1442→                  </SelectContent>
+  1443→                </Select>
+  1444→              </div>
+  1445→              <div className="grid gap-2">
+  1446→                <Label htmlFor="exam-date">Date</Label>
+  1447→                <Input id="exam-date" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+  1448→              </div>
+  1449→            </div>
+  1450→            <div className="grid grid-cols-2 gap-4">
+  1451→              <div className="grid gap-2">
+  1452→                <Label htmlFor="exam-total">Total Marks</Label>
+  1453→                <Input id="exam-total" type="number" min={1} value={form.totalMarks} onChange={(e) => setForm((f) => ({ ...f, totalMarks: Math.max(1, parseInt(e.target.value) || 1) }))} />
+  1454→              </div>
+  1455→              <div className="grid gap-2">
+  1456→                <Label>Status</Label>
+  1457→                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as Exam['status'] }))}>
+  1458→                  <SelectTrigger><SelectValue /></SelectTrigger>
+  1459→                  <SelectContent>
+  1460→                    <SelectItem value="upcoming">Upcoming</SelectItem>
+  1461→                    <SelectItem value="completed">Completed</SelectItem>
+  1462→                  </SelectContent>
+  1463→                </Select>
+  1464→              </div>
+  1465→            </div>
+  1466→            {form.status === 'completed' && (
+  1467→              <div className="grid gap-2">
+  1468→                <Label htmlFor="exam-obt">Obtained Marks</Label>
+  1469→                <Input id="exam-obt" type="number" min={0} value={form.obtainedMarks ?? ''} onChange={(e) => setForm((f) => ({ ...f, obtainedMarks: parseFloat(e.target.value) || 0 }))} />
+  1470→              </div>
+  1471→            )}
+  1472→          </div>
+  1473→          <DialogFooter>
+  1474→            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+  1475→            <Button onClick={handleAdd} disabled={!form.name.trim()}>Add Exam</Button>
+  1476→          </DialogFooter>
+  1477→        </DialogContent>
+  1478→      </Dialog>
+  1479→    </div>
+  1480→  );
+  1481→}
+  1482→
+  1483→// ======================================================================
+  1484→// Main Subject Detail View
+  1485→// ======================================================================
+  1486→export default function SubjectDetailView() {
+  1487→  const selectedSubjectId = useStore((s) => s.selectedSubjectId);
+  1488→  const subject = useStore((s) => s.subjects.find((x) => x.id === s.selectedSubjectId));
+  1489→  const goBack = useStore((s) => s.goBack);
+  1490→  const navigate = useStore((s) => s.navigate);
+  1491→  const deleteSubject = useStore((s) => s.deleteSubject);
+  1492→  const selectSubject = useStore((s) => s.selectSubject);
+  1493→
+  1494→  const [deleteOpen, setDeleteOpen] = useState(false);
+  1495→  const [editOpen, setEditOpen] = useState(false);
+  1496→  const [editForm, setEditForm] = useState({ name: '', code: '', credits: 3, color: '', targetGrade: 'A' });
+  1497→
+  1498→  if (!subject || !selectedSubjectId) {
+  1499→    return (
+  1500→      <div className="p-6">
+  1501→        <Button variant="ghost" onClick={goBack} className="mb-4">
+  1502→          <ArrowLeft className="h-4 w-4 mr-2" /> Back
+  1503→        </Button>
+  1504→        <p className="text-muted-foreground">No subject selected.</p>
+  1505→      </div>
+  1506→    );
+  1507→  }
+  1508→
+  1509→  const signal = getSubjectSignal(useStore.getState(), selectedSubjectId);
+  1510→
+  1511→  const handleEditOpen = () => {
+  1512→    setEditForm({
+  1513→      name: subject.name,
+  1514→      code: subject.code,
+  1515→      credits: subject.credits,
+  1516→      color: subject.color,
+  1517→      targetGrade: subject.targetGrade || 'A',
+  1518→    });
+  1519→    setEditOpen(true);
+  1520→  };
+  1521→
+  1522→  const handleEditSave = () => {
+  1523→    const store = useStore.getState();
+  1524→    store.updateSubject(selectedSubjectId, {
+  1525→      name: editForm.name.trim(),
+  1526→      code: editForm.code.trim(),
+  1527→      credits: editForm.credits,
+  1528→      color: editForm.color,
+  1529→      targetGrade: editForm.targetGrade,
+  1530→    });
+  1531→    setEditOpen(false);
+  1532→  };
+  1533→
+  1534→  const handleDelete = () => {
+  1535→    deleteSubject(selectedSubjectId);
+  1536→    selectSubject(null);
+  1537→    setDeleteOpen(false);
+  1538→    navigate('subjects');
+  1539→  };
+  1540→
+  1541→  return (
+  1542→    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+  1543→      {/* Header */}
+  1544→      <div className="flex items-start gap-4 mb-6">
+  1545→        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 mt-0.5" onClick={goBack}>
+  1546→          <ArrowLeft className="h-5 w-5" />
+  1547→        </Button>
+  1548→        <div className="flex-1 min-w-0">
+  1549→          <div className="flex items-center gap-3 flex-wrap">
+  1550→            <h1 className="text-xl font-semibold tracking-tight">{subject.name}</h1>
+  1551→            {signalBadge(signal)}
+  1552→          </div>
+  1553→          <p className="text-sm text-muted-foreground mt-0.5">
+  1554→            {subject.code}{subject.code ? ' · ' : ''}{subject.credits} Credit{subject.credits !== 1 ? 's' : ''}
+  1555→          </p>
+  1556→        </div>
+  1557→
+  1558→        {/* Actions dropdown */}
+  1559→        <DropdownMenu>
+  1560→          <DropdownMenuTrigger asChild>
+  1561→            <Button variant="outline" size="icon" className="h-9 w-9">
+  1562→              <MoreHorizontal className="h-4 w-4" />
+  1563→            </Button>
+  1564→          </DropdownMenuTrigger>
+  1565→          <DropdownMenuContent align="end">
+  1566→            <DropdownMenuItem onClick={handleEditOpen}>
+  1567→              <Pencil className="h-4 w-4 mr-2" /> Edit Subject
+  1568→            </DropdownMenuItem>
+  1569→            <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => setDeleteOpen(true)}>
+  1570→              <Trash2 className="h-4 w-4 mr-2" /> Delete Subject
+  1571→            </DropdownMenuItem>
+  1572→          </DropdownMenuContent>
+  1573→        </DropdownMenu>
+  1574→      </div>
+  1575→
+  1576→      {/* Tabs */}
+  1577→      <Tabs defaultValue="overview" className="space-y-6">
+  1578→        <TabsList className="w-full justify-start overflow-x-auto scrollbar-thin">
+  1579→          <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
+  1580→          <TabsTrigger value="syllabus" className="text-sm">Syllabus</TabsTrigger>
+  1581→          <TabsTrigger value="marks" className="text-sm">Marks</TabsTrigger>
+  1582→          <TabsTrigger value="attendance" className="text-sm">Attendance</TabsTrigger>
+  1583→          <TabsTrigger value="revision" className="text-sm">Revision</TabsTrigger>
+  1584→          <TabsTrigger value="notes" className="text-sm">Notes</TabsTrigger>
+  1585→          <TabsTrigger value="exams" className="text-sm">Exams</TabsTrigger>
+  1586→        </TabsList>
+  1587→
+  1588→        <TabsContent value="overview">
+  1589→          <OverviewTab subjectId={selectedSubjectId} />
+  1590→        </TabsContent>
+  1591→        <TabsContent value="syllabus">
+  1592→          <SyllabusTab subjectId={selectedSubjectId} />
+  1593→        </TabsContent>
+  1594→        <TabsContent value="marks">
+  1595→          <MarksTab subjectId={selectedSubjectId} />
+  1596→        </TabsContent>
+  1597→        <TabsContent value="attendance">
+  1598→          <AttendanceTab subjectId={selectedSubjectId} />
+  1599→        </TabsContent>
+  1600→        <TabsContent value="revision">
+  1601→          <RevisionTab subjectId={selectedSubjectId} />
+  1602→        </TabsContent>
+  1603→        <TabsContent value="notes">
+  1604→          <NotesTab subjectId={selectedSubjectId} />
+  1605→        </TabsContent>
+  1606→        <TabsContent value="exams">
+  1607→          <ExamsTab subjectId={selectedSubjectId} />
+  1608→        </TabsContent>
+  1609→      </Tabs>
+  1610→
+  1611→      {/* Edit Subject Dialog */}
+  1612→      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+  1613→        <DialogContent className="sm:max-w-md">
+  1614→          <DialogHeader>
+  1615→            <DialogTitle>Edit Subject</DialogTitle>
+  1616→            <DialogDescription>Update the subject details.</DialogDescription>
+  1617→          </DialogHeader>
+  1618→          <div className="grid gap-4 py-2">
+  1619→            <div className="grid gap-2">
+  1620→              <Label>Name</Label>
+  1621→              <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+  1622→            </div>
+  1623→            <div className="grid grid-cols-2 gap-4">
+  1624→              <div className="grid gap-2">
+  1625→                <Label>Code</Label>
+  1626→                <Input value={editForm.code} onChange={(e) => setEditForm((f) => ({ ...f, code: e.target.value }))} />
+  1627→              </div>
+  1628→              <div className="grid gap-2">
+  1629→                <Label>Credits</Label>
+  1630→                <Input type="number" min={1} value={editForm.credits} onChange={(e) => setEditForm((f) => ({ ...f, credits: Math.max(1, parseInt(e.target.value) || 1) }))} />
+  1631→              </div>
+  1632→            </div>
+  1633→            <div className="grid gap-2">
+  1634→              <Label>Color</Label>
+  1635→              <div className="flex flex-wrap gap-2">
+  1636→                {SUBJECT_COLORS.map((c) => (
+  1637→                  <button
+  1638→                    key={c}
+  1639→                    type="button"
+  1640→                    className={`h-7 w-7 rounded-full transition-all ${editForm.color === c ? 'ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110' : 'hover:scale-105'}`}
+  1641→                    style={{ backgroundColor: c }}
+  1642→                    onClick={() => setEditForm((f) => ({ ...f, color: c }))}
+  1643→                    aria-label={`Select color ${c}`}
+  1644→                  />
+  1645→                ))}
+  1646→              </div>
+  1647→            </div>
+  1648→            <div className="grid gap-2">
+  1649→              <Label>Target Grade</Label>
+  1650→              <Select value={editForm.targetGrade} onValueChange={(v) => setEditForm((f) => ({ ...f, targetGrade: v }))}>
+  1651→                <SelectTrigger><SelectValue /></SelectTrigger>
+  1652→                <SelectContent>
+  1653→                  {GRADE_OPTIONS.map((g) => (
+  1654→                    <SelectItem key={g} value={g}>{g}</SelectItem>
+  1655→                  ))}
+  1656→                </SelectContent>
+  1657→              </Select>
+  1658→            </div>
+  1659→          </div>
+  1660→          <DialogFooter>
+  1661→            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+  1662→            <Button onClick={handleEditSave}>Save Changes</Button>
+  1663→          </DialogFooter>
+  1664→        </DialogContent>
+  1665→      </Dialog>
+  1666→
+  1667→      {/* Delete Confirmation */}
+  1668→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+  1669→        <AlertDialogContent>
+  1670→          <AlertDialogHeader>
+  1671→            <AlertDialogTitle>Delete Subject</AlertDialogTitle>
+  1672→            <AlertDialogDescription>
+  1673→              Are you sure you want to delete &ldquo;{subject.name}&rdquo;? All associated data including syllabus,
+  1674→              assessments, attendance, notes, and exams will be permanently removed.
+  1675→            </AlertDialogDescription>
+  1676→          </AlertDialogHeader>
+  1677→          <AlertDialogFooter>
+  1678→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+  1679→            <AlertDialogAction
+  1680→              className="bg-[var(--delulu-danger)] text-white hover:bg-[var(--delulu-danger)]/90"
+  1681→              onClick={handleDelete}
+  1682→            >
+  1683→              Delete
+  1684→            </AlertDialogAction>
+  1685→          </AlertDialogFooter>
+  1686→        </AlertDialogContent>
+  1687→      </AlertDialog>
+  1688→    </div>
+  1689→  );
+  1690→}
+  1691→

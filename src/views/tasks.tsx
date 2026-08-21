@@ -20,15 +20,10 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { useStore, getTodayTasks, getOverdueTasks } from '@/lib/store';
 import type { Task } from '@/lib/types';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -59,19 +54,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  PageHeader,
+  EmptyState,
+  SectionHeader,
+  MetricCard,
+} from '@/components/shared';
 
-// -- Animation helpers ------------------------------------------------
+// --- Animation helpers ---
 const container = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
 };
 
-// -- Helpers ----------------------------------------------------------
+// --- Helpers ---
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 function formatDueDate(dateStr: string): string {
@@ -94,27 +95,26 @@ function formatDueDate(dateStr: string): string {
   return format(date, 'MMM d');
 }
 
-function priorityConfig(priority: Task['priority']) {
+function priorityStyle(priority: Task['priority']): string {
   switch (priority) {
     case 'high':
-      return {
-        label: 'HIGH',
-        className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
-      };
+      return 'signal-critical';
     case 'medium':
-      return {
-        label: 'MEDIUM',
-        className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-      };
+      return 'signal-attention';
     case 'low':
-      return {
-        label: 'LOW',
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900',
-      };
+      return 'signal-healthy';
   }
 }
 
-// -- Task Card --------------------------------------------------------
+function priorityLabel(priority: Task['priority']): string {
+  switch (priority) {
+    case 'high': return 'HIGH';
+    case 'medium': return 'MED';
+    case 'low': return 'LOW';
+  }
+}
+
+// --- Task Card ---
 function TaskCard({
   task,
   onEdit,
@@ -129,123 +129,86 @@ function TaskCard({
   const subject = task.subjectId
     ? subjects.find((s) => s.id === task.subjectId)
     : null;
-  const p = priorityConfig(task.priority);
 
   return (
     <motion.div variants={fadeUp} layout>
-      <Card
-        className={`group transition-colors hover:border-primary/30 ${task.completed ? 'opacity-60' : ''}`}
+      <div
+        className={`metric-card group flex items-start gap-3 p-3 ${task.completed ? 'opacity-50' : ''}`}
       >
-        <CardContent className='flex items-start gap-3 p-4'>
-          <button
-            onClick={() => toggleComplete(task.id)}
-            className='mt-0.5 shrink-0'
-            aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+        <button
+          onClick={() => toggleComplete(task.id)}
+          className='mt-0.5 shrink-0'
+          aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {task.completed ? (
+            <CheckCircle2 className='h-[18px] w-[18px] text-emerald-500' />
+          ) : (
+            <Circle className='h-[18px] w-[18px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors' />
+          )}
+        </button>
+
+        <div className='flex-1 min-w-0'>
+          <span
+            className={`text-sm leading-tight ${task.completed ? 'line-through text-muted-foreground' : 'font-medium'}`}
           >
-            {task.completed ? (
-              <CheckCircle2 className='h-5 w-5 text-emerald-500' />
-            ) : (
-              <Circle className='h-5 w-5 text-muted-foreground/40 hover:text-muted-foreground transition-colors' />
-            )}
-          </button>
+            {task.title}
+          </span>
 
-          <div className='flex-1 min-w-0'>
-            <div className='flex items-center gap-2 flex-wrap'>
+          {task.description && (
+            <p className='text-[11px] text-muted-foreground mt-0.5 line-clamp-1'>
+              {task.description}
+            </p>
+          )}
+
+          <div className='flex items-center gap-2 mt-1.5 flex-wrap'>
+            <span className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold tracking-wider uppercase ${priorityStyle(task.priority)}`}>
+              {priorityLabel(task.priority)}
+            </span>
+            {subject && (
               <span
-                className={`font-medium text-sm leading-tight ${task.completed ? 'line-through text-muted-foreground' : ''}`}
+                className='inline-flex items-center gap-1 text-[10px] font-medium'
+                style={{ color: subject.color }}
               >
-                {task.title}
+                <span
+                  className='status-dot'
+                  style={{ backgroundColor: subject.color }}
+                />
+                {subject.code}
               </span>
-            </div>
-
-            {task.description && (
-              <p className='text-xs text-muted-foreground mt-1 line-clamp-1'>
-                {task.description}
-              </p>
             )}
-
-            <div className='flex items-center gap-2 mt-2 flex-wrap'>
-              <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${p.className}`}>
-                {p.label}
-              </Badge>
-              {subject && (
-                <Badge
-                  variant='outline'
-                  className='text-[10px] px-1.5 py-0'
-                  style={{
-                    borderColor: subject.color + '60',
-                    color: subject.color,
-                  }}
-                >
-                  {subject.code}
-                </Badge>
-              )}
-              {task.dueDate && (
-                <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
-                  <Clock className='h-3 w-3' />
-                  {formatDueDate(task.dueDate)}
-                </span>
-              )}
-            </div>
+            {task.dueDate && (
+              <span className='text-[10px] text-muted-foreground flex items-center gap-1'>
+                <Clock className='h-2.5 w-2.5' />
+                {formatDueDate(task.dueDate)}
+              </span>
+            )}
           </div>
+        </div>
 
-          <div className='flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0'>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8'
-              onClick={onEdit}
-            >
-              <Pencil className='h-3.5 w-3.5' />
-            </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 text-destructive hover:text-destructive'
-              onClick={onDelete}
-            >
-              <Trash2 className='h-3.5 w-3.5' />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-// -- Empty State ------------------------------------------------------
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className='flex flex-col items-center justify-center py-16 px-4 text-center'
-    >
-      <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
-        <Icon className='h-6 w-6 text-muted-foreground' />
+        <div className='flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0'>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-7 w-7'
+            onClick={onEdit}
+          >
+            <Pencil className='h-3 w-3' />
+          </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-7 w-7 text-destructive hover:text-destructive'
+            onClick={onDelete}
+          >
+            <Trash2 className='h-3 w-3' />
+          </Button>
+        </div>
       </div>
-      <p className='font-medium text-sm text-foreground mb-1'>{title}</p>
-      <p className='text-sm text-muted-foreground max-w-sm'>{description}</p>
-      {action && (
-        <Button variant='outline' size='sm' className='mt-4' onClick={action.onClick}>
-          {action.label}
-        </Button>
-      )}
     </motion.div>
   );
 }
 
-// -- Add/Edit Task Dialog Form ----------------------------------------
+// --- Add/Edit Task Dialog Form ---
 function TaskDialog({
   open,
   onOpenChange,
@@ -262,7 +225,6 @@ function TaskDialog({
 
   const isEditing = !!task;
 
-  // Derive initial values from task prop directly
   const initialTitle = task?.title ?? '';
   const initialDescription = task?.description ?? '';
   const initialPriority: Task['priority'] = task?.priority ?? 'medium';
@@ -299,12 +261,12 @@ function TaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Task' : 'Add Task'}</DialogTitle>
+          <DialogTitle className='text-base'>{isEditing ? 'Edit Task' : 'Add Task'}</DialogTitle>
         </DialogHeader>
 
         <div className='space-y-4 py-2'>
-          <div className='space-y-2'>
-            <Label htmlFor='task-title'>Title *</Label>
+          <div className='space-y-1.5'>
+            <Label className='section-label' htmlFor='task-title'>Title *</Label>
             <Input
               id='task-title'
               placeholder='What needs to be done?'
@@ -317,8 +279,8 @@ function TaskDialog({
             />
           </div>
 
-          <div className='space-y-2'>
-            <Label htmlFor='task-desc'>Description</Label>
+          <div className='space-y-1.5'>
+            <Label className='section-label' htmlFor='task-desc'>Description</Label>
             <Textarea
               id='task-desc'
               placeholder='Optional details...'
@@ -330,13 +292,13 @@ function TaskDialog({
           </div>
 
           <div className='grid grid-cols-2 gap-3'>
-            <div className='space-y-2'>
-              <Label>Priority</Label>
+            <div className='space-y-1.5'>
+              <Label className='section-label'>Priority</Label>
               <Select
                 value={priority}
                 onValueChange={(v) => setPriority(v as Task['priority'])}
               >
-                <SelectTrigger>
+                <SelectTrigger className='h-8 text-xs'>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -347,10 +309,10 @@ function TaskDialog({
               </Select>
             </div>
 
-            <div className='space-y-2'>
-              <Label>Subject</Label>
+            <div className='space-y-1.5'>
+              <Label className='section-label'>Subject</Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger>
+                <SelectTrigger className='h-8 text-xs'>
                   <SelectValue placeholder='None' />
                 </SelectTrigger>
                 <SelectContent>
@@ -365,22 +327,23 @@ function TaskDialog({
             </div>
           </div>
 
-          <div className='space-y-2'>
-            <Label htmlFor='task-due'>Due Date</Label>
+          <div className='space-y-1.5'>
+            <Label className='section-label' htmlFor='task-due'>Due Date</Label>
             <Input
               id='task-due'
               type='date'
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+              className='h-8 text-xs'
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' size='sm' onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!title.trim()}>
+          <Button size='sm' onClick={handleSubmit} disabled={!title.trim()}>
             {isEditing ? 'Save Changes' : 'Add Task'}
           </Button>
         </DialogFooter>
@@ -389,7 +352,7 @@ function TaskDialog({
   );
 }
 
-// -- Main Component ---------------------------------------------------
+// --- Main Component ---
 export default function TasksView() {
   const tasks = useStore((s) => s.tasks);
   const deleteTask = useStore((s) => s.deleteTask);
@@ -399,7 +362,6 @@ export default function TasksView() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // -- Compute tab groups
   const today = todayStr();
 
   const todayTasks = useMemo(
@@ -433,7 +395,8 @@ export default function TasksView() {
     [tasks],
   );
 
-  // -- Sort tasks by priority then due date
+  const remainingCount = tasks.filter((t) => !t.completed).length;
+
   const sortByPriority = (list: Task[]) =>
     [...list].sort((a, b) => {
       const prio = { high: 0, medium: 1, low: 2 };
@@ -487,99 +450,105 @@ export default function TasksView() {
   const current = tabData[activeTab];
 
   return (
-    <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-4'>
+    <div className='content-area px-4 sm:px-6 py-6 space-y-5'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Tasks</h1>
-          <p className='text-sm text-muted-foreground mt-0.5'>
-            {tasks.filter((t) => !t.completed).length} remaining,
-            {' '}{doneTasks.length} completed
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setEditingTask(null);
-            setDialogOpen(true);
-          }}
-          size='sm'
-          className='gap-1.5'
-        >
-          <Plus className='h-4 w-4' />
-          <span className='hidden sm:inline'>Add Task</span>
-        </Button>
-      </div>
+      <PageHeader
+        title='Tasks'
+        subtitle={`${remainingCount} remaining, ${doneTasks.length} completed`}
+        actions={
+          <Button
+            onClick={() => {
+              setEditingTask(null);
+              setDialogOpen(true);
+            }}
+            size='sm'
+            className='h-8'
+          >
+            <Plus className='mr-1.5 h-3.5 w-3.5' />
+            <span className='hidden sm:inline text-xs'>Add Task</span>
+          </Button>
+        }
+      />
 
-      <Separator />
+      {/* Summary metrics */}
+      <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+        <MetricCard
+          label='Today'
+          value={todayTasks.length}
+          context='due now'
+          valueColor={todayTasks.length > 0 ? undefined : 'text-muted-foreground'}
+        />
+        <MetricCard
+          label='Overdue'
+          value={overdueTasks.length}
+          context={overdueTasks.length > 0 ? 'needs attention' : 'on track'}
+          valueColor={overdueTasks.length > 0 ? 'text-red-600 dark:text-red-400' : undefined}
+        />
+        <MetricCard
+          label='Upcoming'
+          value={upcomingTasks.length}
+          context='future tasks'
+        />
+        <MetricCard
+          label='Completed'
+          value={doneTasks.length}
+          context='of {tasks.length} total'
+          valueColor='text-emerald-600 dark:text-emerald-400'
+        />
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className='overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0'>
-          <TabsList className='inline-flex w-auto min-w-0'>
-            <TabsTrigger value='today' className='gap-1.5'>
-              <Inbox className='h-3.5 w-3.5 hidden sm:block' />
+          <TabsList className='inline-flex w-auto min-w-0 h-8'>
+            <TabsTrigger value='today' className='gap-1.5 text-xs'>
+              <Inbox className='h-3 w-3 hidden sm:block' />
               Today
               {todayTasks.length > 0 && (
-                <Badge
-                  variant='secondary'
-                  className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                >
+                <span className='ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold rounded-full bg-primary/10 text-primary inline-flex items-center justify-center'>
                   {todayTasks.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value='overdue' className='gap-1.5'>
-              <AlertTriangle className='h-3.5 w-3.5 hidden sm:block' />
+            <TabsTrigger value='overdue' className='gap-1.5 text-xs'>
+              <AlertTriangle className='h-3 w-3 hidden sm:block' />
               Overdue
               {overdueTasks.length > 0 && (
-                <Badge
-                  variant='secondary'
-                  className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                >
+                <span className='ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold rounded-full bg-red-500/10 text-red-600 dark:text-red-400 inline-flex items-center justify-center'>
                   {overdueTasks.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value='upcoming' className='gap-1.5'>
-              <CalendarDays className='h-3.5 w-3.5 hidden sm:block' />
+            <TabsTrigger value='upcoming' className='gap-1.5 text-xs'>
+              <CalendarDays className='h-3 w-3 hidden sm:block' />
               Upcoming
               {upcomingTasks.length > 0 && (
-                <Badge
-                  variant='secondary'
-                  className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                >
+                <span className='ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 inline-flex items-center justify-center'>
                   {upcomingTasks.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value='someday' className='gap-1.5'>
-              <Sparkles className='h-3.5 w-3.5 hidden sm:block' />
+            <TabsTrigger value='someday' className='gap-1.5 text-xs'>
+              <Sparkles className='h-3 w-3 hidden sm:block' />
               Someday
               {somedayTasks.length > 0 && (
-                <Badge
-                  variant='secondary'
-                  className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                >
+                <span className='ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 inline-flex items-center justify-center'>
                   {somedayTasks.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value='done' className='gap-1.5'>
-              <CheckCheck className='h-3.5 w-3.5 hidden sm:block' />
+            <TabsTrigger value='done' className='gap-1.5 text-xs'>
+              <CheckCheck className='h-3 w-3 hidden sm:block' />
               Done
               {doneTasks.length > 0 && (
-                <Badge
-                  variant='secondary'
-                  className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                >
+                <span className='ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center'>
                   {doneTasks.length}
-                </Badge>
+                </span>
               )}
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* All tabs share the same rendering - we use a single list with AnimatePresence */}
         {['today', 'overdue', 'upcoming', 'someday', 'done'].map((tab) => (
           <TabsContent key={tab} value={tab} className='mt-4'>
             {tabData[tab].tasks.length === 0 ? (
@@ -587,14 +556,18 @@ export default function TasksView() {
                 icon={tabData[tab].emptyIcon}
                 title={tabData[tab].emptyTitle}
                 description={tabData[tab].emptyDesc}
-                action={tabData[tab].emptyAction}
+                action={tabData[tab].emptyAction ? (
+                  <Button variant='outline' size='sm' onClick={tabData[tab].emptyAction.onClick}>
+                    {tabData[tab].emptyAction.label}
+                  </Button>
+                ) : undefined}
               />
             ) : (
               <motion.div
                 variants={container}
                 initial='hidden'
                 animate='show'
-                className='space-y-2'
+                className='space-y-1.5'
               >
                 <AnimatePresence mode='popLayout'>
                   {tabData[tab].tasks.map((task) => (

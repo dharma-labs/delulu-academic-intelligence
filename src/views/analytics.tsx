@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Clock, BarChart3, BrainCircuit, Target, Flame } from 'lucide-react';
+import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity } from 'lucide-react';
 import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
+import { motion } from 'framer-motion';
+import { PageHeader, MetricCard, SectionHeader, EmptyState, InsightCard, CompactProgress } from '@/components/shared';
+import { progressColorClass } from '@/components/shared';
 
 type SubjectSummary = { id: string; name: string; color: string; percentage: number };
 type HeatmapDay = { dateStr: string; minutes: number };
@@ -26,6 +28,7 @@ export default function AnalyticsView() {
   const [studyDist, setStudyDist] = useState<StudyDistItem[]>([]);
   const [recentAssessments, setRecentAssessments] = useState<AssessSummary[]>([]);
   const [threshold, setThreshold] = useState(75);
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'semester'>('week');
 
   useEffect(() => {
     const compute = () => {
@@ -82,13 +85,6 @@ export default function AnalyticsView() {
     return 'text-[var(--delulu-danger)]';
   };
 
-  const getBarColor = (pct: number) => {
-    if (pct >= 75) return 'bg-[var(--delulu-success)]';
-    if (pct >= 50) return 'bg-[var(--delulu-info)]';
-    if (pct >= 30) return 'bg-[var(--delulu-warning)]';
-    return 'bg-[var(--delulu-danger)]';
-  };
-
   const getHeatColor = (m: number) => {
     if (m === 0) return 'bg-border';
     if (m < 15) return 'bg-primary/20';
@@ -97,13 +93,17 @@ export default function AnalyticsView() {
     return 'bg-primary';
   };
 
+  const belowThresholdCount = attendanceTrend.filter((a) => a.percentage < threshold).length;
+  const hasInsights = weekMinutes > 0 || uniqueSubjects > 0 || belowThresholdCount > 0;
+
   if (!ready) {
     return (
       <div className="p-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="h-6 w-40 bg-muted animate-pulse rounded" />
+        <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+            <div key={i} className="metric-card" />
           ))}
         </div>
       </div>
@@ -111,258 +111,276 @@ export default function AnalyticsView() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground text-sm mt-1">Your academic performance insights</p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-              <Clock className="w-3.5 h-3.5" />
-              Study Time
-            </div>
-            <div className="text-2xl font-bold tabular-nums">{weekMinutes}m</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {weekSessions} sessions this week
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-              <Target className="w-3.5 h-3.5" />
-              Avg Session
-            </div>
-            <div className="text-2xl font-bold tabular-nums">{avgSession}m</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              minutes per session
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-              <BarChart3 className="w-3.5 h-3.5" />
-              CA Average
-            </div>
-            <div className={`text-2xl font-bold tabular-nums ${getColor(assessmentAvgPct)}`}>
-              {assessmentAvgPct}%
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {assessmentCount} assessments
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-              <BrainCircuit className="w-3.5 h-3.5" />
-              Revision Queue
-            </div>
-            <div className="text-2xl font-bold tabular-nums">
-              {dueRevisionCount}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              items due now
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Heatmap */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Study Activity</CardTitle>
-          <CardDescription>Last 35 days</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-1.5">
-            {heatmap.map((d) => (
-              <div
-                key={d.dateStr}
-                className={`w-3.5 h-3.5 rounded-sm ${getHeatColor(d.minutes)} transition-colors`}
-                title={`${d.dateStr}: ${d.minutes}m`}
-              />
+    <div className="p-4 md:p-6 content-area animate-fade-slide-in">
+      <PageHeader
+        title="Analytics"
+        subtitle="Academic performance insights and trends"
+        actions={
+          <div className="flex items-center bg-secondary rounded-lg p-0.5">
+            {(['week', 'month', 'semester'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  timeRange === range
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {range.charAt(0).toUpperCase() + range.slice(1)}
+              </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
-            <span>Less</span>
-            <div className="flex gap-1">
-              <div className="w-3 h-3 rounded-sm bg-border" />
-              <div className="w-3 h-3 rounded-sm bg-primary/20" />
-              <div className="w-3 h-3 rounded-sm bg-primary/40" />
-              <div className="w-3 h-3 rounded-sm bg-primary/60" />
-              <div className="w-3 h-3 rounded-sm bg-primary" />
-            </div>
-            <span>More</span>
-          </div>
-        </CardContent>
-      </Card>
+        }
+      />
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Study Distribution</CardTitle>
-            <CardDescription>This week by subject</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {studyDist.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No study sessions this week.</p>
-            ) : (
-              studyDist.map((d) => {
+      {/* Summary Metric Cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+      >
+        <MetricCard
+          label="Study Time"
+          value={`${weekMinutes}m`}
+          context={`${weekSessions} sessions this week`}
+          icon={Clock}
+          trend={weekMinutes > 120 ? 'up' : 'neutral'}
+          trendValue={weekMinutes > 0 ? `${uniqueSubjects} subjects` : undefined}
+        />
+        <MetricCard
+          label="Avg Session"
+          value={`${avgSession}m`}
+          context="minutes per session"
+          icon={Target}
+        />
+        <MetricCard
+          label="CA Average"
+          value={`${assessmentAvgPct}%`}
+          context={`${assessmentCount} assessments`}
+          icon={BarChart3}
+          valueColor={getColor(assessmentAvgPct)}
+        />
+        <MetricCard
+          label="Revision Queue"
+          value={dueRevisionCount}
+          context="items due now"
+          icon={BrainCircuit}
+          valueColor={dueRevisionCount > 5 ? 'text-[var(--delulu-danger)]' : undefined}
+        />
+      </motion.div>
+
+      {/* Study Activity Heatmap */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="metric-card mb-6"
+      >
+        <SectionHeader title="Study Activity" subtitle="Last 35 days" />
+        <div className="flex flex-wrap gap-[3px]">
+          {heatmap.map((d) => (
+            <div
+              key={d.dateStr}
+              className={`w-3 h-3 rounded-[2px] ${getHeatColor(d.minutes)} transition-colors`}
+              title={`${d.dateStr}: ${d.minutes}m`}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2.5 mt-3 text-[10px] text-muted-foreground">
+          <span>Less</span>
+          <div className="flex gap-[3px]">
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-border" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-primary/20" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-primary/40" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-primary/60" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-primary" />
+          </div>
+          <span>More</span>
+        </div>
+      </motion.div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {/* Study Distribution */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="metric-card"
+        >
+          <SectionHeader title="Study Distribution" subtitle="This week by subject" />
+          {studyDist.length === 0 ? (
+            <EmptyState
+              icon={BarChart3}
+              title="No study data"
+              description="Start a study session to see your distribution"
+              className="py-8"
+            />
+          ) : (
+            <div className="space-y-3">
+              {studyDist.map((d) => {
                 const mx = Math.max(...studyDist.map((x) => x.minutes), 1);
                 return (
-                  <div key={d.subjectId} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
+                  <div key={d.subjectId}>
+                    <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                        <span className="truncate max-w-[160px]">{d.name}</span>
+                        <span className="status-dot" style={{ backgroundColor: d.color }} />
+                        <span className="text-xs font-medium truncate max-w-[140px]">{d.name}</span>
                       </div>
-                      <span className="font-medium tabular-nums">{d.minutes}m</span>
+                      <span className="text-xs font-semibold tabular-nums">{d.minutes}m</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="progress-thin">
+                      <div style={{ width: `${(d.minutes / mx) * 100}%`, backgroundColor: d.color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Attendance Overview */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.12 }}
+          className="metric-card"
+        >
+          <SectionHeader title="Attendance Overview" subtitle="Per subject" />
+          {attendanceTrend.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="No attendance data"
+              description="Mark your attendance to track trends"
+              className="py-8"
+            />
+          ) : (
+            <div className="space-y-3">
+              {attendanceTrend.map((a) => (
+                <CompactProgress
+                  key={a.id}
+                  label={a.name}
+                  value={a.percentage}
+                  color={progressColorClass(a.percentage)}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Syllabus Coverage */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.14 }}
+          className="metric-card"
+        >
+          <SectionHeader title="Syllabus Coverage" subtitle="Per subject" />
+          {syllabusTrend.length === 0 ? (
+            <EmptyState
+              icon={Target}
+              title="No subjects"
+              description="Add subjects to track syllabus progress"
+              className="py-8"
+            />
+          ) : (
+            <div className="space-y-3">
+              {syllabusTrend.map((s) => (
+                <CompactProgress
+                  key={s.id}
+                  label={s.name}
+                  value={s.percentage}
+                  color={progressColorClass(s.percentage)}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Recent Assessments */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.16 }}
+          className="metric-card"
+        >
+          <SectionHeader title="Recent Assessments" subtitle="Last 5 performance scores" />
+          {recentAssessments.length === 0 ? (
+            <EmptyState
+              icon={BarChart3}
+              title="No assessments yet"
+              description="Record your CA marks to see performance trends"
+              className="py-8"
+            />
+          ) : (
+            <div className="space-y-3">
+              {recentAssessments.map((a, i) => {
+                const pct = (a.obtainedMarks / a.maxMarks) * 100;
+                return (
+                  <div key={a.id}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground tabular-nums w-4">{i + 1}.</span>
+                        <span className="text-xs font-medium truncate max-w-[140px]">{a.name}</span>
+                      </div>
+                      <span className={`text-xs font-semibold tabular-nums ${getColor(pct)}`}>
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="progress-thin">
                       <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${(d.minutes / mx) * 100}%`, backgroundColor: d.color }}
+                        className={progressColorClass(pct) === 'green' ? 'bg-emerald-500 dark:bg-emerald-400' :
+                          progressColorClass(pct) === 'blue' ? 'bg-blue-500 dark:bg-blue-400' :
+                          progressColorClass(pct) === 'amber' ? 'bg-amber-500 dark:bg-amber-400' :
+                          'bg-red-500 dark:bg-red-400'}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
                 );
-              })
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Attendance Overview</CardTitle>
-            <CardDescription>Per subject</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {attendanceTrend.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No attendance data.</p>
-            ) : (
-              attendanceTrend.map((a) => (
-                <div key={a.id} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }} />
-                      <span className="truncate max-w-[160px]">{a.name}</span>
-                    </div>
-                    <span className={`font-medium tabular-nums ${getColor(a.percentage)}`}>{a.percentage.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${getBarColor(a.percentage)}`}
-                      style={{ width: `${Math.min(a.percentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Syllabus Coverage</CardTitle>
-            <CardDescription>Per subject</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {syllabusTrend.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No subjects.</p>
-            ) : (
-              syllabusTrend.map((s) => (
-                <div key={s.id} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                      <span className="truncate max-w-[160px]">{s.name}</span>
-                    </div>
-                    <span className={`font-medium tabular-nums ${getColor(s.percentage)}`}>{s.percentage.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${getBarColor(s.percentage)}`}
-                      style={{ width: `${s.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recent Assessments</CardTitle>
-            <CardDescription>Last 5 performance scores</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {recentAssessments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No assessments yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentAssessments.map((a, i) => {
-                  const pct = (a.obtainedMarks / a.maxMarks) * 100;
-                  return (
-                    <div key={a.id} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="truncate">{a.name}</span>
-                          <span className={`font-medium tabular-nums ml-2 ${getColor(pct)}`}>{pct.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${getBarColor(pct)}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              })}
+            </div>
+          )}
+        </motion.div>
       </div>
 
       {/* Insights */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Flame className="w-4 h-4" />
-            Insights
-          </CardTitle>
-          <CardDescription>Based on your data</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {weekMinutes > 0 && (
-              <li className="flex items-start gap-2 text-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                You studied {weekMinutes} minutes across {weekSessions} sessions this week.
-              </li>
-            )}
-            {uniqueSubjects > 0 && (
-              <li className="flex items-start gap-2 text-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                You covered {uniqueSubjects} subject{uniqueSubjects > 1 ? 's' : ''} this week.
-              </li>
-            )}
-            {attendanceTrend.filter((a) => a.percentage < threshold).length > 0 && (
-              <li className="flex items-start gap-2 text-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                {attendanceTrend.filter((a) => a.percentage < threshold).length} subject(s) below {threshold}% attendance threshold.
-              </li>
-            )}
-          </ul>
-        </CardContent>
-      </Card>
+      {hasInsights && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="space-y-2"
+        >
+          <SectionHeader title="Insights" subtitle="Based on your data" />
+          {weekMinutes > 0 && (
+            <InsightCard
+              type="info"
+              icon={Activity}
+              title={`Studied ${weekMinutes} minutes this week`}
+              description={`Across ${weekSessions} sessions covering ${uniqueSubjects} subject${uniqueSubjects > 1 ? 's' : ''}`}
+            />
+          )}
+          {belowThresholdCount > 0 && (
+            <InsightCard
+              type="warning"
+              icon={Flame}
+              title={`${belowThresholdCount} subject${belowThresholdCount > 1 ? 's' : ''} below ${threshold}% attendance`}
+              description="Consider attending more classes to meet your threshold"
+            />
+          )}
+          {uniqueSubjects === 0 && weekMinutes === 0 && (
+            <InsightCard
+              type="positive"
+              icon={Activity}
+              title="Start studying this week"
+              description="Log study sessions to unlock detailed analytics"
+            />
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }

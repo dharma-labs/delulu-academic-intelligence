@@ -1,14 +1,13 @@
 'use client';
 
 import { useStore } from '@/lib/store';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Wifi, WifiOff, Loader2, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -67,7 +66,6 @@ export default function AITutorView() {
       if (data.error) throw new Error(data.error);
       setMessages([...newMessages, { role: 'assistant', content: data.content, timestamp: Date.now() }]);
     } catch {
-      // Offline fallback - generate a helpful response
       const topic = userMsg.content.toLowerCase();
       let response = 'I\'m currently offline, but here\'s a suggestion: try breaking down this topic into smaller parts and study each one systematically. Use the Revision feature to schedule spaced repetition sessions.';
       if (topic.includes('formula') || topic.includes('equation')) {
@@ -98,29 +96,29 @@ export default function AITutorView() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary" />
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Bot className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <h1 className="font-semibold">AI Tutor</h1>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="section-label" style={{ fontSize: '13px', letterSpacing: '0' }}>AI Tutor</span>
               {isOnline ? (
-                <Badge variant="outline" className="text-[10px] gap-1 border-[var(--delulu-success)]/30 text-[var(--delulu-success)]">
-                  <Wifi className="w-2.5 h-2.5" /> Connected
-                </Badge>
+                <span className="flex items-center gap-1 text-[10px] text-[var(--delulu-success)] font-medium">
+                  <Wifi className="h-2.5 w-2.5" /> Connected
+                </span>
               ) : (
-                <Badge variant="outline" className="text-[10px] gap-1 border-[var(--delulu-warning)]/30 text-[var(--delulu-warning)]">
-                  <WifiOff className="w-2.5 h-2.5" /> Offline
-                </Badge>
+                <span className="flex items-center gap-1 text-[10px] text-[var(--delulu-warning)] font-medium">
+                  <WifiOff className="h-2.5 w-2.5" /> Offline
+                </span>
               )}
             </div>
           </div>
         </div>
         {messages.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground">
-            <Trash2 className="w-4 h-4 mr-1" /> Clear
+          <Button variant="ghost" size="sm" onClick={clearChat} className="text-muted-foreground h-7 text-xs">
+            <Trash2 className="w-3.5 h-3.5 mr-1" /> Clear
           </Button>
         )}
       </div>
@@ -129,53 +127,67 @@ export default function AITutorView() {
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-lg font-semibold mb-2">How can I help you study?</h2>
-            <p className="text-sm text-muted-foreground mb-6">Ask me about concepts, exam prep, study strategies, or anything academic.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-              {quickPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
-                  className="text-left text-sm p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/50 transition-colors"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Sparkles className="h-7 w-7 text-primary" />
+              </div>
+              <h2 className="text-base font-semibold mb-1.5">How can I help you study?</h2>
+              <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+                Ask me about concepts, exam prep, study strategies, or anything academic.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+                {quickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
+                    className="text-left text-xs p-3 rounded-lg border border-border hover:border-primary/25 bg-card transition-colors"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           </div>
         ) : (
           <div className="space-y-4 max-w-3xl mx-auto">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : ''}`}
+              >
                 {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4 text-primary" />
+                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
                   </div>
                 )}
-                <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+                <div className={`max-w-[75%] rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                    : 'bg-card border border-border'
                 }`}>
                   {msg.content}
                 </div>
                 {msg.role === 'user' && (
-                  <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-4 h-4" />
+                  <div className="h-6 w-6 rounded-md bg-secondary flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="h-3.5 w-3.5" />
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
             {isLoading && (
-              <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-primary" />
+              <div className="flex gap-2.5">
+                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-primary" />
                 </div>
-                <div className="bg-muted rounded-xl px-4 py-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                <div className="bg-card border border-border rounded-lg px-4 py-3">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                 </div>
               </div>
             )}
@@ -184,7 +196,7 @@ export default function AITutorView() {
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-border">
+      <div className="p-3 md:p-4 border-t border-border bg-card shrink-0">
         <div className="flex gap-2 max-w-3xl mx-auto">
           <Input
             ref={inputRef}
@@ -195,11 +207,11 @@ export default function AITutorView() {
             disabled={isLoading}
             className="flex-1"
           />
-          <Button onClick={handleSend} disabled={!input.trim() || isLoading} size="icon">
+          <Button onClick={handleSend} disabled={!input.trim() || isLoading} size="icon" className="shrink-0">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground text-center mt-2">AI Tutor is optional. Works offline with limited responses.</p>
+        <p className="text-[10px] text-muted-foreground text-center mt-1.5">AI Tutor is optional. Works offline with limited responses.</p>
       </div>
     </div>
   );

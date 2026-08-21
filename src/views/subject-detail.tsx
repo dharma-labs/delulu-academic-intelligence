@@ -26,11 +26,7 @@ import {
   Timer,
   Flame,
   Save,
-  Undo2,
-  RotateCcw,
-  Eye,
   Trash,
-  Edit3,
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
@@ -42,15 +38,13 @@ import {
   getSubjectSignal,
   reviewRevisionItem,
 } from '@/lib/store';
-import { SUBJECT_COLORS, SIGNAL_COLORS, GRADE_POINTS, GRADE_FROM_PERCENTAGE } from '@/lib/types';
+import { SUBJECT_COLORS, GRADE_POINTS } from '@/lib/types';
 import type { SignalStatus, Assessment, Exam, RevisionItem, Note, SyllabusUnit, SyllabusTopic } from '@/lib/types';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -100,6 +94,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  MetricCard,
+  StatusBadge,
+  SectionHeader,
+  InsightCard,
+  EmptyState,
+  CompactProgress,
+} from '@/components/shared';
 
 // -- Helpers ------------------------------------------------------------
 
@@ -120,17 +122,20 @@ const EXAM_TYPES: { value: Exam['type']; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-function signalBadge(signal: SignalStatus) {
-  const map: Record<SignalStatus, { label: string; className: string }> = {
-    healthy: { label: 'Healthy', className: 'bg-[var(--delulu-success)]/15 text-[var(--delulu-success)] border-[var(--delulu-success)]/20' },
-    improving: { label: 'Improving', className: 'bg-[var(--delulu-info)]/15 text-[var(--delulu-info)] border-[var(--delulu-info)]/20' },
-    attention: { label: 'Needs Attention', className: 'bg-[var(--delulu-warning)]/15 text-[var(--delulu-warning)] border-[var(--delulu-warning)]/20' },
-    critical: { label: 'Critical', className: 'bg-[var(--delulu-danger)]/15 text-[var(--delulu-danger)] border-[var(--delulu-danger)]/20' },
-    upcoming: { label: 'Upcoming', className: 'bg-[var(--delulu-purple)]/15 text-[var(--delulu-purple)] border-[var(--delulu-purple)]/20' },
-    nodata: { label: 'No Data', className: 'bg-muted text-muted-foreground border-border' },
-  };
-  const s = map[signal];
-  return <Badge variant="outline" className={s.className}>{s.label}</Badge>;
+function signalToStatus(signal: SignalStatus): 'healthy' | 'improving' | 'attention' | 'critical' | 'upcoming' | 'nodata' {
+  if (signal === 'nodata') return 'nodata';
+  return signal as 'healthy' | 'improving' | 'attention' | 'critical' | 'upcoming';
+}
+
+function signalLabel(signal: SignalStatus): string {
+  switch (signal) {
+    case 'healthy': return 'Healthy';
+    case 'improving': return 'Improving';
+    case 'attention': return 'Needs Attention';
+    case 'critical': return 'Critical';
+    case 'upcoming': return 'Upcoming';
+    default: return 'No Data';
+  }
 }
 
 function pctColor(pct: number): string {
@@ -175,17 +180,14 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
   const marks = getSubjectMarks({ assessments }, subjectId);
   const grade = getSubjectGrade({ assessments }, subjectId);
 
-  // CA performance (average assessment %)
   const caPct = assessments.length > 0
     ? Math.round(assessments.reduce((sum, a) => sum + (a.maxMarks > 0 ? (a.obtainedMarks / a.maxMarks) * 100 : 0), 0) / assessments.length)
     : 0;
 
-  // Next upcoming exam
   const nextExam = exams
     .filter((e) => e.status === 'upcoming')
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
-  // Recommended action
   const recommendation = useMemo(() => {
     const recs: string[] = [];
     if (att.total > 0 && att.percentage < profile.attendanceThreshold) {
@@ -216,7 +218,6 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
     return recs[0];
   }, [att, progress, marks, nextExam, profile.attendanceThreshold]);
 
-  // Recent activity (last 5 items combined from sessions and assessments)
   const recentActivity = useMemo(() => {
     const items: { type: string; label: string; date: string }[] = [];
     studySessions.forEach((s) =>
@@ -228,107 +229,110 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
     return items.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [studySessions, assessments]);
 
+  // Determine recommendation type for insight card
+  const recType = useMemo(() => {
+    if (att.total > 0 && att.percentage < profile.attendanceThreshold) return 'critical' as const;
+    if (marks.percentage < 50 && marks.max > 0) return 'warning' as const;
+    if (nextExam && Math.ceil((parseISO(nextExam.date).getTime() - Date.now()) / 86400000) <= 7) return 'warning' as const;
+    if (progress >= 80 && marks.percentage >= 70) return 'positive' as const;
+    return 'info' as const;
+  }, [att, progress, marks, nextExam, profile.attendanceThreshold]);
+
   if (!subject) return null;
 
-  const metrics = [
-    {
-      label: 'Current Grade',
-      value: marks.max > 0 ? grade : '--',
-      sub: marks.max > 0 ? `${marks.percentage}% average` : 'No assessments yet',
-      icon: GraduationCap,
-      color: marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground',
-    },
-    {
-      label: 'Attendance',
-      value: att.total > 0 ? `${att.percentage}%` : '--',
-      sub: att.total > 0 ? `${att.present}/${att.total} classes` : 'No records yet',
-      icon: ClipboardCheck,
-      color: att.total > 0
-        ? att.percentage >= profile.attendanceThreshold
-          ? 'text-[var(--delulu-success)]'
-          : 'text-[var(--delulu-danger)]'
-        : 'text-muted-foreground',
-    },
-    {
-      label: 'Syllabus',
-      value: `${progress}%`,
-      sub: progress > 0 ? 'topics completed' : 'No topics yet',
-      icon: BookOpen,
-      color: progress >= 75 ? 'text-[var(--delulu-success)]' : progress >= 40 ? 'text-[var(--delulu-info)]' : 'text-muted-foreground',
-    },
-    {
-      label: 'CA Performance',
-      value: caPct > 0 ? `${caPct}%` : '--',
-      sub: caPct > 0 ? `across ${assessments.length} assessment${assessments.length !== 1 ? 's' : ''}` : 'No assessments yet',
-      icon: BarChart3,
-      color: caPct > 0 ? pctColor(caPct) : 'text-muted-foreground',
-    },
-  ];
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 4 metric cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {metrics.map((m) => (
-          <motion.div key={m.label} variants={fadeUp} initial="hidden" animate="show">
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <m.icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-medium">{m.label}</span>
-              </div>
-              <p className={`text-2xl font-semibold ${m.color}`}>{m.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{m.sub}</p>
-            </Card>
-          </motion.div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <MetricCard
+            label="Current Grade"
+            value={marks.max > 0 ? grade : '--'}
+            context={marks.max > 0 ? `${marks.percentage}% average` : 'No assessments yet'}
+            icon={GraduationCap}
+            valueColor={marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground'}
+          />
+        </motion.div>
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <MetricCard
+            label="Attendance"
+            value={att.total > 0 ? `${att.percentage}%` : '--'}
+            context={att.total > 0 ? `${att.present}/${att.total} classes` : 'No records yet'}
+            icon={ClipboardCheck}
+            valueColor={att.total > 0
+              ? att.percentage >= profile.attendanceThreshold
+                ? 'text-[var(--delulu-success)]'
+                : 'text-[var(--delulu-danger)]'
+              : 'text-muted-foreground'}
+          />
+        </motion.div>
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <MetricCard
+            label="Syllabus"
+            value={`${progress}%`}
+            context={progress > 0 ? 'topics completed' : 'No topics yet'}
+            icon={BookOpen}
+            valueColor={progress >= 75 ? 'text-[var(--delulu-success)]' : progress >= 40 ? 'text-[var(--delulu-info)]' : 'text-muted-foreground'}
+          />
+        </motion.div>
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <MetricCard
+            label="CA Performance"
+            value={caPct > 0 ? `${caPct}%` : '--'}
+            context={caPct > 0 ? `across ${assessments.length} assessment${assessments.length !== 1 ? 's' : ''}` : 'No assessments yet'}
+            icon={BarChart3}
+            valueColor={caPct > 0 ? pctColor(caPct) : 'text-muted-foreground'}
+          />
+        </motion.div>
       </div>
 
       {/* Next Assessment + Recommendation */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
-          <Card className="p-4">
+          <div className="metric-card">
             <div className="flex items-center gap-2 mb-3">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Next Assessment</span>
+              <CalendarDays className="size-4 text-muted-foreground" />
+              <span className="section-label">Next Assessment</span>
             </div>
             {nextExam ? (
               <div>
-                <p className="font-medium">{nextExam.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="font-medium text-sm">{nextExam.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   {format(parseISO(nextExam.date), 'dd MMM yyyy')}
                 </p>
-                <Badge variant="outline" className="mt-2 capitalize">{nextExam.type}</Badge>
+                <Badge variant="secondary" className="mt-2 text-[10px] capitalize font-medium">{nextExam.type}</Badge>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No upcoming assessments</p>
             )}
-          </Card>
+          </div>
         </motion.div>
 
         <motion.div variants={fadeUp} initial="hidden" animate="show">
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Recommended Action</span>
-            </div>
-            <p className="text-sm leading-relaxed">{recommendation}</p>
-          </Card>
+          <InsightCard
+            type={recType}
+            icon={Target}
+            title="Recommended Action"
+            description={recommendation}
+          />
         </motion.div>
       </div>
 
       {/* Recent Activity */}
       <motion.div variants={fadeUp} initial="hidden" animate="show">
-        <Card className="p-4">
-          <h3 className="text-sm font-medium mb-3">Recent Activity</h3>
+        <div className="metric-card">
+          <div className="flex items-center justify-between mb-3">
+            <span className="section-label">Recent Activity</span>
+          </div>
           {recentActivity.length > 0 ? (
-            <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-thin">
+            <div className="space-y-2.5 max-h-48 overflow-y-auto scrollbar-thin">
               {recentActivity.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">
                     {item.type === 'session' ? (
-                      <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Timer className="size-3.5 text-muted-foreground" />
                     ) : (
-                      <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <BarChart3 className="size-3.5 text-muted-foreground" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -341,7 +345,7 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
           ) : (
             <p className="text-sm text-muted-foreground">No recent activity recorded</p>
           )}
-        </Card>
+        </div>
       </motion.div>
     </div>
   );
@@ -427,24 +431,28 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
   return (
     <div className="space-y-4">
       {/* Overall progress */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Overall Progress</span>
-          <span className="text-sm font-semibold">{completedTopics}/{totalTopics} topics ({overallPct}%)</span>
+      {totalTopics > 0 && (
+        <div className="metric-card">
+          <CompactProgress
+            label="Overall Progress"
+            value={overallPct}
+            displayValue={`${completedTopics}/${totalTopics} topics (${overallPct}%)`}
+          />
         </div>
-        <Progress value={overallPct} className="h-2" />
-      </Card>
+      )}
 
       {/* Units */}
       {units.length === 0 && !showAddUnit ? (
-        <div className="text-center py-12">
-          <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <h3 className="text-sm font-medium mb-1">No syllabus units yet</h3>
-          <p className="text-xs text-muted-foreground mb-4">Add units to start tracking your syllabus progress</p>
-          <Button size="sm" onClick={() => setShowAddUnit(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Unit
-          </Button>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="No syllabus units yet"
+          description="Add units to start tracking your syllabus progress"
+          action={
+            <Button size="sm" onClick={() => setShowAddUnit(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add Unit
+            </Button>
+          }
+        />
       ) : (
         <Accordion type="multiple" className="space-y-2">
           {units.map((unit) => {
@@ -454,9 +462,8 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
 
             return (
               <AccordionItem key={unit.id} value={unit.id} className="border rounded-lg px-0">
-                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 rounded-t-lg">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-secondary/50 rounded-t-lg">
                   <div className="flex items-center gap-3 flex-1 text-left">
-                    {/* Inline edit unit name */}
                     {editingUnitId === unit.id ? (
                       <div className="flex items-center gap-2 flex-1">
                         <Input
@@ -471,15 +478,20 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                           onClick={(e) => e.stopPropagation()}
                         />
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); saveEditUnit(); }}>
-                          <Check className="h-3.5 w-3.5" />
+                          <Check className="size-3.5" />
                         </Button>
                       </div>
                     ) : (
                       <>
                         <span className="font-medium text-sm flex-1" onDoubleClick={(e) => { e.stopPropagation(); startEditUnit(unit); }}>{unit.name}</span>
-                        <span className="text-xs text-muted-foreground">{completed}/{total}</span>
-                        <div className="w-20">
-                          <Progress value={pct} className="h-1.5" />
+                        <span className="text-xs text-muted-foreground tabular-nums">{completed}/{total}</span>
+                        <div className="w-16">
+                          <div className="progress-thin">
+                            <div
+                              className={pct >= 75 ? 'bg-emerald-500 dark:bg-emerald-400' : pct >= 40 ? 'bg-blue-500 dark:bg-blue-400' : 'bg-amber-500 dark:bg-amber-400'}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
                         </div>
                       </>
                     )}
@@ -490,7 +502,7 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                     {unit.topics.map((topic) => (
                       <div
                         key={topic.id}
-                        className="flex items-center gap-2 group py-1.5 px-2 rounded-md hover:bg-muted/50"
+                        className="flex items-center gap-2 group py-1.5 px-2 rounded-md hover:bg-secondary/50"
                       >
                         <Checkbox
                           checked={topic.completed}
@@ -511,10 +523,10 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                               autoFocus
                             />
                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={saveEditTopic}>
-                              <Check className="h-3 w-3" />
+                              <Check className="size-3" />
                             </Button>
                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingTopicId(null)}>
-                              <X className="h-3 w-3" />
+                              <X className="size-3" />
                             </Button>
                           </div>
                         ) : (
@@ -531,14 +543,13 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                               className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => deleteSyllabusTopic(topic.id)}
                             >
-                              <Trash className="h-3 w-3 text-muted-foreground" />
+                              <Trash className="size-3 text-muted-foreground" />
                             </Button>
                           </>
                         )}
                       </div>
                     ))}
 
-                    {/* Add topic input */}
                     <div className="flex items-center gap-2 mt-2 pl-7">
                       <Input
                         placeholder="Add topic..."
@@ -555,11 +566,10 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                         className="h-8 w-8 shrink-0"
                         onClick={() => handleAddTopic(unit.id)}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="size-4" />
                       </Button>
                     </div>
 
-                    {/* Delete unit */}
                     <div className="flex justify-end mt-2">
                       <Button
                         size="sm"
@@ -567,7 +577,7 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
                         className="text-xs text-muted-foreground h-7"
                         onClick={() => deleteSyllabusUnit(unit.id)}
                       >
-                        <Trash2 className="h-3 w-3 mr-1" /> Delete unit
+                        <Trash2 className="size-3 mr-1" /> Delete unit
                       </Button>
                     </div>
                   </div>
@@ -580,7 +590,7 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
 
       {/* Add unit */}
       {showAddUnit ? (
-        <Card className="p-4">
+        <div className="metric-card">
           <div className="flex items-center gap-2">
             <Input
               placeholder="Unit name..."
@@ -594,16 +604,16 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
               autoFocus
             />
             <Button size="sm" onClick={handleAddUnit} disabled={!newUnitName.trim()}>
-              <Check className="h-4 w-4 mr-1" /> Add
+              <Check className="size-4 mr-1" /> Add
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowAddUnit(false)}>
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </Button>
           </div>
-        </Card>
+        </div>
       ) : units.length > 0 ? (
         <Button variant="outline" size="sm" onClick={() => setShowAddUnit(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Unit
+          <Plus className="size-4 mr-1" /> Add Unit
         </Button>
       ) : null}
     </div>
@@ -638,11 +648,9 @@ function MarksTab({ subjectId }: { subjectId: string }) {
   const marks = getSubjectMarks({ assessments }, subjectId);
   const grade = getSubjectGrade({ assessments }, subjectId);
 
-  // Target simulator
   const targetGrade = subject?.targetGrade || 'A';
   const targetPct = GRADE_POINTS[targetGrade]
     ? (() => {
-        // Reverse lookup approximate percentage for grade
         const thresholds: [number, string][] = [
           [90, 'O'], [80, 'A'], [70, 'A-'], [60, 'B+'], [55, 'B'], [50, 'B-'], [45, 'C'], [40, 'P'],
         ];
@@ -654,9 +662,6 @@ function MarksTab({ subjectId }: { subjectId: string }) {
   const caAssessments = assessments.filter((a) => a.category !== 'other');
   const caTotal = caAssessments.reduce((s, a) => s + a.maxMarks, 0);
   const caObtained = caAssessments.reduce((s, a) => s + a.obtainedMarks, 0);
-  const caWeight = caTotal > 0 ? caTotal / 100 * 40 : 0; // Assume CA is 40%
-  const endSemWeight = 60; // Assume end-sem is 60%
-  const endSemTotal = 100;
   const requiredEndSemPct = caTotal > 0
     ? Math.max(0, ((targetPct - (caObtained / Math.max(1, caTotal)) * 40) / 60) * 100)
     : targetPct;
@@ -693,25 +698,30 @@ function MarksTab({ subjectId }: { subjectId: string }) {
     ASSESSMENT_CATEGORIES.find((x) => x.value === c)?.label || c;
 
   return (
-    <div className="space-y-6">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Total Marks</span>
-          <p className="text-xl font-semibold mt-1">{marks.obtained}/{marks.max}</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Percentage</span>
-          <p className={`text-xl font-semibold mt-1 ${pctColor(marks.percentage)}`}>{marks.percentage}%</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Current Grade</span>
-          <p className={`text-xl font-semibold mt-1 ${pctColor(marks.percentage)}`}>{marks.max > 0 ? grade : '--'}</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Target Grade</span>
+    <div className="space-y-5">
+      {/* Summary metric cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard
+          label="Total Marks"
+          value={`${marks.obtained}/${marks.max}`}
+          icon={BarChart3}
+        />
+        <MetricCard
+          label="Percentage"
+          value={`${marks.percentage}%`}
+          valueColor={pctColor(marks.percentage)}
+          icon={Target}
+        />
+        <MetricCard
+          label="Current Grade"
+          value={marks.max > 0 ? grade : '--'}
+          valueColor={marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground'}
+          icon={GraduationCap}
+        />
+        <div className="metric-card">
+          <span className="metric-label">Target Grade</span>
           <Select value={targetGrade} onValueChange={(v) => subject && updateSubject(subjectId, { targetGrade: v })}>
-            <SelectTrigger className="h-8 mt-1 text-base font-semibold">
+            <SelectTrigger className="h-9 mt-2 text-base font-bold">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -720,46 +730,37 @@ function MarksTab({ subjectId }: { subjectId: string }) {
               ))}
             </SelectContent>
           </Select>
-        </Card>
+        </div>
       </div>
 
       {/* Target Simulator */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Target className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Target Simulator</span>
-        </div>
-        {marks.max > 0 ? (
-          isReachable ? (
-            <p className="text-sm">
-              You need <span className={`font-semibold ${pctColor(requiredEndSemPct)}`}>{Math.ceil(requiredEndSemPct)}%</span> in the end-semester exam to reach your target grade of <span className="font-semibold">{targetGrade}</span>.
-            </p>
-          ) : (
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--delulu-danger)]" />
-              <p className="text-sm text-[var(--delulu-danger)] font-medium">
-                Target grade {targetGrade} may be unreachable with current CA scores.
-              </p>
-            </div>
-          )
-        ) : (
-          <p className="text-sm text-muted-foreground">Add assessments to see your target simulation.</p>
-        )}
-      </Card>
+      <InsightCard
+        type={!isReachable && marks.max > 0 ? 'critical' : 'info'}
+        icon={Target}
+        title="Target Simulator"
+        description={marks.max > 0
+          ? isReachable
+            ? `You need ${Math.ceil(requiredEndSemPct)}% in the end-semester exam to reach your target grade of ${targetGrade}.`
+            : `Target grade ${targetGrade} may be unreachable with current CA scores.`
+          : 'Add assessments to see your target simulation.'}
+      />
 
       {/* Assessment List */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Assessments ({assessments.length})</h3>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Assessment
-        </Button>
-      </div>
+      <SectionHeader
+        title={`Assessments (${assessments.length})`}
+        action={
+          <Button size="sm" onClick={() => setShowAdd(true)}>
+            <Plus className="size-4 mr-1" /> Add Assessment
+          </Button>
+        }
+      />
 
       {assessments.length === 0 ? (
-        <Card className="p-8 text-center">
-          <BarChart3 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No assessments recorded yet</p>
-        </Card>
+        <EmptyState
+          icon={BarChart3}
+          title="No assessments recorded yet"
+          description="Add your first assessment to start tracking your marks"
+        />
       ) : (
         <>
           {/* Desktop table */}
@@ -797,12 +798,12 @@ function MarksTab({ subjectId }: { subjectId: string }) {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs capitalize">{categoryLabel(a.category)}</Badge>
+                          <Badge variant="secondary" className="text-[10px] capitalize font-medium">{categoryLabel(a.category)}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {editingId === a.id ? (
                             <Button size="sm" variant="ghost" className="h-6 px-2" onClick={saveEditMarks}>
-                              <Save className="h-3 w-3 mr-1" /> Save
+                              <Save className="size-3 mr-1" /> Save
                             </Button>
                           ) : (
                             <span>{a.obtainedMarks}</span>
@@ -810,20 +811,20 @@ function MarksTab({ subjectId }: { subjectId: string }) {
                         </TableCell>
                         <TableCell className="text-right font-mono">{a.maxMarks}</TableCell>
                         <TableCell className={`text-right font-mono font-medium ${pctColor(pct)}`}>{pct}%</TableCell>
-                        <TableCell className="text-right text-muted-foreground text-sm">{a.date}</TableCell>
+                        <TableCell className="text-right text-muted-foreground text-xs">{a.date}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7">
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => startEditMarks(a)}>
-                                <Pencil className="h-4 w-4 mr-2" /> Edit marks
+                                <Pencil className="size-4 mr-2" /> Edit marks
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteAssessment(a.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteAssessment(a.id)}>
+                                <Trash2 className="size-4 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -837,41 +838,41 @@ function MarksTab({ subjectId }: { subjectId: string }) {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+          <div className="md:hidden space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {assessments.sort((a, b) => b.date.localeCompare(a.date)).map((a) => {
               const pct = a.maxMarks > 0 ? Math.round((a.obtainedMarks / a.maxMarks) * 100) : 0;
               return (
-                <Card key={a.id} className="p-4">
+                <div key={a.id} className="card-interactive p-3.5">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium text-sm">{a.name}</p>
-                      <Badge variant="outline" className="text-xs capitalize mt-1">{categoryLabel(a.category)}</Badge>
+                      <Badge variant="secondary" className="text-[10px] capitalize mt-1 font-medium">{categoryLabel(a.category)}</Badge>
                     </div>
                     <div className="flex items-center gap-1">
                       {editingId === a.id ? (
                         <>
                           <Input value={editMarks} onChange={(e) => setEditMarks(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEditMarks(); }} className="h-7 w-16 text-sm" autoFocus type="number" />
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveEditMarks}><Check className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveEditMarks}><Check className="size-3" /></Button>
                         </>
                       ) : (
-                        <span className={`text-lg font-semibold ${pctColor(pct)}`}>{pct}%</span>
+                        <span className={`text-lg font-bold ${pctColor(pct)}`}>{pct}%</span>
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="size-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => startEditMarks(a)}><Pencil className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteAssessment(a.id)}><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => startEditMarks(a)}><Pencil className="size-4 mr-2" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteAssessment(a.id)}><Trash2 className="size-4 mr-2" /> Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>{a.obtainedMarks}/{a.maxMarks}</span>
+                    <span className="tabular-nums">{a.obtainedMarks}/{a.maxMarks}</span>
                     <span>{a.date}</span>
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -944,7 +945,6 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
 
   const att = getSubjectAttendance({ attendance: records }, subjectId);
   const today = new Date().toISOString().split('T')[0];
-
   const todayRecord = records.find((r) => r.date === today);
 
   const status = att.total === 0
@@ -961,18 +961,15 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
     status === 'RISK' ? 'text-[var(--delulu-danger)]' :
     'text-muted-foreground';
 
-  // How many more classes can be missed
   const canMiss = useMemo(() => {
     if (att.total === 0) return 'N/A';
     const threshold = profile.attendanceThreshold;
-    // (present) / (total + x) >= threshold/100
-    // x <= (present * 100 / threshold) - total
     const maxMissable = Math.floor((att.present * 100) / threshold) - att.total;
     return Math.max(0, maxMissable);
   }, [att, profile.attendanceThreshold]);
 
   const handleQuickMark = (present: boolean) => {
-    if (todayRecord) return; // already marked today
+    if (todayRecord) return;
     addAttendance({
       subjectId,
       date: today,
@@ -982,113 +979,124 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Present</span>
-          <p className="text-xl font-semibold mt-1 text-[var(--delulu-success)]">{att.present}</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Absent</span>
-          <p className="text-xl font-semibold mt-1 text-[var(--delulu-danger)]">{att.total - att.present}</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Total</span>
-          <p className="text-xl font-semibold mt-1">{att.total}</p>
-        </Card>
-        <Card className="p-4">
-          <span className="text-xs text-muted-foreground font-medium">Percentage</span>
-          <p className={`text-xl font-semibold mt-1 ${statusColor}`}>{att.percentage}%</p>
-        </Card>
-        <Card className="p-4 col-span-2 md:col-span-1">
-          <span className="text-xs text-muted-foreground font-medium">Status</span>
-          <p className={`text-lg font-semibold mt-1 ${statusColor}`}>{status}</p>
-        </Card>
+    <div className="space-y-5">
+      {/* Stats metric cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <MetricCard
+          label="Present"
+          value={att.present}
+          valueColor="text-[var(--delulu-success)]"
+          icon={CheckCircle2}
+        />
+        <MetricCard
+          label="Absent"
+          value={att.total - att.present}
+          valueColor="text-[var(--delulu-danger)]"
+          icon={X}
+        />
+        <MetricCard
+          label="Total"
+          value={att.total}
+          icon={ClipboardCheck}
+        />
+        <MetricCard
+          label="Percentage"
+          value={`${att.percentage}%`}
+          valueColor={statusColor}
+          icon={BarChart3}
+        />
+        <div className="metric-card col-span-2 md:col-span-1">
+          <span className="metric-label">Status</span>
+          <p className={`text-lg font-bold mt-2 ${statusColor}`}>{status}</p>
+        </div>
       </div>
 
-      {/* Can miss info */}
-      <Card className="p-4">
-        <p className="text-sm">
-          {typeof canMiss === 'number' ? (
-            canMiss > 0 ? (
-              <>
-                You can miss <span className="font-semibold text-[var(--delulu-success)]">{canMiss} more class{canMiss !== 1 ? 'es' : ''}</span> before falling below the {profile.attendanceThreshold}% threshold.
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="h-4 w-4 inline text-[var(--delulu-danger)] mr-1" />
-                You cannot miss any more classes. Your attendance is already at or below the threshold.
-              </>
-            )
-          ) : (
-            'Mark your first attendance to see predictions.'
-          )}
-        </p>
-      </Card>
+      {/* Can miss insight */}
+      {typeof canMiss === 'number' ? (
+        <InsightCard
+          type={canMiss > 0 ? (canMiss <= 2 ? 'warning' : 'positive') : 'critical'}
+          icon={AlertTriangle}
+          title={canMiss > 0 ? `You can miss ${canMiss} more class${canMiss !== 1 ? 'es' : ''}` : 'Attendance at threshold'}
+          description={canMiss > 0
+            ? `Before falling below the ${profile.attendanceThreshold}% threshold.`
+            : 'You cannot miss any more classes. Your attendance is already at or below the threshold.'}
+        />
+      ) : (
+        <InsightCard
+          type="info"
+          icon={ClipboardCheck}
+          title="No attendance data"
+          description="Mark your first attendance to see predictions."
+        />
+      )}
 
       {/* Quick mark */}
-      <Card className="p-4">
-        <h3 className="text-sm font-medium mb-3">Mark Today's Attendance</h3>
-        {todayRecord ? (
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className={`h-5 w-5 ${todayRecord.present ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}`} />
-            <span className="text-sm">
-              Marked as <span className="font-medium">{todayRecord.present ? 'Present' : 'Absent'}</span> today
-            </span>
-            <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => deleteAttendance(todayRecord.id)}>
-              Undo
-            </Button>
-          </div>
-        ) : (
-          <div className="flex gap-3">
-            <Button
-              className="flex-1 bg-[var(--delulu-success)] hover:bg-[var(--delulu-success)]/90 text-white"
-              onClick={() => handleQuickMark(true)}
-            >
-              <Check className="h-4 w-4 mr-2" /> Present
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 border-[var(--delulu-danger)]/30 text-[var(--delulu-danger)] hover:bg-[var(--delulu-danger)]/10"
-              onClick={() => handleQuickMark(false)}
-            >
-              <X className="h-4 w-4 mr-2" /> Absent
-            </Button>
-          </div>
-        )}
-      </Card>
+      <div className="metric-card">
+        <span className="section-label">Mark Today's Attendance</span>
+        <div className="mt-3">
+          {todayRecord ? (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className={`size-5 ${todayRecord.present ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}`} />
+              <span className="text-sm">
+                Marked as <span className="font-medium">{todayRecord.present ? 'Present' : 'Absent'}</span> today
+              </span>
+              <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => deleteAttendance(todayRecord.id)}>
+                Undo
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-[var(--delulu-success)] hover:bg-[var(--delulu-success)]/90 text-white"
+                onClick={() => handleQuickMark(true)}
+              >
+                <Check className="size-4 mr-2" /> Present
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                onClick={() => handleQuickMark(false)}
+              >
+                <X className="size-4 mr-2" /> Absent
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Attendance History */}
       <div>
-        <h3 className="text-sm font-medium mb-3">Attendance History</h3>
+        <SectionHeader title="Attendance History" />
         {records.length === 0 ? (
-          <Card className="p-8 text-center">
-            <ClipboardCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No attendance records yet</p>
-          </Card>
+          <EmptyState
+            icon={ClipboardCheck}
+            title="No attendance records yet"
+            description="Mark your attendance to start tracking"
+          />
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {records
               .sort((a, b) => b.date.localeCompare(a.date))
               .map((r) => (
-                <div key={r.id} className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${r.present ? 'bg-[var(--delulu-success)]/10' : 'bg-[var(--delulu-danger)]/10'}`}>
-                      {r.present ? (
-                        <Check className="h-4 w-4 text-[var(--delulu-success)]" />
-                      ) : (
-                        <X className="h-4 w-4 text-[var(--delulu-danger)]" />
-                      )}
+                <div key={r.id} className="card-interactive p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${r.present ? 'bg-emerald-50 dark:bg-emerald-950/50' : 'bg-red-50 dark:bg-red-950/50'}`}>
+                        {r.present ? (
+                          <Check className="size-3.5 text-[var(--delulu-success)]" />
+                        ) : (
+                          <X className="size-3.5 text-[var(--delulu-danger)]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{r.present ? 'Present' : 'Absent'}</p>
+                        <p className="text-xs text-muted-foreground">{r.date}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{r.present ? 'Present' : 'Absent'}</p>
-                      <p className="text-xs text-muted-foreground">{r.date}</p>
-                    </div>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteAttendance(r.id)}>
+                      <Trash className="size-3.5 text-muted-foreground" />
+                    </Button>
                   </div>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteAttendance(r.id)}>
-                    <Trash className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
                 </div>
               ))}
           </div>
@@ -1117,49 +1125,51 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Due items */}
       <div>
-        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-          <Flame className="h-4 w-4 text-[var(--delulu-danger)]" />
-          Due for Review ({dueItems.length})
-        </h3>
+        <SectionHeader
+          title={`Due for Review (${dueItems.length})`}
+          className={dueItems.length > 0 ? '' : 'hidden'}
+        />
         {dueItems.length === 0 ? (
-          <Card className="p-6 text-center">
-            <CheckCircle2 className="h-6 w-6 text-[var(--delulu-success)] mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No items due for review. You're on track!</p>
-          </Card>
+          <InsightCard
+            type="positive"
+            icon={CheckCircle2}
+            title="All caught up"
+            description="No items due for review. You're on track!"
+          />
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {dueItems.map((item) => (
-              <Card key={item.id} className="p-4 border-l-4 border-l-[var(--delulu-danger)]">
-                <div className="flex items-center justify-between">
-                  <div>
+              <div key={item.id} className="card-interactive p-4 border-l-2 border-l-[var(--delulu-danger)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{item.topicName}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Due: {item.nextReview}
                       {item.lastReview && ` · Last reviewed: ${item.lastReview}`}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">Rep: {item.repetitions}</Badge>
-                      <Badge variant="outline" className="text-xs">Interval: {item.interval}d</Badge>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Badge variant="secondary" className="text-[10px] font-medium">Rep: {item.repetitions}</Badge>
+                      <Badge variant="secondary" className="text-[10px] font-medium">Interval: {item.interval}d</Badge>
                     </div>
                   </div>
                   {reviewingId === item.id ? (
-                    <div className="flex gap-1">
-                      {[{ q: 1, label: 'Again', color: 'text-[var(--delulu-danger)]' }, { q: 3, label: 'Hard', color: 'text-[var(--delulu-warning)]' }, { q: 4, label: 'Good', color: 'text-[var(--delulu-info)]' }, { q: 5, label: 'Easy', color: 'text-[var(--delulu-success)]' }].map((btn) => (
-                        <Button key={btn.label} size="sm" variant="outline" className={`h-7 text-xs ${btn.color}`} onClick={() => handleReview(item.id, btn.q)}>
+                    <div className="flex gap-1 shrink-0">
+                      {[{ q: 1, label: 'Again', color: 'text-destructive' }, { q: 3, label: 'Hard', color: 'text-[var(--delulu-warning)]' }, { q: 4, label: 'Good', color: 'text-[var(--delulu-info)]' }, { q: 5, label: 'Easy', color: 'text-[var(--delulu-success)]' }].map((btn) => (
+                        <Button key={btn.label} size="sm" variant="outline" className={`h-7 text-[10px] font-medium ${btn.color}`} onClick={() => handleReview(item.id, btn.q)}>
                           {btn.label}
                         </Button>
                       ))}
                     </div>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => setReviewingId(item.id)}>
-                      <Brain className="h-4 w-4 mr-1" /> Review
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => setReviewingId(item.id)}>
+                      <Brain className="size-4 mr-1" /> Review
                     </Button>
                   )}
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         )}
@@ -1167,27 +1177,28 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
 
       {/* Upcoming items */}
       <div>
-        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          Upcoming ({upcomingItems.length})
-        </h3>
+        <SectionHeader
+          title={`Upcoming (${upcomingItems.length})`}
+          className={upcomingItems.length > 0 ? '' : 'hidden'}
+        />
         {upcomingItems.length === 0 && dueItems.length === 0 ? (
-          <Card className="p-6 text-center">
-            <Brain className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No revision items for this subject. Add topics to your syllabus and create revision items from the Focus view.</p>
-          </Card>
+          <EmptyState
+            icon={Brain}
+            title="No revision items"
+            description="Add topics to your syllabus and create revision items from the Focus view."
+          />
         ) : upcomingItems.length > 0 ? (
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {upcomingItems.sort((a, b) => a.nextReview.localeCompare(b.nextReview)).map((item) => (
-              <Card key={item.id} className="p-4">
+              <div key={item.id} className="card-interactive p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{item.topicName}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Next review: {item.nextReview}</p>
                   </div>
-                  <Badge variant="outline" className="text-xs">In {Math.ceil((parseISO(item.nextReview).getTime() - Date.now()) / 86400000)}d</Badge>
+                  <Badge variant="secondary" className="text-[10px] font-medium">In {Math.ceil((parseISO(item.nextReview).getTime() - Date.now()) / 86400000)}d</Badge>
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         ) : null}
@@ -1240,13 +1251,13 @@ function NotesTab({ subjectId }: { subjectId: string }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Note
+          <Plus className="size-4 mr-1" /> Add Note
         </Button>
       </div>
 
       {/* Add note form */}
       {showAdd && (
-        <Card className="p-4 space-y-3">
+        <div className="metric-card space-y-3">
           <Input
             placeholder="Note title..."
             value={form.title}
@@ -1263,19 +1274,20 @@ function NotesTab({ subjectId }: { subjectId: string }) {
             <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button size="sm" onClick={handleAdd} disabled={!form.title.trim()}>Save Note</Button>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Notes list */}
       {sortedNotes.length === 0 && !showAdd ? (
-        <Card className="p-8 text-center">
-          <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No notes yet for this subject</p>
-        </Card>
+        <EmptyState
+          icon={FileText}
+          title="No notes yet"
+          description="Add notes to keep track of important information for this subject"
+        />
       ) : (
-        <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin">
+        <div className="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin">
           {sortedNotes.map((note) => (
-            <Card key={note.id} className="p-4">
+            <div key={note.id} className="card-interactive p-4">
               {editingId === note.id ? (
                 <div className="space-y-3">
                   <Input
@@ -1304,12 +1316,12 @@ function NotesTab({ subjectId }: { subjectId: string }) {
                       </p>
                     </div>
                     <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 ml-2" onClick={() => deleteNote(note.id)}>
-                      <Trash className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Trash className="size-3.5 text-muted-foreground" />
                     </Button>
                   </div>
                 </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       )}
@@ -1362,34 +1374,33 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Exam
+          <Plus className="size-4 mr-1" /> Add Exam
         </Button>
       </div>
 
       {sortedExams.length === 0 ? (
-        <Card className="p-8 text-center">
-          <GraduationCap className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No exams scheduled yet</p>
-        </Card>
+        <EmptyState
+          icon={GraduationCap}
+          title="No exams scheduled yet"
+          description="Schedule your exams to stay prepared and track results"
+        />
       ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+        <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
           {sortedExams.map((exam) => (
-            <Card key={exam.id} className="p-4">
+            <div key={exam.id} className="card-interactive p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h4 className="font-medium text-sm">{exam.name}</h4>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <Badge variant="outline" className="text-xs">{typeLabel(exam.type)}</Badge>
-                    <Badge
-                      variant={exam.status === 'completed' ? 'secondary' : 'outline'}
-                      className={`text-xs ${exam.status === 'completed' ? 'bg-[var(--delulu-success)]/10 text-[var(--delulu-success)]' : ''}`}
-                    >
-                      {exam.status === 'completed' ? 'Completed' : 'Upcoming'}
-                    </Badge>
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <Badge variant="secondary" className="text-[10px] font-medium">{typeLabel(exam.type)}</Badge>
+                    <StatusBadge
+                      status={exam.status === 'completed' ? 'healthy' : 'upcoming'}
+                      label={exam.status === 'completed' ? 'Completed' : 'Upcoming'}
+                    />
                     <span className="text-xs text-muted-foreground">{exam.date}</span>
                   </div>
                   {exam.status === 'completed' && exam.obtainedMarks !== undefined && (
-                    <p className={`text-sm mt-2 font-medium ${pctColor(exam.totalMarks > 0 ? Math.round((exam.obtainedMarks / exam.totalMarks) * 100) : 0)}`}>
+                    <p className={`text-sm mt-2 font-semibold tabular-nums ${pctColor(exam.totalMarks > 0 ? Math.round((exam.obtainedMarks / exam.totalMarks) * 100) : 0)}`}>
                       {exam.obtainedMarks}/{exam.totalMarks}
                     </p>
                   )}
@@ -1398,22 +1409,22 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreHorizontal className="h-4 w-4" />
+                      <MoreHorizontal className="size-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {exam.status === 'upcoming' && (
                       <DropdownMenuItem onClick={() => updateExam(exam.id, { status: 'completed', obtainedMarks: 0 })}>
-                        <CheckCircle2 className="h-4 w-4 mr-2" /> Mark completed
+                        <CheckCircle2 className="size-4 mr-2" /> Mark completed
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => deleteExam(exam.id)}>
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteExam(exam.id)}>
+                      <Trash2 className="size-4 mr-2" /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
@@ -1486,6 +1497,12 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
 export default function SubjectDetailView() {
   const selectedSubjectId = useStore((s) => s.selectedSubjectId);
   const subject = useStore((s) => s.subjects.find((x) => x.id === s.selectedSubjectId));
+  const syllabusUnits = useStore((s) => s.syllabusUnits);
+  const assessments = useStore((s) => s.assessments);
+  const attendance = useStore((s) => s.attendance);
+  const revisionItems = useStore((s) => s.revisionItems);
+  const profile = useStore((s) => s.profile);
+  const subjects = useStore((s) => s.subjects);
   const goBack = useStore((s) => s.goBack);
   const navigate = useStore((s) => s.navigate);
   const deleteSubject = useStore((s) => s.deleteSubject);
@@ -1497,9 +1514,9 @@ export default function SubjectDetailView() {
 
   if (!subject || !selectedSubjectId) {
     return (
-      <div className="p-6">
-        <Button variant="ghost" onClick={goBack} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back
+      <div className="content-area px-4 md:px-6 py-6">
+        <Button variant="ghost" onClick={goBack} className="mb-4 -ml-2">
+          <ArrowLeft className="size-4 mr-2" /> Back
         </Button>
         <p className="text-muted-foreground">No subject selected.</p>
       </div>
@@ -1507,6 +1524,12 @@ export default function SubjectDetailView() {
   }
 
   const signal = getSubjectSignal(useStore.getState(), selectedSubjectId);
+
+  // Compute quick metrics for header
+  const progress = getSubjectProgress({ syllabusUnits }, selectedSubjectId);
+  const att = getSubjectAttendance({ attendance }, selectedSubjectId);
+  const marks = getSubjectMarks({ assessments }, selectedSubjectId);
+  const grade = getSubjectGrade({ assessments }, selectedSubjectId);
 
   const handleEditOpen = () => {
     setEditForm({
@@ -1539,50 +1562,98 @@ export default function SubjectDetailView() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 mt-0.5" onClick={goBack}>
-          <ArrowLeft className="h-5 w-5" />
+    <div className="content-area px-4 md:px-6 py-6">
+      {/* Back button + Header */}
+      <div className="flex items-start gap-3 mb-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 mt-0.5 -ml-1"
+          onClick={goBack}
+        >
+          <ArrowLeft className="size-4" />
         </Button>
+
         <div className="flex-1 min-w-0">
+          {/* Subject title row */}
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-semibold tracking-tight">{subject.name}</h1>
-            {signalBadge(signal)}
+            <div
+              className="w-1 h-7 rounded-full shrink-0"
+              style={{ backgroundColor: subject.color }}
+            />
+            <h1 className="page-title">{subject.name}</h1>
+            <StatusBadge status={signalToStatus(signal)} label={signalLabel(signal)} />
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {subject.code}{subject.code ? ' · ' : ''}{subject.credits} Credit{subject.credits !== 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center gap-3 mt-1.5 ml-5">
+            <span className="text-sm text-muted-foreground">
+              {subject.code}{subject.code ? ' · ' : ''}{subject.credits} Credit{subject.credits !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {/* Quick metrics strip */}
+          <div className="flex items-center gap-4 mt-3 ml-5 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Grade</span>
+              <span className={`text-sm font-bold ${marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground'}`}>
+                {marks.max > 0 ? grade : '--'}
+              </span>
+            </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Att.</span>
+              <span className={`text-sm font-bold tabular-nums ${
+                att.total > 0
+                  ? att.percentage >= profile.attendanceThreshold
+                    ? 'text-[var(--delulu-success)]'
+                    : 'text-[var(--delulu-danger)]'
+                  : 'text-muted-foreground'
+              }`}>
+                {att.total > 0 ? `${att.percentage}%` : '--'}
+              </span>
+            </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Syllabus</span>
+              <span className="text-sm font-bold tabular-nums">{progress}%</span>
+            </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Marks</span>
+              <span className={`text-sm font-bold tabular-nums ${marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground'}`}>
+                {marks.max > 0 ? `${marks.percentage}%` : '--'}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Actions dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="h-9 w-9">
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleEditOpen}>
-              <Pencil className="h-4 w-4 mr-2" /> Edit Subject
+              <Pencil className="size-4 mr-2" /> Edit Subject
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="h-4 w-4 mr-2" /> Delete Subject
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="size-4 mr-2" /> Delete Subject
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-5">
         <TabsList className="w-full justify-start overflow-x-auto scrollbar-thin">
-          <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
-          <TabsTrigger value="syllabus" className="text-sm">Syllabus</TabsTrigger>
-          <TabsTrigger value="marks" className="text-sm">Marks</TabsTrigger>
-          <TabsTrigger value="attendance" className="text-sm">Attendance</TabsTrigger>
-          <TabsTrigger value="revision" className="text-sm">Revision</TabsTrigger>
-          <TabsTrigger value="notes" className="text-sm">Notes</TabsTrigger>
-          <TabsTrigger value="exams" className="text-sm">Exams</TabsTrigger>
+          <TabsTrigger value="overview" className="text-xs font-medium">Overview</TabsTrigger>
+          <TabsTrigger value="syllabus" className="text-xs font-medium">Syllabus</TabsTrigger>
+          <TabsTrigger value="marks" className="text-xs font-medium">Marks</TabsTrigger>
+          <TabsTrigger value="attendance" className="text-xs font-medium">Attendance</TabsTrigger>
+          <TabsTrigger value="revision" className="text-xs font-medium">Revision</TabsTrigger>
+          <TabsTrigger value="notes" className="text-xs font-medium">Notes</TabsTrigger>
+          <TabsTrigger value="exams" className="text-xs font-medium">Exams</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -1677,7 +1748,7 @@ export default function SubjectDetailView() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-[var(--delulu-danger)] text-white hover:bg-[var(--delulu-danger)]/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
               onClick={handleDelete}
             >
               Delete

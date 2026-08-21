@@ -46,110 +46,139 @@
   --color-delulu-danger: var(--delulu-danger);
   --color-delulu-info: var(--delulu-info);
   --color-delulu-purple: var(--delulu-purple);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-secondary: var(--surface-secondary);
 }
 
 :root {
   --radius: 0.5rem;
-  --primary-rgb: 99, 91, 255;
-  /* Light Mode - Delulu Premium Palette */
-  --background: #F7F8FC;
-  --foreground: #171923;
+  --primary-rgb: 59, 130, 246;
+
+  /* ── Light Mode: Professional Blue-Analytics Palette ── */
+  --background: #F8F9FB;
+  --foreground: #0F172A;
   --card: #FFFFFF;
-  --card-foreground: #171923;
+  --card-foreground: #0F172A;
   --popover: #FFFFFF;
-  --popover-foreground: #171923;
-  --primary: #635BFF;
+  --popover-foreground: #0F172A;
+  --primary: #3B82F6;
   --primary-foreground: #FFFFFF;
-  --secondary: #F2F4F8;
-  --secondary-foreground: #171923;
-  --muted: #F2F4F8;
-  --muted-foreground: #626979;
-  --accent: #F2F4F8;
-  --accent-foreground: #171923;
-  --destructive: #E5484D;
-  --border: #E5E7EF;
-  --input: #E5E7EF;
-  --ring: #635BFF;
-  --delulu-success: #16A36A;
-  --delulu-warning: #D99200;
-  --delulu-danger: #E5484D;
-  --delulu-info: #3478F6;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #EF4444;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #3B82F6;
+
+  /* Semantic colors */
+  --delulu-success: #10B981;
+  --delulu-warning: #F59E0B;
+  --delulu-danger: #EF4444;
+  --delulu-info: #3B82F6;
   --delulu-purple: #8B5CF6;
-  --chart-1: #635BFF;
-  --chart-2: #16A36A;
-  --chart-3: #D99200;
-  --chart-4: #E5484D;
+
+  /* Surface system */
+  --surface: #FFFFFF;
+  --surface-foreground: #0F172A;
+  --surface-secondary: #F8FAFC;
+
+  /* Charts */
+  --chart-1: #3B82F6;
+  --chart-2: #10B981;
+  --chart-3: #F59E0B;
+  --chart-4: #EF4444;
   --chart-5: #8B5CF6;
+
+  /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #171923;
-  --sidebar-primary: #635BFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #3B82F6;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F2F4F8;
-  --sidebar-accent-foreground: #171923;
-  --sidebar-border: #E5E7EF;
-  --sidebar-ring: #635BFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #3B82F6;
 }
 
 .dark {
-  /* Dark Mode - Delulu Cinematic Palette */
-  --primary-rgb: 129, 116, 255;
-  --background: #08090B;
-  --foreground: #F5F7FA;
-  --card: #101216;
-  --card-foreground: #F5F7FA;
-  --popover: #101216;
-  --popover-foreground: #F5F7FA;
-  --primary: #8174FF;
-  --primary-foreground: #FFFFFF;
-  --secondary: #151820;
-  --secondary-foreground: #F5F7FA;
-  --muted: #151820;
-  --muted-foreground: #9298A6;
-  --accent: #151820;
-  --accent-foreground: #F5F7FA;
-  --destructive: #FF626B;
-  --border: rgba(255,255,255,0.08);
-  --input: rgba(255,255,255,0.12);
-  --ring: #8174FF;
-  --delulu-success: #35D39A;
-  --delulu-warning: #F3B94B;
-  --delulu-danger: #FF626B;
-  --delulu-info: #5D9CFF;
+  --primary-rgb: 96, 165, 250;
+
+  /* ── Dark Mode: Deep Navy-Analytics Palette ── */
+  --background: #0B1120;
+  --foreground: #F1F5F9;
+  --card: #111827;
+  --card-foreground: #F1F5F9;
+  --popover: #111827;
+  --popover-foreground: #F1F5F9;
+  --primary: #60A5FA;
+  --primary-foreground: #0B1120;
+  --secondary: #1E293B;
+  --secondary-foreground: #F1F5F9;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #1E293B;
+  --accent-foreground: #F1F5F9;
+  --destructive: #F87171;
+  --border: rgba(148, 163, 184, 0.1);
+  --input: rgba(148, 163, 184, 0.15);
+  --ring: #60A5FA;
+
+  /* Semantic colors */
+  --delulu-success: #34D399;
+  --delulu-warning: #FBBF24;
+  --delulu-danger: #F87171;
+  --delulu-info: #60A5FA;
   --delulu-purple: #A78BFA;
-  --chart-1: #8174FF;
-  --chart-2: #35D39A;
-  --chart-3: #F3B94B;
-  --chart-4: #FF626B;
+
+  /* Surface system */
+  --surface: #111827;
+  --surface-foreground: #F1F5F9;
+  --surface-secondary: #1E293B;
+
+  /* Charts */
+  --chart-1: #60A5FA;
+  --chart-2: #34D399;
+  --chart-3: #FBBF24;
+  --chart-4: #F87171;
   --chart-5: #A78BFA;
-  --sidebar: #101216;
-  --sidebar-foreground: #F5F7FA;
-  --sidebar-primary: #8174FF;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #151820;
-  --sidebar-accent-foreground: #F5F7FA;
-  --sidebar-border: rgba(255,255,255,0.08);
-  --sidebar-ring: #8174FF;
+
+  /* Sidebar */
+  --sidebar: #0F172A;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #60A5FA;
+  --sidebar-primary-foreground: #0B1120;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #F1F5F9;
+  --sidebar-border: rgba(148, 163, 184, 0.1);
+  --sidebar-ring: #60A5FA;
 }
 
+/* ── Base Layer ── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom scrollbar */
+/* ── Utility Classes ── */
 @layer utilities {
+  /* Custom scrollbar - minimal */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-    padding: 4px;
+    width: 5px;
+    height: 5px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
@@ -157,43 +186,119 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: var(--border);
     border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: var(--muted-foreground);
-    border: 2px solid transparent;
-    background-clip: content-box;
   }
 
-  /* Card hover effect */
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
-  }
-
-  /* Glassmorphism */
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
-  }
-
-  /* Gradient text */
-  .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-delulu-purple;
-  }
-
-  /* Subtle glow for active elements */
-  .glow-sm {
-    box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.15);
-  }
-
-  /* Page transition animation */
+  /* Page transition */
   .animate-fade-slide-in {
-    animation: fadeSlideIn 0.3s ease-out;
+    animation: fadeSlideIn 0.25s ease-out;
+  }
+
+  /* Metric card interaction */
+  .metric-card {
+    @apply relative bg-card border border-border rounded-lg p-3 md:p-4 transition-all duration-200;
+  }
+  .metric-card:hover {
+    @apply border-border/80;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .dark .metric-card:hover {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  /* Subtle card hover */
+  .card-interactive {
+    @apply bg-card border border-border rounded-lg transition-all duration-200 cursor-pointer;
+  }
+  .card-interactive:hover {
+    @apply border-primary/25;
+    box-shadow: 0 1px 3px rgba(var(--primary-rgb), 0.08);
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply h-2 w-2 rounded-full shrink-0;
+  }
+
+  /* Section label */
+  .section-label {
+    @apply text-[11px] font-semibold tracking-[0.08em] uppercase text-muted-foreground;
+  }
+
+  /* Page header */
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6;
+  }
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-foreground;
+  }
+  .page-subtitle {
+    @apply text-sm text-muted-foreground mt-0.5;
+  }
+
+  /* Insight card styles */
+  .insight-card {
+    @apply flex items-start gap-3 rounded-lg border border-border/60 bg-card/50 p-3 text-sm;
+  }
+  .insight-card.positive {
+    border-left: 2px solid var(--delulu-success);
+  }
+  .insight-card.warning {
+    border-left: 2px solid var(--delulu-warning);
+  }
+  .insight-card.critical {
+    border-left: 2px solid var(--delulu-danger);
+  }
+  .insight-card.info {
+    border-left: 2px solid var(--delulu-info);
+  }
+
+  /* Trend indicator */
+  .trend-up { @apply text-[var(--delulu-success)]; }
+  .trend-down { @apply text-[var(--delulu-danger)]; }
+  .trend-neutral { @apply text-muted-foreground; }
+
+  /* Progress bar thin variant */
+  .progress-thin {
+    @apply h-1 rounded-full overflow-hidden bg-secondary;
+  }
+  .progress-thin > div {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+
+  /* Number display */
+  .metric-value {
+    @apply text-2xl font-bold tracking-tight leading-none;
+  }
+  .metric-label {
+    @apply text-xs font-medium text-muted-foreground uppercase tracking-[0.06em];
+  }
+  .metric-context {
+    @apply text-xs text-muted-foreground mt-1;
+  }
+
+  /* Glass effect - subtle */
+  .glass {
+    @apply bg-card/90 backdrop-blur-sm border border-border/50;
+  }
+
+  /* Badge variants for signals */
+  .signal-healthy { @apply bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400; }
+  .signal-improving { @apply bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400; }
+  .signal-attention { @apply bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400; }
+  .signal-critical { @apply bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400; }
+
+  /* Content area */
+  .content-area {
+    @apply max-w-[1400px] mx-auto w-full;
   }
 }
 
+/* ── Animations ── */
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -206,12 +311,23 @@
   animation: pulse-gentle 2s ease-in-out infinite;
 }
 
-/* Selection color */
+/* Selection */
 ::selection {
-  @apply bg-primary/20;
+  @apply bg-primary/15;
 }
 
-/* Better focus-visible */
+/* Focus visible */
 *:focus-visible {
-  @apply outline-2 outline-offset-2 outline-primary/50;
+  @apply outline-2 outline-offset-1 outline-primary/40;
+}
+
+/* ── Recharts overrides for dark mode ── */
+.dark .recharts-cartesian-axis-tick-value {
+  fill: #94A3B8;
+}
+.dark .recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.08);
+}
+.dark .recharts-tooltip-wrapper {
+  filter: none;
 }

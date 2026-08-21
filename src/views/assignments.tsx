@@ -10,7 +10,6 @@ import {
   AlertCircle,
   ClipboardList,
   Trash2,
-  FileText,
   Inbox,
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
@@ -18,14 +17,10 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { useStore } from '@/lib/store';
 import type { Assignment } from '@/lib/types';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +51,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  PageHeader,
+  EmptyState,
+} from '@/components/shared';
 
 // -- Animation helpers ------------------------------------------------
 const container = {
@@ -64,7 +63,7 @@ const container = {
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
@@ -87,45 +86,24 @@ function formatDeadline(dateStr: string): string {
 function priorityConfig(priority: Assignment['priority']) {
   switch (priority) {
     case 'high':
-      return {
-        label: 'HIGH',
-        className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
-      };
+      return { label: 'HIGH', signalClass: 'signal-attention' };
     case 'medium':
-      return {
-        label: 'MEDIUM',
-        className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-      };
+      return { label: 'MEDIUM', signalClass: 'bg-secondary text-muted-foreground' };
     case 'low':
-      return {
-        label: 'LOW',
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900',
-      };
+      return { label: 'LOW', signalClass: 'signal-healthy' };
   }
 }
 
 function statusConfig(status: Assignment['status']) {
   switch (status) {
     case 'upcoming':
-      return {
-        label: 'Upcoming',
-        className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400 border-sky-200 dark:border-sky-900',
-      };
+      return { label: 'Upcoming', signalClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400' };
     case 'due_soon':
-      return {
-        label: 'Due Soon',
-        className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-      };
+      return { label: 'Due Soon', signalClass: 'signal-attention' };
     case 'overdue':
-      return {
-        label: 'Overdue',
-        className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
-      };
+      return { label: 'Overdue', signalClass: 'signal-critical' };
     case 'completed':
-      return {
-        label: 'Completed',
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900',
-      };
+      return { label: 'Completed', signalClass: 'signal-healthy' };
   }
 }
 
@@ -143,33 +121,6 @@ function sortByPriorityAndDeadline(list: Assignment[]): Assignment[] {
     if (prio[a.priority] !== prio[b.priority]) return prio[a.priority] - prio[b.priority];
     return a.deadline.localeCompare(b.deadline);
   });
-}
-
-// -- Empty State ------------------------------------------------------
-function EmptyState({ icon: Icon, title, description, action }: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className='flex flex-col items-center justify-center py-16 px-4 text-center'
-    >
-      <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
-        <Icon className='h-6 w-6 text-muted-foreground' />
-      </div>
-      <p className='font-medium text-sm text-foreground mb-1'>{title}</p>
-      <p className='text-sm text-muted-foreground max-w-sm'>{description}</p>
-      {action && (
-        <Button variant='outline' size='sm' className='mt-4' onClick={action.onClick}>
-          {action.label}
-        </Button>
-      )}
-    </motion.div>
-  );
 }
 
 // -- Assignment Card --------------------------------------------------
@@ -195,100 +146,100 @@ function AssignmentCard({
 
   return (
     <motion.div variants={fadeUp} layout>
-      <Card
-        className={`group transition-colors hover:border-primary/30 ${assignment.status === 'completed' ? 'opacity-60' : ''}`}
+      <div
+        className={`metric-card group p-4 ${assignment.status === 'completed' ? 'opacity-50' : ''}`}
       >
-        <CardContent className='p-4'>
-          <div className='flex items-start justify-between gap-3'>
-            <div
-              className='flex-1 min-w-0 cursor-pointer'
-              onClick={() => setExpanded(!expanded)}
-            >
-              <div className='flex items-center gap-2 flex-wrap'>
-                <span className={`font-medium text-sm leading-tight ${assignment.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
-                  {assignment.title}
-                </span>
-              </div>
-
-              <div className='flex items-center gap-2 mt-2 flex-wrap'>
-                {subject && (
-                  <Badge
-                    variant='outline'
-                    className='text-[10px] px-1.5 py-0'
-                    style={{
-                      borderColor: subject.color + '60',
-                      color: subject.color,
-                    }}
-                  >
-                    {subject.code}
-                  </Badge>
-                )}
-                <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${p.className}`}>
-                  {p.label}
-                </Badge>
-                <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${s.className}`}>
-                  {s.label}
-                </Badge>
-              </div>
-
-              <div className='flex items-center gap-3 mt-2'>
-                <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
-                  <Clock className='h-3 w-3' />
-                  {formatDeadline(assignment.deadline)}
-                </span>
-                {progress !== null && (
-                  <div className='flex items-center gap-2 flex-1 min-w-0 max-w-[140px]'>
-                    <Progress value={progress} className='h-1.5' />
-                    <span className='text-[10px] text-muted-foreground shrink-0'>{progress}%</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Expanded description */}
-              <AnimatePresence>
-                {expanded && assignment.description && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className='overflow-hidden'
-                  >
-                    <div className='mt-3 pt-3 border-t border-border'>
-                      <p className='text-sm text-muted-foreground whitespace-pre-wrap'>{assignment.description}</p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+        <div className='flex items-start justify-between gap-3'>
+          <div
+            className='flex-1 min-w-0 cursor-pointer'
+            onClick={() => setExpanded(!expanded)}
+          >
+            <div className='flex items-center gap-2 flex-wrap'>
+              <span className={`text-sm font-medium leading-tight ${assignment.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                {assignment.title}
+              </span>
             </div>
 
-            <div className='flex flex-col items-end gap-2 shrink-0'>
-              <span className='text-xs text-muted-foreground'>
-                {format(parseISO(assignment.deadline), 'MMM d')}
+            <div className='flex items-center gap-2 mt-2 flex-wrap'>
+              {subject && (
+                <span
+                  className='inline-flex items-center gap-1.5 text-[10px] font-medium'
+                  style={{ color: subject.color }}
+                >
+                  <div className='status-dot' style={{ backgroundColor: subject.color }} />
+                  {subject.code}
+                </span>
+              )}
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${p.signalClass}`}>
+                {p.label}
               </span>
-              <div className='flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
-                {assignment.status !== 'completed' && (
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8 text-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950'
-                    onClick={onComplete}
-                  >
-                    <CheckCircle2 className='h-3.5 w-3.5' />
-                  </Button>
-                )}
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${s.signalClass}`}>
+                {s.label}
+              </span>
+            </div>
+
+            <div className='flex items-center gap-3 mt-2'>
+              <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
+                <Clock className='h-3 w-3' />
+                {formatDeadline(assignment.deadline)}
+              </span>
+              {progress !== null && (
+                <div className='flex items-center gap-2 flex-1 min-w-0 max-w-[120px]'>
+                  <div className='progress-thin flex-1'>
+                    <div
+                      className={progress >= 60 ? 'bg-emerald-500 dark:bg-emerald-400' : progress >= 40 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-red-500 dark:bg-red-400'}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className='text-[10px] text-muted-foreground shrink-0 tabular-nums'>{progress}%</span>
+                </div>
+              )}
+            </div>
+
+            {/* Expanded description */}
+            <AnimatePresence>
+              {expanded && assignment.description && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className='overflow-hidden'
+                >
+                  <div className='mt-3 pt-3 border-t border-border'>
+                    <p className='text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed'>{assignment.description}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className='flex flex-col items-end gap-2 shrink-0'>
+            <span className='text-[11px] text-muted-foreground'>
+              {format(parseISO(assignment.deadline), 'MMM d')}
+            </span>
+            <div className='flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+              {assignment.status !== 'completed' && (
                 <Button
                   variant='ghost'
                   size='icon'
-                  className='h-8 w-8 text-destructive hover:text-destructive'
-                  onClick={onDelete}
+                  className='h-7 w-7 text-emerald-600 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950'
+                  onClick={onComplete}
                 >
-                  <Trash2 className='h-3.5 w-3.5' />
+                  <CheckCircle2 className='h-3.5 w-3.5' />
                 </Button>
-              </div>
+              )}
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-7 w-7 text-muted-foreground hover:text-red-500'
+                onClick={onDelete}
+              >
+                <Trash2 className='h-3.5 w-3.5' />
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -348,7 +299,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
 
         <div className='space-y-4 py-2'>
           <div className='space-y-2'>
-            <Label htmlFor='assign-title'>Title *</Label>
+            <Label htmlFor='assign-title' className='section-label'>Title</Label>
             <Input
               id='assign-title'
               placeholder='Assignment title'
@@ -359,7 +310,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label>Subject *</Label>
+            <Label className='section-label'>Subject</Label>
             <Select value={subjectId} onValueChange={setSubjectId}>
               <SelectTrigger><SelectValue placeholder='Select subject' /></SelectTrigger>
               <SelectContent>
@@ -371,7 +322,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='assign-desc'>Description</Label>
+            <Label htmlFor='assign-desc' className='section-label'>Description</Label>
             <Textarea
               id='assign-desc'
               placeholder='Assignment details...'
@@ -384,7 +335,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label htmlFor='assign-deadline'>Deadline *</Label>
+              <Label htmlFor='assign-deadline' className='section-label'>Deadline</Label>
               <Input
                 id='assign-deadline'
                 type='date'
@@ -393,7 +344,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
               />
             </div>
             <div className='space-y-2'>
-              <Label>Priority</Label>
+              <Label className='section-label'>Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as Assignment['priority'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -406,7 +357,7 @@ function AddAssignmentDialog({ open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='assign-marks'>Max Marks (optional)</Label>
+            <Label htmlFor='assign-marks' className='section-label'>Max Marks (optional)</Label>
             <Input
               id='assign-marks'
               type='number'
@@ -461,42 +412,37 @@ export default function AssignmentsView() {
     { key: 'upcoming', label: 'Upcoming', icon: ClipboardList },
     { key: 'due_soon', label: 'Due Soon', icon: AlertTriangle },
     { key: 'overdue', label: 'Overdue', icon: AlertCircle },
-    { key: 'completed', label: 'Completed', icon: CheckCircle2 },
+    { key: 'completed', label: 'Done', icon: CheckCircle2 },
   ];
 
   const emptyMessages: Record<string, { title: string; description: string }> = {
     all: { title: 'No assignments yet', description: 'Add your first assignment to start tracking deadlines.' },
-    upcoming: { title: 'No upcoming assignments', description: 'No upcoming assignments.' },
-    due_soon: { title: 'No due soon assignments', description: 'No due soon assignments.' },
-    overdue: { title: 'No overdue assignments', description: 'No overdue assignments.' },
-    completed: { title: 'No completed assignments', description: 'No completed assignments.' },
+    upcoming: { title: 'No upcoming assignments', description: 'Nothing upcoming right now.' },
+    due_soon: { title: 'No due soon assignments', description: 'Nothing due in the next 3 days.' },
+    overdue: { title: 'No overdue assignments', description: 'You are up to date!' },
+    completed: { title: 'No completed assignments', description: 'No completed assignments yet.' },
   };
 
   const currentList = sortByPriorityAndDeadline(filterByTab(activeTab));
   const emptyConfig = emptyMessages[activeTab];
 
   return (
-    <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-4'>
+    <div className='p-4 md:p-6 content-area space-y-4'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Assignments</h1>
-          <p className='text-sm text-muted-foreground mt-0.5'>
-            {assignmentsWithStatus.filter((a) => a.effectiveStatus === 'overdue').length} overdue,
-            {' '}{assignmentsWithStatus.filter((a) => a.effectiveStatus === 'completed').length} completed
-          </p>
-        </div>
-        <Button
-          size='sm'
-          className='gap-1.5'
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className='h-4 w-4' />
-          <span className='hidden sm:inline'>Add Assignment</span>
-        </Button>
-      </div>
-
-      <Separator />
+      <PageHeader
+        title='Assignments'
+        subtitle={`${assignmentsWithStatus.filter((a) => a.effectiveStatus === 'overdue').length} overdue, ${assignmentsWithStatus.filter((a) => a.effectiveStatus === 'completed').length} completed`}
+        actions={
+          <Button
+            size='sm'
+            className='gap-1.5'
+            onClick={() => setDialogOpen(true)}
+          >
+            <Plus className='h-4 w-4' />
+            <span className='hidden sm:inline'>Add Assignment</span>
+          </Button>
+        }
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -505,16 +451,13 @@ export default function AssignmentsView() {
             {tabConfigs.map((tab) => {
               const count = filterByTab(tab.key).length;
               return (
-                <TabsTrigger key={tab.key} value={tab.key} className='gap-1.5'>
+                <TabsTrigger key={tab.key} value={tab.key} className='gap-1.5 text-xs'>
                   <tab.icon className='h-3.5 w-3.5 hidden sm:block' />
                   {tab.label}
                   {count > 0 && (
-                    <Badge
-                      variant='secondary'
-                      className='ml-1 h-5 min-w-5 px-1.5 text-[10px]'
-                    >
+                    <span className='ml-0.5 h-4 min-w-4 px-1 rounded-full text-[10px] font-semibold inline-flex items-center justify-center bg-secondary text-muted-foreground'>
                       {count}
-                    </Badge>
+                    </span>
                   )}
                 </TabsTrigger>
               );
@@ -531,7 +474,7 @@ export default function AssignmentsView() {
                 description={emptyConfig.description}
                 action={
                   activeTab === 'all'
-                    ? { label: 'Add Assignment', onClick: () => setDialogOpen(true) }
+                    ? <Button variant='outline' size='sm' onClick={() => setDialogOpen(true)}>Add Assignment</Button>
                     : undefined
                 }
               />

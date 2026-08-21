@@ -11,7 +11,6 @@ import {
   BookOpen,
   GraduationCap,
   ClipboardCheck,
-  BarChart3,
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
@@ -22,15 +21,13 @@ import {
   getSubjectGrade,
   getSubjectSignal,
 } from '@/lib/store';
-import { SUBJECT_COLORS, SIGNAL_COLORS, GRADE_POINTS } from '@/lib/types';
+import { SUBJECT_COLORS, GRADE_POINTS } from '@/lib/types';
 import type { SignalStatus } from '@/lib/types';
 
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -62,22 +59,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  PageHeader,
+  EmptyState,
+  StatusBadge,
+} from '@/components/shared';
 
 // -- Animation helpers ------------------------------------------------
 const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.06 },
+    transition: { staggerChildren: 0.05 },
   },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 12 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: 'easeOut' },
+    transition: { duration: 0.3, ease: 'easeOut' },
   },
 };
 
@@ -87,12 +89,29 @@ const GRADE_OPTIONS = Object.keys(GRADE_POINTS);
 // -- Signal dot color helper -----------------------------------------
 function signalDotColor(signal: SignalStatus): string {
   switch (signal) {
-    case 'healthy': return 'bg-[var(--delulu-success)]';
-    case 'improving': return 'bg-[var(--delulu-info)]';
-    case 'attention': return 'bg-[var(--delulu-warning)]';
-    case 'critical': return 'bg-[var(--delulu-danger)]';
-    case 'upcoming': return 'bg-[var(--delulu-purple)]';
+    case 'healthy': return 'bg-emerald-500 dark:bg-emerald-400';
+    case 'improving': return 'bg-blue-500 dark:bg-blue-400';
+    case 'attention': return 'bg-amber-500 dark:bg-amber-400';
+    case 'critical': return 'bg-red-500 dark:bg-red-400';
+    case 'upcoming': return 'bg-purple-500 dark:bg-purple-400';
     default: return 'bg-muted-foreground';
+  }
+}
+
+// -- Signal to status badge mapping -----------------------------------
+function signalToStatus(signal: SignalStatus): 'healthy' | 'improving' | 'attention' | 'critical' | 'upcoming' | 'nodata' {
+  if (signal === 'nodata') return 'nodata';
+  return signal as 'healthy' | 'improving' | 'attention' | 'critical' | 'upcoming';
+}
+
+function signalLabel(signal: SignalStatus): string {
+  switch (signal) {
+    case 'healthy': return 'Healthy';
+    case 'improving': return 'Improving';
+    case 'attention': return 'Attention';
+    case 'critical': return 'Critical';
+    case 'upcoming': return 'Upcoming';
+    default: return 'No Data';
   }
 }
 
@@ -133,7 +152,6 @@ function SubjectFormDialog({
 
   const isEditing = !!editing;
 
-  // Populate form when editing
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && editing) {
       setForm({
@@ -181,7 +199,6 @@ function SubjectFormDialog({
         targetGrade: form.targetGrade,
       });
 
-      // Create 5 empty syllabus units
       for (let i = 1; i <= 5; i++) {
         addSyllabusUnit({
           subjectId,
@@ -207,7 +224,6 @@ function SubjectFormDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          {/* Name */}
           <div className="grid gap-2">
             <Label htmlFor="sub-name">Name *</Label>
             <Input
@@ -216,10 +232,9 @@ function SubjectFormDialog({
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
-            {errors.name && <p className="text-xs text-[var(--delulu-danger)]">{errors.name}</p>}
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
 
-          {/* Code + Credits row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="sub-code">Code</Label>
@@ -242,11 +257,10 @@ function SubjectFormDialog({
                   setForm((f) => ({ ...f, credits: Math.max(1, parseInt(e.target.value) || 1) }))
                 }
               />
-              {errors.credits && <p className="text-xs text-[var(--delulu-danger)]">{errors.credits}</p>}
+              {errors.credits && <p className="text-xs text-destructive">{errors.credits}</p>}
             </div>
           </div>
 
-          {/* Color swatches */}
           <div className="grid gap-2">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-2">
@@ -267,7 +281,6 @@ function SubjectFormDialog({
             </div>
           </div>
 
-          {/* Target Grade */}
           <div className="grid gap-2">
             <Label>Target Grade</Label>
             <Select
@@ -372,65 +385,54 @@ export default function SubjectsView() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="content-area px-4 md:px-6 py-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
-              Subjects
-              <Badge variant="secondary" className="text-xs font-normal">
-                {activeSubjects.length}
-              </Badge>
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage your semester subjects
-            </p>
+      <PageHeader
+        title="Subjects"
+        subtitle="Manage your semester subjects"
+        badge={
+          <Badge variant="secondary" className="text-xs font-normal tabular-nums">
+            {activeSubjects.length}
+          </Badge>
+        }
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search subjects..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 w-full sm:w-56 h-9"
+              />
+            </div>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Add Subject</span>
+            </Button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search subjects..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-full sm:w-64"
-            />
-          </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Subject
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Subject Grid */}
       {filtered.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-20 text-center"
-        >
-          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-            <BookOpen className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-medium mb-2">
-            {search ? 'No subjects match your search' : 'No subjects yet'}
-          </h3>
-          <p className="text-sm text-muted-foreground max-w-sm mb-6">
-            {search
+        <EmptyState
+          icon={BookOpen}
+          title={search ? 'No subjects match your search' : 'No subjects yet'}
+          description={
+            search
               ? 'Try a different search term'
-              : 'Add your first subject to get started tracking your academic progress.'}
-          </p>
-          {!search && (
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Subject
-            </Button>
-          )}
-        </motion.div>
+              : 'Add your first subject to start tracking your academic progress.'
+          }
+          action={
+            !search ? (
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Subject
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <motion.div
           variants={container}
@@ -463,32 +465,32 @@ export default function SubjectsView() {
                   layout
                   exit={{ opacity: 0, scale: 0.95 }}
                   onClick={() => handleCardClick(subject.id)}
-                  className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors cursor-pointer relative overflow-hidden group"
+                  className="card-interactive p-4 relative overflow-hidden group"
                 >
                   {/* Color indicator bar */}
                   <div
-                    className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                    className="absolute left-0 top-0 bottom-0 w-0.5"
                     style={{ backgroundColor: subject.color }}
                   />
 
-                  {/* Top row: name + actions */}
-                  <div className="flex items-start justify-between ml-2">
+                  {/* Top row: name + signal + actions */}
+                  <div className="flex items-start justify-between ml-2 mb-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-base truncate">
+                      <h3 className="font-semibold text-sm leading-snug truncate">
                         {subject.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-1 font-medium">
                         {subject.code}
-                        {subject.code ? ' \u00b7 ' : ''}
+                        {subject.code ? ' · ' : ''}
                         {subject.credits} Credit{subject.credits !== 1 ? 's' : ''}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2 ml-2 shrink-0">
-                      {/* Health signal dot */}
-                      <span
-                        className={`h-2 w-2 rounded-full shrink-0 ${signalDotColor(signal)}`}
-                        title={signal}
+                      {/* Signal status badge */}
+                      <StatusBadge
+                        status={signalToStatus(signal)}
+                        label={signalLabel(signal)}
                       />
 
                       {/* Dropdown actions */}
@@ -511,7 +513,7 @@ export default function SubjectsView() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="text-[var(--delulu-danger)] focus:text-[var(--delulu-danger)]"
+                            className="text-destructive focus:text-destructive"
                             onClick={(e) => handleDelete(e, subject.id)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -523,14 +525,14 @@ export default function SubjectsView() {
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-3 mt-4 ml-2">
+                  <div className="grid grid-cols-3 gap-3 ml-2">
                     <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <ClipboardCheck className="h-3 w-3" />
+                      <span className="metric-label flex items-center gap-1 mb-1">
+                        <ClipboardCheck className="size-3" />
                         Attendance
                       </span>
                       <span
-                        className={`text-sm font-medium mt-0.5 ${
+                        className={`text-sm font-semibold tabular-nums ${
                           att.total > 0
                             ? att.percentage >= profile.attendanceThreshold
                               ? 'text-[var(--delulu-success)]'
@@ -542,31 +544,50 @@ export default function SubjectsView() {
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <BookOpen className="h-3 w-3" />
+                      <span className="metric-label flex items-center gap-1 mb-1">
+                        <BookOpen className="size-3" />
                         Syllabus
                       </span>
-                      <span className="text-sm font-medium mt-0.5">
+                      <span className="text-sm font-semibold tabular-nums">
                         {progress > 0 ? `${progress}%` : '--'}
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <GraduationCap className="h-3 w-3" />
+                      <span className="metric-label flex items-center gap-1 mb-1">
+                        <GraduationCap className="size-3" />
                         Grade
                       </span>
-                      <span className="text-sm font-medium mt-0.5">
+                      <span className="text-sm font-semibold">
                         {marks.max > 0 ? grade : '--'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Progress bar */}
+                  {/* Thin progress bar */}
                   {progress > 0 && (
                     <div className="mt-3 ml-2">
-                      <Progress value={progress} className="h-1.5" />
+                      <div className="progress-thin">
+                        <div
+                          className={
+                            progress >= 75
+                              ? 'bg-emerald-500 dark:bg-emerald-400'
+                              : progress >= 40
+                                ? 'bg-blue-500 dark:bg-blue-400'
+                                : 'bg-amber-500 dark:bg-amber-400'
+                          }
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
                     </div>
                   )}
+
+                  {/* Signal dot in top-right corner area */}
+                  <div className="absolute top-4 right-2 flex items-center gap-1.5">
+                    <span
+                      className={`status-dot ${signalDotColor(signal)}`}
+                      title={signal}
+                    />
+                  </div>
                 </motion.div>
               );
             })}
@@ -595,7 +616,7 @@ export default function SubjectsView() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-[var(--delulu-danger)] text-white hover:bg-[var(--delulu-danger)]/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
               onClick={confirmDelete}
             >
               Delete

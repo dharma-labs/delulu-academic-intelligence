@@ -13,7 +13,6 @@ import {
   Trash2,
   Target,
   FileText,
-  AlertCircle,
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 
@@ -21,13 +20,10 @@ import { useStore } from '@/lib/store';
 import type { Exam, PYQ } from '@/lib/types';
 import { GRADE_FROM_PERCENTAGE } from '@/lib/types';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +53,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  PageHeader,
+  EmptyState,
+  SectionHeader,
+} from '@/components/shared';
 
 // -- Animation helpers ------------------------------------------------
 const container = {
@@ -65,7 +66,7 @@ const container = {
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
@@ -75,56 +76,29 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 function examTypeConfig(type: Exam['type']) {
   switch (type) {
     case 'midsem':
-      return { label: 'Mid-Sem', className: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400 border-violet-200 dark:border-violet-900' };
+      return { label: 'Mid-Sem', signalClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400' };
     case 'endsem':
-      return { label: 'End-Sem', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900' };
+      return { label: 'End-Sem', signalClass: 'signal-critical' };
     case 'quiz':
-      return { label: 'Quiz', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900' };
+      return { label: 'Quiz', signalClass: 'signal-attention' };
     case 'practical':
-      return { label: 'Practical', className: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 border-teal-200 dark:border-teal-900' };
+      return { label: 'Practical', signalClass: 'signal-healthy' };
     case 'other':
-      return { label: 'Other', className: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-400 border-gray-200 dark:border-gray-900' };
+      return { label: 'Other', signalClass: 'bg-secondary text-muted-foreground' };
   }
 }
 
 function difficultyConfig(difficulty?: PYQ['difficulty']) {
   switch (difficulty) {
     case 'easy':
-      return { label: 'Easy', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' };
+      return { label: 'Easy', className: 'signal-healthy' };
     case 'medium':
-      return { label: 'Medium', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' };
+      return { label: 'Medium', className: 'signal-attention' };
     case 'hard':
-      return { label: 'Hard', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' };
+      return { label: 'Hard', className: 'signal-critical' };
     default:
       return null;
   }
-}
-
-// -- Empty State ------------------------------------------------------
-function EmptyState({ icon: Icon, title, description, action }: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className='flex flex-col items-center justify-center py-16 px-4 text-center'
-    >
-      <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
-        <Icon className='h-6 w-6 text-muted-foreground' />
-      </div>
-      <p className='font-medium text-sm text-foreground mb-1'>{title}</p>
-      <p className='text-sm text-muted-foreground max-w-sm'>{description}</p>
-      {action && (
-        <Button variant='outline' size='sm' className='mt-4' onClick={action.onClick}>
-          {action.label}
-        </Button>
-      )}
-    </motion.div>
-  );
 }
 
 // -- Add Exam Dialog --------------------------------------------------
@@ -179,7 +153,7 @@ function AddExamDialog({ open, onOpenChange }: {
 
         <div className='space-y-4 py-2'>
           <div className='space-y-2'>
-            <Label>Subject *</Label>
+            <Label className='section-label'>Subject</Label>
             <Select value={subjectId} onValueChange={setSubjectId}>
               <SelectTrigger><SelectValue placeholder='Select subject' /></SelectTrigger>
               <SelectContent>
@@ -191,7 +165,7 @@ function AddExamDialog({ open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='exam-name'>Exam Name *</Label>
+            <Label htmlFor='exam-name' className='section-label'>Exam Name</Label>
             <Input
               id='exam-name'
               placeholder='e.g. Mid-Semester Examination'
@@ -203,7 +177,7 @@ function AddExamDialog({ open, onOpenChange }: {
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label htmlFor='exam-date'>Date *</Label>
+              <Label htmlFor='exam-date' className='section-label'>Date</Label>
               <Input
                 id='exam-date'
                 type='date'
@@ -212,7 +186,7 @@ function AddExamDialog({ open, onOpenChange }: {
               />
             </div>
             <div className='space-y-2'>
-              <Label>Type</Label>
+              <Label className='section-label'>Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as Exam['type'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -228,7 +202,7 @@ function AddExamDialog({ open, onOpenChange }: {
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label htmlFor='exam-marks'>Total Marks *</Label>
+              <Label htmlFor='exam-marks' className='section-label'>Total Marks</Label>
               <Input
                 id='exam-marks'
                 type='number'
@@ -239,7 +213,7 @@ function AddExamDialog({ open, onOpenChange }: {
               />
             </div>
             <div className='space-y-2'>
-              <Label>Status</Label>
+              <Label className='section-label'>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as Exam['status'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -252,7 +226,7 @@ function AddExamDialog({ open, onOpenChange }: {
 
           {status === 'completed' && (
             <div className='space-y-2'>
-              <Label htmlFor='exam-obtained'>Obtained Marks</Label>
+              <Label htmlFor='exam-obtained' className='section-label'>Obtained Marks</Label>
               <Input
                 id='exam-obtained'
                 type='number'
@@ -334,7 +308,7 @@ function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
         <div className='space-y-4 py-2'>
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label htmlFor='pyq-year'>Year *</Label>
+              <Label htmlFor='pyq-year' className='section-label'>Year</Label>
               <Input
                 id='pyq-year'
                 placeholder='e.g. 2023'
@@ -344,7 +318,7 @@ function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
               />
             </div>
             <div className='space-y-2'>
-              <Label>Difficulty</Label>
+              <Label className='section-label'>Difficulty</Label>
               <Select value={difficulty} onValueChange={(v) => setDifficulty(v as PYQ['difficulty'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -357,7 +331,7 @@ function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label>Topic</Label>
+            <Label className='section-label'>Topic</Label>
             <Select value={topicId} onValueChange={setTopicId}>
               <SelectTrigger><SelectValue placeholder='Select topic (optional)' /></SelectTrigger>
               <SelectContent>
@@ -370,7 +344,7 @@ function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='pyq-question'>Question *</Label>
+            <Label htmlFor='pyq-question' className='section-label'>Question</Label>
             <Textarea
               id='pyq-question'
               placeholder='Enter the question...'
@@ -382,7 +356,7 @@ function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='pyq-answer'>Answer</Label>
+            <Label htmlFor='pyq-answer' className='section-label'>Answer</Label>
             <Textarea
               id='pyq-answer'
               placeholder='Enter the answer (optional)...'
@@ -472,171 +446,151 @@ function ExamDetail({
       exit={{ opacity: 0, height: 0 }}
       className='overflow-hidden'
     >
-      <Card className='border-primary/20'>
-        <CardHeader className='pb-3'>
-          <div className='flex items-start justify-between gap-3'>
-            <div className='space-y-1'>
-              <CardTitle className='text-lg'>{exam.name}</CardTitle>
-              <div className='flex items-center gap-2 flex-wrap'>
-                {subject && (
-                  <Badge
-                    variant='outline'
-                    className='text-xs'
-                    style={{
-                      borderColor: subject.color + '60',
-                      color: subject.color,
-                    }}
-                  >
-                    {subject.code}
-                  </Badge>
-                )}
-                <Badge variant='outline' className={`text-xs border ${typeConf.className}`}>
-                  {typeConf.label}
-                </Badge>
-                <Badge variant='outline' className='text-xs'>
-                  {exam.totalMarks} marks
-                </Badge>
-                <span className='text-xs text-muted-foreground flex items-center gap-1'>
-                  <CalendarDays className='h-3 w-3' />
-                  {format(parseISO(exam.date), 'MMM d, yyyy')}
+      <div className='metric-card p-4 space-y-4'>
+        {/* Header */}
+        <div className='flex items-start justify-between gap-3'>
+          <div className='space-y-2'>
+            <h3 className='text-base font-semibold'>{exam.name}</h3>
+            <div className='flex items-center gap-2 flex-wrap'>
+              {subject && (
+                <span
+                  className='inline-flex items-center gap-1.5 text-[11px] font-medium'
+                  style={{ color: subject.color }}
+                >
+                  <div className='status-dot' style={{ backgroundColor: subject.color }} />
+                  {subject.code}
                 </span>
-              </div>
-            </div>
-            <div className='flex items-center gap-2 shrink-0'>
-              <Button variant='ghost' size='sm' onClick={onCollapse}>
-                <ChevronDown className='h-4 w-4' />
-              </Button>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-8 w-8 text-destructive hover:text-destructive'
-                onClick={() => setDeleteId('exam')}
-              >
-                <Trash2 className='h-3.5 w-3.5' />
-              </Button>
+              )}
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeConf.signalClass}`}>
+                {typeConf.label}
+              </span>
+              <span className='text-[11px] text-muted-foreground'>{exam.totalMarks} marks</span>
+              <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
+                <CalendarDays className='h-3 w-3' />
+                {format(parseISO(exam.date), 'MMM d, yyyy')}
+              </span>
             </div>
           </div>
+          <div className='flex items-center gap-1 shrink-0'>
+            <Button variant='ghost' size='sm' className='h-7 w-7 p-0' onClick={onCollapse}>
+              <ChevronDown className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-7 w-7 text-muted-foreground hover:text-red-500'
+              onClick={() => setDeleteId('exam')}
+            >
+              <Trash2 className='h-3.5 w-3.5' />
+            </Button>
+          </div>
+        </div>
 
-          {/* Completed stats row */}
-          {exam.status === 'completed' && percentage !== null && (
-            <div className='flex items-center gap-4 mt-3'>
-              <div className='text-sm'>
-                <span className='font-semibold'>{exam.obtainedMarks}</span>
-                <span className='text-muted-foreground'> / {exam.totalMarks}</span>
-              </div>
-              <Badge variant='outline' className='text-xs'>{percentage}%</Badge>
-              {grade && (
-                <Badge className='text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
-                  {grade}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          {/* Upcoming days remaining */}
-          {exam.status === 'upcoming' && (
-            <div className='mt-2'>
-              <Badge className='text-xs bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400'>
-                UPCOMING
-              </Badge>
-            </div>
-          )}
-        </CardHeader>
-
-        <Separator />
-
-        <CardContent className='pt-4 space-y-6'>
-          {/* PYQ Section */}
-          <div>
-            <div className='flex items-center justify-between mb-3'>
-              <h3 className='text-sm font-semibold flex items-center gap-2'>
-                <FileText className='h-4 w-4' />
-                Previous Year Questions ({examPyqs.length})
-              </h3>
-              <Button size='sm' variant='outline' className='gap-1.5 h-8' onClick={() => setPyqDialogOpen(true)}>
-                <Plus className='h-3.5 w-3.5' />
-                Add PYQ
-              </Button>
-            </div>
-
-            {examPyqs.length === 0 ? (
-              <p className='text-sm text-muted-foreground py-4 text-center'>
-                No previous year questions added yet.
-              </p>
-            ) : (
-              <div className='space-y-2 max-h-96 overflow-y-auto scrollbar-thin'>
-                {examPyqs.map((pyq) => {
-                  const diffConf = difficultyConfig(pyq.difficulty);
-                  return (
-                    <div
-                      key={pyq.id}
-                      className='rounded-lg border border-border p-3 hover:border-primary/20 transition-colors group'
-                    >
-                      <div className='flex items-start justify-between gap-2'>
-                        <div className='flex-1 min-w-0'>
-                          <div className='flex items-center gap-2 flex-wrap mb-1'>
-                            <span className='text-xs font-medium text-muted-foreground'>{pyq.year}</span>
-                            {diffConf && (
-                              <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border-0 ${diffConf.className}`}>
-                                {diffConf.label}
-                              </Badge>
-                            )}
-                            {pyq.attempted && (
-                              pyq.correct ? (
-                                <Badge className='text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
-                                  Correct
-                                </Badge>
-                              ) : (
-                                <Badge className='text-[10px] px-1.5 py-0 bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'>
-                                  Incorrect
-                                </Badge>
-                              )
-                            )}
-                            {!pyq.attempted && (
-                              <Badge variant='outline' className='text-[10px] px-1.5 py-0'>
-                                Not attempted
-                              </Badge>
-                            )}
-                          </div>
-                          <p className='text-sm leading-relaxed'>{pyq.question}</p>
-                          {pyq.answer && (
-                            <p className='text-xs text-muted-foreground mt-1.5 line-clamp-2'>{pyq.answer}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          className='h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive'
-                          onClick={() => setDeleteId(pyq.id)}
-                        >
-                          <Trash2 className='h-3 w-3' />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {/* Completed stats */}
+        {exam.status === 'completed' && percentage !== null && (
+          <div className='flex items-center gap-3'>
+            <span className='text-sm font-semibold'>{exam.obtainedMarks}</span>
+            <span className='text-sm text-muted-foreground'>/ {exam.totalMarks}</span>
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${percentage >= 60 ? 'signal-healthy' : percentage >= 40 ? 'signal-attention' : 'signal-critical'}`}>
+              {percentage}%
+            </span>
+            {grade && (
+              <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase signal-healthy'>
+                {grade}
+              </span>
             )}
           </div>
+        )}
 
-          {/* Preparation Notes */}
-          <div>
-            <h3 className='text-sm font-semibold flex items-center gap-2 mb-3'>
-              <BookOpen className='h-4 w-4' />
-              Preparation Notes
-            </h3>
-            <Textarea
-              placeholder='Add your preparation notes, key topics to revise, formulas, etc.'
-              value={prepNotes}
-              onChange={(e) => setPrepNotes(e.target.value)}
-              onBlur={handleSaveNotes}
-              rows={4}
-              className='resize-none'
-            />
-            <p className='text-[11px] text-muted-foreground mt-1'>Auto-saves when you click away</p>
+        {/* Upcoming badge */}
+        {exam.status === 'upcoming' && (
+          <span className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400'>
+            UPCOMING
+          </span>
+        )}
+
+        {/* PYQ Section */}
+        <div>
+          <div className='flex items-center justify-between mb-3'>
+            <span className='section-label'>Previous Year Questions ({examPyqs.length})</span>
+            <Button size='sm' variant='outline' className='h-7 text-xs gap-1' onClick={() => setPyqDialogOpen(true)}>
+              <Plus className='h-3 w-3' />
+              Add PYQ
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+
+          {examPyqs.length === 0 ? (
+            <p className='text-xs text-muted-foreground py-4 text-center'>
+              No previous year questions added yet.
+            </p>
+          ) : (
+            <div className='space-y-2 max-h-96 overflow-y-auto scrollbar-thin'>
+              {examPyqs.map((pyq) => {
+                const diffConf = difficultyConfig(pyq.difficulty);
+                return (
+                  <div
+                    key={pyq.id}
+                    className='rounded-md border border-border p-3 hover:border-primary/25 transition-colors group'
+                  >
+                    <div className='flex items-start justify-between gap-2'>
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex items-center gap-2 flex-wrap mb-1'>
+                          <span className='text-[11px] font-medium text-muted-foreground'>{pyq.year}</span>
+                          {diffConf && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wider uppercase ${diffConf.className}`}>
+                              {diffConf.label}
+                            </span>
+                          )}
+                          {pyq.attempted && (
+                            pyq.correct ? (
+                              <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wider uppercase signal-healthy'>
+                                Correct
+                              </span>
+                            ) : (
+                              <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wider uppercase signal-critical'>
+                                Incorrect
+                              </span>
+                            )
+                          )}
+                          {!pyq.attempted && (
+                            <span className='text-[9px] text-muted-foreground'>Not attempted</span>
+                          )}
+                        </div>
+                        <p className='text-sm leading-relaxed'>{pyq.question}</p>
+                        {pyq.answer && (
+                          <p className='text-xs text-muted-foreground mt-1.5 line-clamp-2'>{pyq.answer}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500'
+                        onClick={() => setDeleteId(pyq.id)}
+                      >
+                        <Trash2 className='h-3 w-3' />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Preparation Notes */}
+        <div>
+          <span className='section-label'>Preparation Notes</span>
+          <Textarea
+            placeholder='Add your preparation notes, key topics to revise, formulas, etc.'
+            value={prepNotes}
+            onChange={(e) => setPrepNotes(e.target.value)}
+            onBlur={handleSaveNotes}
+            rows={4}
+            className='resize-none mt-2'
+          />
+          <p className='text-[10px] text-muted-foreground/60 mt-1'>Auto-saves when you click away</p>
+        </div>
+      </div>
 
       <AddPYQDialog
         examId={exam.id}
@@ -709,19 +663,25 @@ export default function ExamsView() {
 
   if (exams.length === 0) {
     return (
-      <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h1 className='text-2xl font-semibold tracking-tight'>Exams</h1>
-          <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
-            <Plus className='h-4 w-4' />
-            Add Exam
-          </Button>
-        </div>
+      <div className='p-4 md:p-6 content-area space-y-4'>
+        <PageHeader
+          title='Exams'
+          actions={
+            <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
+              <Plus className='h-4 w-4' />
+              Add Exam
+            </Button>
+          }
+        />
         <EmptyState
           icon={GraduationCap}
           title='No exams scheduled'
           description='No exams scheduled. Add your first exam to start tracking.'
-          action={{ label: 'Add Exam', onClick: () => setDialogOpen(true) }}
+          action={
+            <Button variant='outline' size='sm' onClick={() => setDialogOpen(true)}>
+              Add Exam
+            </Button>
+          }
         />
         <AddExamDialog open={dialogOpen} onOpenChange={setDialogOpen} />
       </div>
@@ -729,31 +689,29 @@ export default function ExamsView() {
   }
 
   return (
-    <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-6'>
+    <div className='p-4 md:p-6 content-area space-y-6'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Exams</h1>
-          <p className='text-sm text-muted-foreground mt-0.5'>
-            {upcomingExams.length} upcoming, {completedExams.length} completed
-          </p>
-        </div>
-        <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
-          <Plus className='h-4 w-4' />
-          <span className='hidden sm:inline'>Add Exam</span>
-        </Button>
-      </div>
-
-      <Separator />
+      <PageHeader
+        title='Exams'
+        subtitle={`${upcomingExams.length} upcoming, ${completedExams.length} completed`}
+        actions={
+          <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
+            <Plus className='h-4 w-4' />
+            <span className='hidden sm:inline'>Add Exam</span>
+          </Button>
+        }
+      />
 
       {/* Upcoming Exams */}
       <section>
-        <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3'>
-          Upcoming Exams
-        </h2>
+        <SectionHeader title='Upcoming Exams' />
 
         {upcomingExams.length === 0 ? (
-          <p className='text-sm text-muted-foreground py-8 text-center'>No upcoming exams.</p>
+          <EmptyState
+            icon={CalendarDays}
+            title='No upcoming exams'
+            description='All exams have been completed.'
+          />
         ) : (
           <motion.div variants={container} initial='hidden' animate='show' className='space-y-2'>
             {upcomingExams.map((exam) => {
@@ -767,70 +725,63 @@ export default function ExamsView() {
                   {isExpanded ? (
                     <ExamDetail exam={exam} onCollapse={() => setExpandedId(null)} />
                   ) : (
-                    <Card
-                      className='group cursor-pointer transition-colors hover:border-primary/30'
+                    <div
+                      className='card-interactive p-4 group'
                       onClick={() => setExpandedId(exam.id)}
                     >
-                      <CardContent className='p-4'>
-                        <div className='flex items-start justify-between gap-3'>
-                          <div className='flex-1 min-w-0'>
-                            <p className='font-medium text-sm'>{exam.name}</p>
-                            <div className='flex items-center gap-2 mt-2 flex-wrap'>
-                              {subject && (
-                                <Badge
-                                  variant='outline'
-                                  className='text-[10px] px-1.5 py-0'
-                                  style={{
-                                    borderColor: subject.color + '60',
-                                    color: subject.color,
-                                  }}
-                                >
-                                  {subject.code}
-                                </Badge>
-                              )}
-                              <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${typeConf.className}`}>
-                                {typeConf.label}
-                              </Badge>
-                              <Badge className='text-[10px] px-1.5 py-0 bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400'>
-                                UPCOMING
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <div className='flex flex-col items-end gap-2 shrink-0'>
-                            <div className='text-right'>
-                              <p className='text-xs text-muted-foreground flex items-center gap-1'>
-                                <CalendarDays className='h-3 w-3' />
-                                {format(parseISO(exam.date), 'MMM d')}
-                              </p>
-                              <p className={`text-xs font-medium mt-0.5 ${daysRemaining <= 3 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
-                                {daysRemaining === 0 ? 'Today' : daysRemaining === 1 ? 'Tomorrow' : `${daysRemaining} days left`}
-                              </p>
-                            </div>
-                            <Badge variant='outline' className='text-[10px]'>
-                              {exam.totalMarks} marks
-                            </Badge>
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='flex-1 min-w-0'>
+                          <p className='text-sm font-medium'>{exam.name}</p>
+                          <div className='flex items-center gap-2 mt-2 flex-wrap'>
+                            {subject && (
+                              <span
+                                className='inline-flex items-center gap-1.5 text-[10px] font-medium'
+                                style={{ color: subject.color }}
+                              >
+                                <div className='status-dot' style={{ backgroundColor: subject.color }} />
+                                {subject.code}
+                              </span>
+                            )}
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeConf.signalClass}`}>
+                              {typeConf.label}
+                            </span>
+                            <span className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400'>
+                              UPCOMING
+                            </span>
                           </div>
                         </div>
 
-                        {/* Prepare Now button */}
-                        <div className='mt-3 flex justify-end'>
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            className='h-8 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity'
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              selectSubject(exam.subjectId);
-                              navigate('subject-detail');
-                            }}
-                          >
-                            <Target className='h-3.5 w-3.5' />
-                            Prepare Now
-                          </Button>
+                        <div className='flex flex-col items-end gap-2 shrink-0'>
+                          <div className='text-right'>
+                            <p className='text-[11px] text-muted-foreground flex items-center gap-1'>
+                              <CalendarDays className='h-3 w-3' />
+                              {format(parseISO(exam.date), 'MMM d')}
+                            </p>
+                            <p className={`text-[11px] font-medium mt-0.5 ${daysRemaining <= 3 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                              {daysRemaining === 0 ? 'Today' : daysRemaining === 1 ? 'Tomorrow' : `${daysRemaining} days left`}
+                            </p>
+                          </div>
+                          <span className='text-[10px] text-muted-foreground'>{exam.totalMarks} marks</span>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+
+                      {/* Prepare Now */}
+                      <div className='mt-3 flex justify-end'>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          className='h-7 text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectSubject(exam.subjectId);
+                            navigate('subject-detail');
+                          }}
+                        >
+                          <Target className='h-3 w-3' />
+                          Prepare Now
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </motion.div>
               );
@@ -843,9 +794,10 @@ export default function ExamsView() {
       <section>
         <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
           <CollapsibleTrigger className='flex items-center gap-2 w-full group cursor-pointer py-1'>
-            <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wider'>
-              Completed Exams ({completedExams.length})
-            </h2>
+            <SectionHeader
+              title={`Completed Exams (${completedExams.length})`}
+              className='mb-0'
+            />
             {completedOpen ? (
               <ChevronDown className='h-4 w-4 text-muted-foreground' />
             ) : (
@@ -855,7 +807,7 @@ export default function ExamsView() {
 
           <CollapsibleContent>
             {completedExams.length === 0 ? (
-              <p className='text-sm text-muted-foreground py-8 text-center'>No completed exams.</p>
+              <p className='text-xs text-muted-foreground py-8 text-center'>No completed exams.</p>
             ) : (
               <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 mt-3'>
                 {completedExams.map((exam) => {
@@ -873,59 +825,54 @@ export default function ExamsView() {
                       {isExpanded ? (
                         <ExamDetail exam={exam} onCollapse={() => setExpandedId(null)} />
                       ) : (
-                        <Card
-                          className='group cursor-pointer transition-colors hover:border-primary/30 opacity-80'
+                        <div
+                          className='card-interactive p-4 group opacity-75'
                           onClick={() => setExpandedId(exam.id)}
                         >
-                          <CardContent className='p-4'>
-                            <div className='flex items-center justify-between gap-3'>
-                              <div className='flex-1 min-w-0'>
-                                <p className='font-medium text-sm'>{exam.name}</p>
-                                <div className='flex items-center gap-2 mt-2 flex-wrap'>
-                                  {subject && (
-                                    <Badge
-                                      variant='outline'
-                                      className='text-[10px] px-1.5 py-0'
-                                      style={{
-                                        borderColor: subject.color + '60',
-                                        color: subject.color,
-                                      }}
-                                    >
-                                      {subject.code}
-                                    </Badge>
-                                  )}
-                                  <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${typeConf.className}`}>
-                                    {typeConf.label}
-                                  </Badge>
-                                  <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
-                                    <CalendarDays className='h-3 w-3' />
-                                    {format(parseISO(exam.date), 'MMM d, yyyy')}
+                          <div className='flex items-center justify-between gap-3'>
+                            <div className='flex-1 min-w-0'>
+                              <p className='text-sm font-medium'>{exam.name}</p>
+                              <div className='flex items-center gap-2 mt-2 flex-wrap'>
+                                {subject && (
+                                  <span
+                                    className='inline-flex items-center gap-1.5 text-[10px] font-medium'
+                                    style={{ color: subject.color }}
+                                  >
+                                    <div className='status-dot' style={{ backgroundColor: subject.color }} />
+                                    {subject.code}
                                   </span>
-                                </div>
-                              </div>
-
-                              <div className='flex items-center gap-3 shrink-0'>
-                                {percentage !== null && (
-                                  <div className='text-right'>
-                                    <p className='text-sm font-semibold'>
-                                      {exam.obtainedMarks}<span className='text-muted-foreground font-normal'>/{exam.totalMarks}</span>
-                                    </p>
-                                    <div className='flex items-center gap-1.5 justify-end mt-0.5'>
-                                      <Badge variant='outline' className='text-[10px]'>
-                                        {percentage}%
-                                      </Badge>
-                                      {grade && (
-                                        <Badge className='text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
-                                          {grade}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
                                 )}
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeConf.signalClass}`}>
+                                  {typeConf.label}
+                                </span>
+                                <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
+                                  <CalendarDays className='h-3 w-3' />
+                                  {format(parseISO(exam.date), 'MMM d, yyyy')}
+                                </span>
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+
+                            <div className='flex items-center gap-3 shrink-0'>
+                              {percentage !== null && (
+                                <div className='text-right'>
+                                  <p className='text-sm font-semibold'>
+                                    {exam.obtainedMarks}<span className='text-muted-foreground font-normal'>/{exam.totalMarks}</span>
+                                  </p>
+                                  <div className='flex items-center gap-1.5 justify-end mt-0.5'>
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${percentage >= 60 ? 'signal-healthy' : percentage >= 40 ? 'signal-attention' : 'signal-critical'}`}>
+                                      {percentage}%
+                                    </span>
+                                    {grade && (
+                                      <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase signal-healthy'>
+                                        {grade}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </motion.div>
                   );

@@ -12,14 +12,12 @@ import {
   Calendar,
   Timer,
 } from 'lucide-react';
-import { format, addWeeks, subWeeks, startOfWeek, parseISO } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek } from 'date-fns';
 
 import { useStore } from '@/lib/store';
 import type { TimetableSlot } from '@/lib/types';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -46,25 +44,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  PageHeader,
+  EmptyState,
+  MetricCard,
+} from '@/components/shared';
 
 // -- Constants --------------------------------------------------------
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
-const START_HOUR = 8; // 8:00 AM
-const END_HOUR = 20; // 8:00 PM
+const START_HOUR = 8;
+const END_HOUR = 20;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
-const SLOT_HEIGHT = 48; // px per 30 min
-const HALF_HOUR_PX = SLOT_HEIGHT / 2; // 24px per 15 min
+const SLOT_HEIGHT = 48;
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
-}
-
-function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 function formatTime(time: string): string {
@@ -94,7 +90,7 @@ function getNowIndicatorTop(): number {
 
 // -- Animation --------------------------------------------------------
 const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
@@ -163,7 +159,6 @@ function SlotDialog({
       return;
     }
 
-    // Check for overlap with existing slots on the same day
     const dayNum = Number(day) as TimetableSlot['day'];
     const overlapping = timetableSlots.find((s) => {
       if (s.id === slot?.id) return false;
@@ -205,13 +200,13 @@ function SlotDialog({
 
         <div className='space-y-4 py-2'>
           {error && (
-            <div className='text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2'>
+            <div className='text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-md px-3 py-2'>
               {error}
             </div>
           )}
 
           <div className='space-y-2'>
-            <Label>Subject *</Label>
+            <Label className='section-label'>Subject</Label>
             <Select value={subjectId} onValueChange={setSubjectId}>
               <SelectTrigger><SelectValue placeholder='Select subject' /></SelectTrigger>
               <SelectContent>
@@ -224,7 +219,7 @@ function SlotDialog({
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label>Day</Label>
+              <Label className='section-label'>Day</Label>
               <Select value={day} onValueChange={setDay}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -236,7 +231,7 @@ function SlotDialog({
             </div>
 
             <div className='space-y-2'>
-              <Label>Type</Label>
+              <Label className='section-label'>Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as TimetableSlot['type'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -250,17 +245,17 @@ function SlotDialog({
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label>Start Time</Label>
+              <Label className='section-label'>Start Time</Label>
               <Input type='time' value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </div>
             <div className='space-y-2'>
-              <Label>End Time</Label>
+              <Label className='section-label'>End Time</Label>
               <Input type='time' value={endTime} onChange={(e) => setEndTime(e.target.value)} />
             </div>
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='slot-room'>Room (optional)</Label>
+            <Label htmlFor='slot-room' className='section-label'>Room (optional)</Label>
             <Input id='slot-room' placeholder='e.g. Room 301' value={room} onChange={(e) => setRoom(e.target.value)} />
           </div>
         </div>
@@ -288,11 +283,9 @@ function WeeklyGrid({
   const gridRef = useRef<HTMLDivElement>(null);
   const [nowTop, setNowTop] = useState(getNowIndicatorTop);
 
-  // Map day number (0=Sun..6=Sat) to column index (0=Mon..6=Sun)
   const getColIndex = (day: number) => (day === 0 ? 6 : day - 1);
   const todayCol = getColIndex(today.getDay());
 
-  // Update now indicator every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setNowTop(getNowIndicatorTop());
@@ -300,7 +293,6 @@ function WeeklyGrid({
     return () => clearInterval(interval);
   }, []);
 
-  // Scroll to current time on mount
   useEffect(() => {
     if (gridRef.current) {
       const top = getNowIndicatorTop() - 200;
@@ -312,6 +304,14 @@ function WeeklyGrid({
   const isTodayInView = todayCol >= 0 && todayCol <= 6;
   const nowInRange = nowTop >= 0 && nowTop <= totalHeight;
 
+  const typeSignalClass = (type: TimetableSlot['type']) => {
+    switch (type) {
+      case 'lecture': return 'bg-secondary text-muted-foreground';
+      case 'lab': return 'signal-attention';
+      case 'tutorial': return 'signal-healthy';
+    }
+  };
+
   return (
     <div ref={gridRef} className='overflow-y-auto scrollbar-thin max-h-[calc(100vh-280px)] rounded-lg border border-border bg-card'>
       <div className='relative min-w-[700px]'>
@@ -322,8 +322,8 @@ function WeeklyGrid({
             {DAYS.map((d, i) => (
               <div
                 key={d}
-                className={`text-center text-xs font-medium py-2 border-l border-border ${
-                  i === todayCol ? 'bg-primary/5 text-primary' : 'text-muted-foreground'
+                className={`text-center text-[11px] font-semibold tracking-wider uppercase py-2 border-l border-border ${
+                  i === todayCol ? 'text-primary bg-primary/5' : 'text-muted-foreground'
                 }`}
               >
                 {d}
@@ -339,16 +339,14 @@ function WeeklyGrid({
             const top = i * SLOT_HEIGHT;
             return (
               <div key={label}>
-                {/* Label */}
                 <div
                   className='absolute left-0 w-[56px] text-right pr-2 text-[10px] text-muted-foreground -translate-y-1/2'
                   style={{ top }}
                 >
                   {label}
                 </div>
-                {/* Horizontal line */}
                 <div
-                  className='absolute left-[60px] right-0 border-t border-border/50'
+                  className='absolute left-[60px] right-0 border-t border-border/40'
                   style={{ top }}
                 />
               </div>
@@ -359,8 +357,8 @@ function WeeklyGrid({
           {DAYS.map((_, i) => (
             <div
               key={`vline-${i}`}
-              className={`absolute top-0 bottom-0 border-l border-border/50 ${
-                i === todayCol ? 'bg-primary/[0.03]' : ''
+              className={`absolute top-0 bottom-0 border-l border-border/40 ${
+                i === todayCol ? 'bg-primary/[0.02]' : ''
               }`}
               style={{
                 left: `calc(60px + ${i} * ((100% - 60px) / 7))`,
@@ -371,7 +369,7 @@ function WeeklyGrid({
           {/* Today highlight column */}
           {isTodayInView && (
             <div
-              className='absolute top-0 bottom-0 bg-primary/[0.04] pointer-events-none'
+              className='absolute top-0 bottom-0 bg-primary/[0.03] pointer-events-none'
               style={{
                 left: `calc(60px + ${todayCol} * ((100% - 60px) / 7))`,
                 width: `calc((100% - 60px) / 7)`,
@@ -392,13 +390,13 @@ function WeeklyGrid({
               <button
                 key={slot.id}
                 onClick={() => onSlotClick(slot)}
-                className='absolute left-[62px] right-[2px] rounded-md px-2 py-1 text-left overflow-hidden cursor-pointer transition-all hover:brightness-110 hover:shadow-md hover:z-10 group'
+                className='absolute rounded-md px-2 py-1 text-left overflow-hidden cursor-pointer transition-all hover:brightness-110 hover:z-10 group'
                 style={{
                   top: top + 1,
                   height: height - 2,
                   left: `calc(60px + ${colIndex} * ((100% - 60px) / 7) + 2px)`,
                   width: `calc((100% - 60px) / 7 - 4px)`,
-                  backgroundColor: subject.color + '18',
+                  backgroundColor: subject.color + '15',
                   borderLeft: `3px solid ${subject.color}`,
                 }}
               >
@@ -407,7 +405,7 @@ function WeeklyGrid({
                 </p>
                 {height >= 40 && (
                   <p className='text-[10px] text-muted-foreground truncate'>
-                    {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                    {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
                   </p>
                 )}
                 {height >= 56 && slot.room && (
@@ -416,21 +414,10 @@ function WeeklyGrid({
                   </p>
                 )}
                 {height >= 72 && (
-                  <Badge variant='outline' className='text-[9px] px-1 py-0 mt-0.5 capitalize'>
+                  <span className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-semibold tracking-wider uppercase mt-0.5 ${typeSignalClass(slot.type)}`}>
                     {slot.type}
-                  </Badge>
+                  </span>
                 )}
-                {/* Delete button on hover */}
-                <div className='absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity'>
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    className='h-5 w-5 rounded-full bg-background/80 flex items-center justify-center'
-                  >
-                    <Trash2 className='h-2.5 w-2.5 text-muted-foreground' />
-                  </div>
-                </div>
               </button>
             );
           })}
@@ -442,8 +429,8 @@ function WeeklyGrid({
               style={{ top: nowTop }}
             >
               <div className='flex items-center'>
-                <div className='w-2.5 h-2.5 rounded-full bg-red-500 -ml-[5px] shrink-0' />
-                <div className='h-[2px] flex-1 bg-red-500' />
+                <div className='w-2 h-2 rounded-full bg-red-500 -ml-[4px] shrink-0' />
+                <div className='h-[1.5px] flex-1 bg-red-500' />
               </div>
             </div>
           )}
@@ -459,7 +446,7 @@ function MobileTodayView({ onSlotClick }: { onSlotClick: (slot: TimetableSlot) =
   const subjects = useStore((s) => s.subjects);
 
   const today = new Date();
-  const jsDay = today.getDay(); // 0=Sun
+  const jsDay = today.getDay();
   const storeDay = (jsDay === 0 ? 6 : jsDay - 1) as TimetableSlot['day'];
 
   const todaySlots = timetableSlots
@@ -468,7 +455,6 @@ function MobileTodayView({ onSlotClick }: { onSlotClick: (slot: TimetableSlot) =
 
   const nowMinutes = today.getHours() * 60 + today.getMinutes();
 
-  // Find current and next class
   const currentSlot = todaySlots.find((s) => {
     const start = timeToMinutes(s.startTime);
     const end = timeToMinutes(s.endTime);
@@ -477,95 +463,87 @@ function MobileTodayView({ onSlotClick }: { onSlotClick: (slot: TimetableSlot) =
 
   const nextSlot = todaySlots.find((s) => timeToMinutes(s.startTime) > nowMinutes);
 
-  const typeBadgeClass = (type: TimetableSlot['type']) => {
+  const typeSignalClass = (type: TimetableSlot['type']) => {
     switch (type) {
-      case 'lecture': return 'bg-primary/10 text-primary';
-      case 'lab': return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400';
-      case 'tutorial': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400';
+      case 'lecture': return 'bg-secondary text-muted-foreground';
+      case 'lab': return 'signal-attention';
+      case 'tutorial': return 'signal-healthy';
     }
   };
 
   if (todaySlots.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className='flex flex-col items-center justify-center py-16 px-4 text-center'
-      >
-        <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
-          <Calendar className='h-6 w-6 text-muted-foreground' />
-        </div>
-        <p className='font-medium text-sm'>No classes today</p>
-        <p className='text-sm text-muted-foreground mt-1'>Enjoy your day off or catch up on studies.</p>
-      </motion.div>
+      <EmptyState
+        icon={Calendar}
+        title='No classes today'
+        description='Enjoy your day off or catch up on studies.'
+      />
     );
   }
 
   return (
-    <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }} initial='hidden' animate='show' className='space-y-3'>
+    <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }} initial='hidden' animate='show' className='space-y-2'>
       {todaySlots.map((slot) => {
         const subject = subjects.find((s) => s.id === slot.subjectId);
         if (!subject) return null;
 
         const isCurrent = currentSlot?.id === slot.id;
         const isNext = nextSlot?.id === slot.id;
-        const startMin = timeToMinutes(slot.startTime);
         const isPast = nowMinutes >= timeToMinutes(slot.endTime);
 
         return (
           <motion.div
             key={slot.id}
-            variants={{ hidden: { opacity: 0, x: -12 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
+            variants={{ hidden: { opacity: 0, x: -8 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
           >
             <button
               onClick={() => onSlotClick(slot)}
               className={`w-full text-left rounded-lg border p-4 transition-colors ${
                 isCurrent
-                  ? 'border-primary bg-primary/5 shadow-sm'
+                  ? 'border-primary bg-primary/5'
                   : isNext
-                  ? 'border-primary/40 bg-card hover:border-primary/60'
+                  ? 'border-primary/25 bg-card hover:border-primary/40'
                   : isPast
-                  ? 'border-border opacity-50'
-                  : 'border-border bg-card hover:border-primary/30'
+                  ? 'border-border opacity-40'
+                  : 'border-border bg-card hover:border-primary/25'
               }`}
             >
               <div className='flex items-start gap-3'>
-                {/* Timeline dot */}
                 <div className='flex flex-col items-center pt-1'>
                   <div
-                    className={`h-3 w-3 rounded-full shrink-0 ${
-                      isCurrent ? 'bg-primary ring-2 ring-primary/30' :
+                    className={`status-dot mt-0.5 ${
+                      isCurrent ? 'bg-primary' :
                       isNext ? 'bg-primary' :
                       'bg-muted-foreground/30'
                     }`}
                   />
-                  <div className={`w-px h-8 mt-1 ${isPast ? 'bg-border' : 'bg-border'}`} />
+                  <div className='w-px h-8 mt-1 bg-border' />
                 </div>
 
                 <div className='flex-1 min-w-0'>
                   <div className='flex items-center gap-2 flex-wrap'>
-                    <span className='font-semibold text-sm' style={{ color: subject.color }}>
+                    <span className='text-sm font-medium' style={{ color: subject.color }}>
                       {subject.name}
                     </span>
-                    <Badge variant='outline' className={`text-[10px] px-1.5 py-0 ${typeBadgeClass(slot.type)}`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeSignalClass(slot.type)}`}>
                       {slot.type}
-                    </Badge>
+                    </span>
                     {isCurrent && (
-                      <Badge className='text-[10px] px-1.5 py-0 bg-primary text-primary-foreground'>
+                      <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase bg-primary text-primary-foreground'>
                         NOW
-                      </Badge>
+                      </span>
                     )}
                     {isNext && !isCurrent && (
-                      <Badge variant='secondary' className='text-[10px] px-1.5 py-0'>
+                      <span className='inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase bg-secondary text-muted-foreground'>
                         NEXT
-                      </Badge>
+                      </span>
                     )}
                   </div>
 
-                  <div className='flex items-center gap-3 mt-1.5 text-xs text-muted-foreground'>
+                  <div className='flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground'>
                     <span className='flex items-center gap-1'>
                       <Clock className='h-3 w-3' />
-                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                      {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
                     </span>
                     {slot.room && (
                       <span className='flex items-center gap-1'>
@@ -631,36 +609,15 @@ function NextClassCard() {
 
   return (
     <motion.div variants={fadeUp} initial='hidden' animate='show'>
-      <Card className='border-primary/20 bg-gradient-to-r from-primary/5 to-transparent'>
-        <CardContent className='p-4 flex items-center gap-4'>
-          <div
-            className='h-12 w-12 rounded-xl flex items-center justify-center shrink-0'
-            style={{ backgroundColor: subject.color + '18' }}
-          >
-            <Timer className='h-6 w-6' style={{ color: subject.color }} />
-          </div>
-          <div className='flex-1 min-w-0'>
-            <p className='text-xs text-muted-foreground font-medium uppercase tracking-wide'>
-              Next Class
-            </p>
-            <p className='font-semibold text-sm mt-0.5 truncate'>{subject.name}</p>
-            <div className='flex items-center gap-2 text-xs text-muted-foreground mt-1'>
-              <Clock className='h-3 w-3' />
-              {formatTime(nextSlot.startTime)} - {formatTime(nextSlot.endTime)}
-              {nextSlot.room && (
-                <>
-                  <span className='text-border'>|</span>
-                  <MapPin className='h-3 w-3' />
-                  {nextSlot.room}
-                </>
-              )}
-            </div>
-          </div>
-          <div className='text-right shrink-0'>
-            <p className='text-sm font-semibold text-primary'>{countdown}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <MetricCard
+        label='Next Class'
+        value={subject.name}
+        context={`${formatTime(nextSlot.startTime)} – ${formatTime(nextSlot.endTime)}${nextSlot.room ? ` · ${nextSlot.room}` : ''}`}
+        icon={Timer}
+        iconColor='text-primary'
+        className='border-primary/20'
+        valueColor='text-base'
+      />
     </motion.div>
   );
 }
@@ -692,57 +649,55 @@ export default function TimetableView() {
   };
 
   return (
-    <div className='p-4 md:p-6 max-w-7xl mx-auto space-y-4'>
+    <div className='p-4 md:p-6 content-area space-y-4'>
       {/* Header */}
-      <div className='flex items-center justify-between flex-wrap gap-2'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Timetable</h1>
-          <p className='text-sm text-muted-foreground mt-0.5'>
-            {weekLabel}
-          </p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <div className='flex items-center bg-muted rounded-lg p-0.5'>
+      <PageHeader
+        title='Timetable'
+        subtitle={weekLabel}
+        actions={
+          <div className='flex items-center gap-2'>
+            <div className='flex items-center bg-secondary rounded-lg p-0.5'>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-8 w-8'
+                onClick={() => setWeekOffset((w) => w - 1)}
+              >
+                <ChevronLeft className='h-4 w-4' />
+              </Button>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-8 px-3 text-xs'
+                onClick={() => setWeekOffset(0)}
+              >
+                Today
+              </Button>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-8 w-8'
+                onClick={() => setWeekOffset((w) => w + 1)}
+              >
+                <ChevronRight className='h-4 w-4' />
+              </Button>
+            </div>
             <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8'
-              onClick={() => setWeekOffset((w) => w - 1)}
-            >
-              <ChevronLeft className='h-4 w-4' />
-            </Button>
-            <Button
-              variant='ghost'
               size='sm'
-              className='h-8 px-3 text-xs'
-              onClick={() => setWeekOffset(0)}
+              className='gap-1.5'
+              onClick={() => {
+                setEditingSlot(null);
+                setDialogOpen(true);
+              }}
             >
-              Today
-            </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8'
-              onClick={() => setWeekOffset((w) => w + 1)}
-            >
-              <ChevronRight className='h-4 w-4' />
+              <Plus className='h-4 w-4' />
+              <span className='hidden sm:inline'>Add Slot</span>
             </Button>
           </div>
-          <Button
-            size='sm'
-            className='gap-1.5'
-            onClick={() => {
-              setEditingSlot(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className='h-4 w-4' />
-            <span className='hidden sm:inline'>Add Slot</span>
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Next Class Card (mobile and desktop) */}
+      {/* Next Class Card */}
       <NextClassCard />
 
       {/* Desktop: Weekly Grid */}

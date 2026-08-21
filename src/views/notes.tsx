@@ -7,19 +7,17 @@ import {
   Search,
   Trash2,
   ArrowLeft,
-  StickyNote,
   Save,
   FileText,
+  StickyNote,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 import { useStore } from '@/lib/store';
 
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -38,9 +36,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
+import {
+  PageHeader,
+  SectionHeader,
+  EmptyState,
+} from '@/components/shared';
 
-// ─── Component ─────────────────────────────────────────────────────
+// --- Component ---
 export default function NotesView() {
   const {
     notes,
@@ -57,7 +59,7 @@ export default function NotesView() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Editor state (for the selected note)
+  // Editor state
   const [editorTitle, setEditorTitle] = useState('');
   const [editorContent, setEditorContent] = useState('');
   const [editorSubjectId, setEditorSubjectId] = useState<string>('');
@@ -66,7 +68,7 @@ export default function NotesView() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ─── Derived data ────────────────────────────────────────────────
+  // --- Derived data ---
   const activeSubjects = useMemo(
     () => subjects.filter((s) => !s.archived),
     [subjects]
@@ -87,7 +89,6 @@ export default function NotesView() {
   const filteredNotes = useMemo(() => {
     let result = [...notes];
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -97,12 +98,10 @@ export default function NotesView() {
       );
     }
 
-    // Subject filter
     if (subjectFilter !== 'all') {
       result = result.filter((n) => n.subjectId === subjectFilter);
     }
 
-    // Sort by updatedAt descending
     result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
     return result;
@@ -113,7 +112,7 @@ export default function NotesView() {
     [notes, selectedNoteId]
   );
 
-  // ─── Load note into editor ──────────────────────────────────────
+  // --- Load note into editor ---
   const loadNoteIntoEditor = useCallback((
     note: { title: string; content: string; subjectId?: string; topicId?: string } | null
   ) => {
@@ -145,7 +144,7 @@ export default function NotesView() {
     }
   }, [editorContent]);
 
-  // ─── Actions ─────────────────────────────────────────────────────
+  // --- Actions ---
   const handleNewNote = useCallback(() => {
     addNote({
       title: 'Untitled Note',
@@ -153,7 +152,6 @@ export default function NotesView() {
       subjectId: undefined,
       topicId: undefined,
     });
-    // Pick the newly added note from the store
     const latestNotes = useStore.getState().notes;
     const justAdded = latestNotes[latestNotes.length - 1];
     if (justAdded) {
@@ -201,7 +199,7 @@ export default function NotesView() {
     []
   );
 
-  // ─── Helper ──────────────────────────────────────────────────────
+  // --- Helpers ---
   const getSubjectName = useCallback(
     (subjectId?: string) => {
       if (!subjectId) return null;
@@ -218,127 +216,121 @@ export default function NotesView() {
     [subjects]
   );
 
-  // ─── Render ──────────────────────────────────────────────────────
+  // --- Render ---
   return (
-    <div className='p-4 sm:p-6 h-full flex flex-col'>
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className='flex flex-col sm:flex-row sm:items-center gap-3 mb-6'>
-        <div className='flex-1'>
-          <h1 className='text-2xl font-bold tracking-tight flex items-center gap-2'>
-            <StickyNote className='h-6 w-6' />
-            Notes
-            <Badge variant='secondary' className='ml-1'>
-              {notes.length}
-            </Badge>
-          </h1>
-        </div>
+    <div className='content-area px-4 sm:px-6 py-6 h-full flex flex-col'>
+      {/* --- Header --- */}
+      <PageHeader
+        title='Notes'
+        subtitle={`${notes.length} total note${notes.length !== 1 ? 's' : ''}`}
+        actions={
+          <div className='flex items-center gap-2'>
+            <div className='relative'>
+              <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
+              <Input
+                placeholder='Search...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className='pl-8 h-8 w-48 sm:w-56 text-xs'
+              />
+            </div>
 
-        <div className='flex items-center gap-2 flex-wrap'>
-          <div className='relative flex-1 sm:flex-initial sm:w-64'>
-            <Search className='absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
-            <Input
-              placeholder='Search notes...'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className='pl-9 h-9'
-            />
+            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <SelectTrigger className='w-[120px] h-8 text-xs'>
+                <SelectValue placeholder='Subject' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>All</SelectItem>
+                {activeSubjects.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button size='sm' onClick={handleNewNote} className='h-8'>
+              <Plus className='mr-1.5 h-3.5 w-3.5' />
+              <span className='hidden sm:inline'>New Note</span>
+            </Button>
           </div>
+        }
+      />
 
-          <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-            <SelectTrigger className='w-[140px] h-9 text-xs'>
-              <SelectValue placeholder='Subject' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>All Subjects</SelectItem>
-              {activeSubjects.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button size='sm' onClick={handleNewNote}>
-            <Plus className='mr-1.5 h-4 w-4' />
-            New Note
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Main Content ────────────────────────────────────────── */}
+      {/* --- Main Content --- */}
       <div className='flex-1 flex flex-col md:flex-row gap-4 min-h-0'>
         {/* Notes List */}
         <div
-          className={`w-full md:w-80 lg:w-96 shrink-0 ${selectedNoteId ? 'hidden md:block' : ''}`}
+          className={`w-full md:w-72 lg:w-80 shrink-0 ${selectedNoteId ? 'hidden md:block' : ''}`}
         >
           {filteredNotes.length > 0 ? (
-            <div className='space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto scrollbar-thin pr-1'>
-              <AnimatePresence>
-                {filteredNotes.map((note) => {
-                  const subjectName = getSubjectName(note.subjectId);
-                  const subjectColor = getSubjectColor(note.subjectId);
-                  const isSelected = note.id === selectedNoteId;
-                  const firstLine = note.content
-                    ? note.content.split('\n')[0].slice(0, 100)
-                    : 'No content';
+            <div className='space-y-1.5'>
+              <SectionHeader
+                title={`${filteredNotes.length} Note${filteredNotes.length !== 1 ? 's' : ''}`}
+              />
+              <div className='max-h-[calc(100vh-220px)] overflow-y-auto scrollbar-thin pr-1 space-y-1'>
+                <AnimatePresence>
+                  {filteredNotes.map((note) => {
+                    const subjectName = getSubjectName(note.subjectId);
+                    const subjectColor = getSubjectColor(note.subjectId);
+                    const isSelected = note.id === selectedNoteId;
+                    const firstLine = note.content
+                      ? note.content.split('\n')[0].slice(0, 80)
+                      : 'No content';
 
-                  return (
-                    <motion.div
-                      key={note.id}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                    >
-                      <Card
-                        className={`cursor-pointer p-3 transition-colors ${
-                          isSelected
-                            ? 'border-primary bg-primary/5'
-                            : 'hover:border-primary/30'
-                        }`}
-                        onClick={() => handleSelectNote(note.id)}
+                    return (
+                      <motion.div
+                        key={note.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
                       >
-                        <div className='flex items-start justify-between gap-2'>
-                          <h3 className='font-medium text-sm truncate'>{note.title}</h3>
-                          <span className='text-xs text-muted-foreground shrink-0'>
-                            {format(parseISO(note.updatedAt), 'MMM d')}
-                          </span>
-                        </div>
-                        <p className='text-xs text-muted-foreground mt-1 truncate'>
-                          {firstLine}
-                        </p>
-                        {subjectName && (
-                          <div className='mt-2'>
-                            <Badge
-                              variant='outline'
-                              className='text-[10px] px-1.5 py-0'
-                              style={
-                                subjectColor
-                                  ? { borderColor: subjectColor, color: subjectColor }
-                                  : undefined
-                              }
-                            >
-                              {subjectName}
-                            </Badge>
+                        <div
+                          className={`card-interactive p-3 ${isSelected ? '!border-primary/40 !bg-primary/5' : ''}`}
+                          onClick={() => handleSelectNote(note.id)}
+                        >
+                          <div className='flex items-start justify-between gap-2'>
+                            <h3 className={`text-sm truncate ${isSelected ? 'font-semibold' : 'font-medium'}`}>{note.title}</h3>
+                            <span className='text-[10px] text-muted-foreground shrink-0 tabular-nums'>
+                              {format(parseISO(note.updatedAt), 'MMM d')}
+                            </span>
                           </div>
-                        )}
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+                          <p className='text-[11px] text-muted-foreground mt-0.5 truncate leading-relaxed'>
+                            {firstLine}
+                          </p>
+                          {subjectName && subjectColor && (
+                            <div className='mt-1.5'>
+                              <span
+                                className='inline-flex items-center gap-1 text-[10px] font-medium'
+                                style={{ color: subjectColor }}
+                              >
+                                <span
+                                  className='status-dot'
+                                  style={{ backgroundColor: subjectColor }}
+                                />
+                                {subjectName}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
             </div>
           ) : (
-            <Card className='p-8 text-center'>
-              <FileText className='mx-auto h-12 w-12 text-muted-foreground/40' />
-              <p className='mt-4 text-lg font-medium'>No notes yet</p>
-              <p className='mt-1 text-sm text-muted-foreground'>
-                Create your first note.
-              </p>
-              <Button className='mt-4' size='sm' onClick={handleNewNote}>
-                <Plus className='mr-1.5 h-4 w-4' />
-                New Note
-              </Button>
-            </Card>
+            <EmptyState
+              icon={FileText}
+              title='No notes yet'
+              description='Create your first note to get started.'
+              action={
+                <Button size='sm' onClick={handleNewNote}>
+                  <Plus className='mr-1.5 h-3.5 w-3.5' />
+                  New Note
+                </Button>
+              }
+            />
           )}
         </div>
 
@@ -347,124 +339,133 @@ export default function NotesView() {
           {selectedNoteId && (
             <motion.div
               key='editor'
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
+              exit={{ opacity: 0, x: 16 }}
               transition={{ duration: 0.2 }}
               className={`flex-1 min-w-0 flex flex-col ${!selectedNoteId ? 'hidden md:flex' : 'flex'}`}
             >
-              <Card className='flex-1 flex flex-col p-4 sm:p-6'>
+              <div className='metric-card flex-1 flex flex-col p-0 overflow-hidden'>
                 {/* Editor toolbar */}
-                <div className='flex items-center gap-2 mb-4'>
+                <div className='flex items-center gap-2 px-4 py-3 border-b border-border'>
                   <Button
                     variant='ghost'
                     size='sm'
-                    className='md:hidden'
+                    className='md:hidden h-7 px-2'
                     onClick={() => setSelectedNoteId(null)}
                   >
-                    <ArrowLeft className='h-4 w-4 mr-1' />
-                    Back
+                    <ArrowLeft className='h-3.5 w-3.5 mr-1' />
+                    <span className='text-xs'>Back</span>
                   </Button>
 
                   <div className='flex-1' />
 
                   {hasUnsaved && (
-                    <span className='text-xs text-amber-500 mr-2'>Unsaved</span>
+                    <span className='text-[10px] font-medium text-amber-500 uppercase tracking-wider mr-2'>
+                      Unsaved
+                    </span>
                   )}
 
-                  <Button size='sm' onClick={handleSave} disabled={!hasUnsaved}>
-                    <Save className='mr-1.5 h-4 w-4' />
+                  <Button
+                    size='sm'
+                    variant='ghost'
+                    className='h-7 px-2 text-xs'
+                    onClick={handleSave}
+                    disabled={!hasUnsaved}
+                  >
+                    <Save className='mr-1.5 h-3 w-3' />
                     Save
                   </Button>
 
                   <Button
                     size='sm'
-                    variant='destructive'
+                    variant='ghost'
+                    className='h-7 px-2 text-destructive hover:text-destructive'
                     onClick={() => setShowDeleteDialog(true)}
                   >
-                    <Trash2 className='h-4 w-4' />
+                    <Trash2 className='h-3 w-3' />
                   </Button>
                 </div>
 
-                <Separator className='mb-4' />
+                {/* Title + Metadata area */}
+                <div className='px-5 pt-5 pb-0'>
+                  <Input
+                    value={editorTitle}
+                    onChange={(e) => handleEditorChange('title', e.target.value)}
+                    onBlur={handleBlur}
+                    placeholder='Note title...'
+                    className='text-lg font-semibold border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none h-auto'
+                  />
 
-                {/* Title */}
-                <Input
-                  value={editorTitle}
-                  onChange={(e) => handleEditorChange('title', e.target.value)}
-                  onBlur={handleBlur}
-                  placeholder='Note title...'
-                  className='text-xl font-semibold border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none'
-                />
-
-                {/* Subject & Topic selectors */}
-                <div className='flex flex-col sm:flex-row gap-2 mt-3 mb-4'>
-                  <div className='flex-1'>
-                    <Label className='text-xs text-muted-foreground'>Subject (optional)</Label>
-                    <Select
-                      value={editorSubjectId}
-                      onValueChange={(v) => {
-                        setEditorSubjectId(v);
-                        setEditorTopicId('');
-                        setHasUnsaved(true);
-                      }}
-                    >
-                      <SelectTrigger className='h-8 text-xs'>
-                        <SelectValue placeholder='Select subject' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeSubjects.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {editorSubjectId && topicsForEditorSubject.length > 0 && (
+                  {/* Subject & Topic selectors */}
+                  <div className='flex flex-col sm:flex-row gap-2 mt-3 pb-4 border-b border-border'>
                     <div className='flex-1'>
-                      <Label className='text-xs text-muted-foreground'>Topic (optional)</Label>
+                      <Label className='section-label'>Subject</Label>
                       <Select
-                        value={editorTopicId}
+                        value={editorSubjectId}
                         onValueChange={(v) => {
-                          setEditorTopicId(v);
+                          setEditorSubjectId(v);
+                          setEditorTopicId('');
                           setHasUnsaved(true);
                         }}
                       >
-                        <SelectTrigger className='h-8 text-xs'>
-                          <SelectValue placeholder='Select topic' />
+                        <SelectTrigger className='h-7 text-xs mt-1'>
+                          <SelectValue placeholder='Select subject' />
                         </SelectTrigger>
                         <SelectContent>
-                          {topicsForEditorSubject.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name}
+                          {activeSubjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
+
+                    {editorSubjectId && topicsForEditorSubject.length > 0 && (
+                      <div className='flex-1'>
+                        <Label className='section-label'>Topic</Label>
+                        <Select
+                          value={editorTopicId}
+                          onValueChange={(v) => {
+                            setEditorTopicId(v);
+                            setHasUnsaved(true);
+                          }}
+                        >
+                          <SelectTrigger className='h-7 text-xs mt-1'>
+                            <SelectValue placeholder='Select topic' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {topicsForEditorSubject.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <Separator className='mb-4' />
-
                 {/* Content textarea */}
-                <Textarea
-                  ref={textareaRef}
-                  value={editorContent}
-                  onChange={(e) => handleEditorChange('content', e.target.value)}
-                  onBlur={handleBlur}
-                  placeholder='Start writing your note...'
-                  className='flex-1 min-h-[300px] resize-none border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none text-sm leading-relaxed'
-                />
-              </Card>
+                <div className='flex-1 min-h-0 overflow-y-auto scrollbar-thin px-5 py-4'>
+                  <Textarea
+                    ref={textareaRef}
+                    value={editorContent}
+                    onChange={(e) => handleEditorChange('content', e.target.value)}
+                    onBlur={handleBlur}
+                    placeholder='Start writing your note...'
+                    className='min-h-[300px] resize-none border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none text-sm leading-relaxed'
+                  />
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── Delete Confirmation ─────────────────────────────────── */}
+      {/* --- Delete Confirmation --- */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

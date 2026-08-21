@@ -39,17 +39,17 @@ import {
   Search,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronLeft,
   GraduationCap,
-  Ellipsis,
+  MoreHorizontal,
   ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // ─── Nav item types ─────────────────────────────────────────────────
 
 interface NavItem {
-  id: ViewId;
+  id: ViewId | 'more';
   label: string;
   icon: LucideIcon;
 }
@@ -61,63 +61,61 @@ interface NavGroup {
 
 // ─── Navigation structure ────────────────────────────────────────────
 
-const MAIN_NAV: NavItem = {
-  id: 'dashboard',
-  label: 'Dashboard',
-  icon: LayoutDashboard,
-};
-
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'ACADEMICS',
+    label: 'Overview',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Academic',
     items: [
       { id: 'subjects', label: 'Subjects', icon: BookOpen },
       { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
       { id: 'attendance', label: 'Attendance', icon: UserCheck },
       { id: 'exams', label: 'Exams', icon: FileText },
-    ],
-  },
-  {
-    label: 'STUDY',
-    items: [
-      { id: 'focus', label: 'Focus', icon: Timer },
-      { id: 'revision', label: 'Revision', icon: BrainCircuit },
-      { id: 'notes', label: 'Notes', icon: StickyNote },
-    ],
-  },
-  {
-    label: 'PLANNING',
-    items: [
-      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-      { id: 'timetable', label: 'Timetable', icon: Clock },
-      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
       { id: 'assignments', label: 'Assignments', icon: ClipboardList },
     ],
   },
   {
-    label: 'INSIGHTS',
+    label: 'Study',
+    items: [
+      { id: 'focus', label: 'Focus', icon: Timer },
+      { id: 'revision', label: 'Revision', icon: BrainCircuit },
+      { id: 'notes', label: 'Notes', icon: StickyNote },
+      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    ],
+  },
+  {
+    label: 'Planning',
+    items: [
+      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+      { id: 'timetable', label: 'Timetable', icon: Clock },
+    ],
+  },
+  {
+    label: 'Intelligence',
     items: [
       { id: 'analytics', label: 'Analytics', icon: TrendingUp },
       { id: 'er-center', label: 'ER Center', icon: FileSearch },
+      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
     ],
   },
 ];
 
-const BOTTOM_NAV: NavItem[] = [
-  { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+const BOTTOM_NAV_ITEMS: NavItem[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 // Mobile bottom nav items
-const MOBILE_NAV_ITEMS = [
-  { id: 'dashboard' as ViewId, label: 'Home', icon: LayoutDashboard },
-  { id: 'subjects' as ViewId, label: 'Study', icon: BookOpen },
-  { id: 'marks' as ViewId, label: 'Academics', icon: GraduationCap },
-  { id: 'calendar' as ViewId, label: 'Plan', icon: CalendarDays },
-  { id: 'more' as 'more', label: 'More', icon: Ellipsis },
+const MOBILE_NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+  { id: 'subjects', label: 'Subjects', icon: BookOpen },
+  { id: 'focus', label: 'Study', icon: Timer },
+  { id: 'calendar', label: 'Plan', icon: CalendarDays },
+  { id: 'more', label: 'More', icon: MoreHorizontal },
 ];
-
-type MobileViewId = ViewId | 'more';
 
 // ─── Sidebar nav item component ──────────────────────────────────────
 
@@ -135,18 +133,17 @@ function SidebarNavItem({
 
   return (
     <button
-      onClick={() => navigate(item.id)}
+      onClick={() => navigate(item.id as ViewId)}
       title={collapsed ? item.label : undefined}
-      className={`flex w-full items-center gap-3 rounded-md py-2 text-sm transition-colors duration-150
-        ${
-          isActive
-            ? 'bg-accent text-primary font-medium border-l-2 border-primary pl-[10px] pr-3'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground pl-3 pr-3'
-        }
-        ${collapsed ? 'justify-center px-2 border-l-0' : ''}
-      `}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-colors duration-150',
+        collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5',
+        isActive
+          ? 'bg-primary/10 text-primary font-medium'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
     >
-      <Icon className="size-[18px] shrink-0" />
+      <Icon className="size-[16px] shrink-0" />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </button>
   );
@@ -163,8 +160,8 @@ function MobileBottomNav({
   const navigate = useStore((s) => s.navigate);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/50 glass md:hidden">
-      <div className="flex h-full items-center justify-around px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+      <div className="flex h-14 items-center justify-around px-1">
         {MOBILE_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === 'more' ? false : currentView === item.id;
@@ -176,17 +173,18 @@ function MobileBottomNav({
                 if (item.id === 'more') {
                   onMoreOpen();
                 } else {
-                  navigate(item.id);
+                  navigate(item.id as ViewId);
                 }
               }}
-              className={`relative flex min-w-[48px] flex-col items-center justify-center gap-0.5 py-1 text-[11px] transition-colors duration-150
-                ${isActive ? 'text-primary' : 'text-muted-foreground'}
-              `}
+              className={cn(
+                'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors duration-150',
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              )}
             >
-              <Icon className="size-5" />
+              <Icon className="size-[18px]" />
               <span>{item.label}</span>
               {isActive && (
-                <span className="absolute -top-px left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-primary" />
+                <span className="absolute top-0 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-primary" />
               )}
             </button>
           );
@@ -208,75 +206,66 @@ function MobileMoreSheet({
   const currentView = useStore((s) => s.currentView);
   const navigate = useStore((s) => s.navigate);
 
-  const allItems = useMemo(() => {
-    const items: NavItem[] = [
-      ...NAV_GROUPS.flatMap((g) => g.items),
-      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-      { id: 'er-center', label: 'ER Center', icon: FileSearch },
-      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
-      { id: 'settings', label: 'Settings', icon: Settings },
-    ];
-    return items;
-  }, []);
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-xl">
-        <SheetHeader>
-          <SheetTitle>More</SheetTitle>
-          <SheetDescription>Navigate to other sections</SheetDescription>
+      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+        <SheetHeader className="mb-2">
+          <SheetTitle className="text-base">Navigation</SheetTitle>
+          <SheetDescription className="text-xs">
+            Jump to any section
+          </SheetDescription>
         </SheetHeader>
         <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
           {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="mb-4">
-              <p className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground px-1 mb-1 mt-2">
+            <div key={group.label} className="mb-3">
+              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
                 {group.label}
               </p>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      navigate(item.id);
-                      onOpenChange(false);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors duration-150
-                      ${
+              <div className="grid grid-cols-2 gap-1.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        navigate(item.id as ViewId);
+                        onOpenChange(false);
+                      }}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
                         isActive
-                          ? 'bg-accent text-primary font-medium'
+                          ? 'bg-primary/10 text-primary font-medium'
                           : 'text-foreground hover:bg-accent'
-                      }
-                    `}
-                  >
-                    <Icon className="size-[18px] shrink-0" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
-          <div className="border-t border-border pt-4 mt-2">
-            {BOTTOM_NAV.map((item) => {
+          <div className="border-t border-border pt-3 mt-2">
+            {BOTTOM_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => {
-                    navigate(item.id);
+                    navigate(item.id as ViewId);
                     onOpenChange(false);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors duration-150
-                    ${
-                      isActive
-                        ? 'bg-accent text-primary font-medium'
-                        : 'text-foreground hover:bg-accent'
-                    }
-                  `}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+                    isActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-foreground hover:bg-accent'
+                  )}
                 >
-                  <Icon className="size-[18px] shrink-0" />
+                  <Icon className="size-4 shrink-0" />
                   <span>{item.label}</span>
                 </button>
               );
@@ -309,15 +298,11 @@ function CommandPalette() {
   );
 
   return (
-    <CommandDialog
-      open={commandOpen}
-      onOpenChange={setCommandOpen}
-    >
+    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
       <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        {/* Commands */}
         <CommandGroup heading="Commands">
           <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
             <CheckSquare className="size-4" />
@@ -329,21 +314,16 @@ function CommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
             <BarChart3 className="size-4" />
-            <span>Add Assessment</span>
+            <span>Go to Marks</span>
           </CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
             <UserCheck className="size-4" />
             <span>Go to Attendance</span>
           </CommandItem>
-          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
-            <BarChart3 className="size-4" />
-            <span>Go to Marks</span>
-          </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
 
-        {/* Subjects */}
         {subjects.length > 0 && (
           <CommandGroup heading="Subjects">
             {subjects.map((s) => (
@@ -366,7 +346,6 @@ function CommandPalette() {
           </CommandGroup>
         )}
 
-        {/* Tasks */}
         {tasks.length > 0 && (
           <CommandGroup heading="Tasks">
             {tasks
@@ -384,7 +363,6 @@ function CommandPalette() {
           </CommandGroup>
         )}
 
-        {/* Notes */}
         {notes.length > 0 && (
           <CommandGroup heading="Notes">
             {notes.slice(0, 5).map((n) => (
@@ -399,7 +377,6 @@ function CommandPalette() {
           </CommandGroup>
         )}
 
-        {/* Exams */}
         {exams.length > 0 && (
           <CommandGroup heading="Exams">
             {exams
@@ -417,7 +394,6 @@ function CommandPalette() {
           </CommandGroup>
         )}
 
-        {/* Syllabus topics */}
         {syllabusUnits.length > 0 && (
           <CommandGroup heading="Syllabus Topics">
             {syllabusUnits
@@ -464,68 +440,65 @@ function DesktopSidebar() {
 
   return (
     <aside
-      className={`hidden md:flex flex-col border-r border-border/50 bg-sidebar h-screen sticky top-0 transition-all duration-150 shrink-0
-        ${collapsed ? 'w-16' : 'w-[240px]'}
-      `}
+      className={cn(
+        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+        collapsed ? 'w-[52px]' : 'w-[220px]'
+      )}
     >
-      {/* Brand + Collapse toggle */}
-      <div className="flex items-center justify-between px-3 h-14 shrink-0">
+      {/* Brand */}
+      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
         {!collapsed && (
-          <span className="gradient-text text-lg font-bold tracking-tight select-none">
+          <span className="text-sm font-bold tracking-tight text-foreground select-none">
             DELULU
           </span>
         )}
         <button
           onClick={toggleSidebar}
-          className={`flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors duration-150
-            ${collapsed ? 'mx-auto' : ''}
-          `}
+          className={cn(
+            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+            collapsed ? 'mx-auto' : 'ml-auto'
+          )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? (
-            <PanelLeftOpen className="size-4" />
+            <PanelLeftOpen className="size-3.5" />
           ) : (
-            <PanelLeftClose className="size-4" />
+            <PanelLeftClose className="size-3.5" />
           )}
         </button>
       </div>
 
-      {/* Search button */}
-      <div className={`px-3 mb-2 shrink-0 ${collapsed ? 'px-2' : ''}`}>
+      {/* Search */}
+      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
         <button
           onClick={() => setCommandOpen(true)}
-          className={`flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:border-primary/30 focus-within:border-primary/50 hover:bg-accent transition-all duration-200
-            ${collapsed ? 'justify-center px-2' : ''}
-          `}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+          )}
           aria-label="Open command palette"
         >
-          <Search className="size-4 shrink-0" />
+          <Search className="size-3.5 shrink-0" />
           {!collapsed && (
-            <span className="flex-1 text-left">Search...</span>
+            <span className="flex-1 text-left text-xs">Search...</span>
           )}
           {!collapsed && (
-            <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
+            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              ⌘K
             </kbd>
           )}
         </button>
       </div>
 
-      {/* Nav items - scrollable */}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-2">
-        {/* Main: Dashboard */}
-        <SidebarNavItem item={MAIN_NAV} collapsed={collapsed} />
-
-        {/* Groups */}
-        {NAV_GROUPS.map((group) => (
+      {/* Nav */}
+      <nav className="scrollbar-thin flex-1 overflow-y-auto px-1.5 pt-1">
+        {NAV_GROUPS.map((group, gi) => (
           <div key={group.label}>
             {!collapsed && (
-              <p className="text-[10px] font-semibold tracking-[0.1em] uppercase text-muted-foreground px-3 mt-4 mb-1">
-                {group.label}
-              </p>
+              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
             )}
-            {collapsed && (
-              <div className="border-t border-border my-3 mx-2" />
+            {collapsed && gi > 0 && (
+              <div className="border-t border-border/50 my-2 mx-2" />
             )}
             {group.items.map((item) => (
               <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
@@ -534,9 +507,9 @@ function DesktopSidebar() {
         ))}
       </nav>
 
-      {/* Bottom items */}
-      <div className="border-t border-border px-2 py-2 shrink-0">
-        {BOTTOM_NAV.map((item) => (
+      {/* Bottom */}
+      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+        {BOTTOM_NAV_ITEMS.map((item) => (
           <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
         ))}
       </div>
@@ -548,10 +521,8 @@ function DesktopSidebar() {
 
 export function AppShell() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
-  const sidebarCollapsed = useStore((s) => s.sidebarCollapsed);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
 
-  // Cmd+K shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -565,23 +536,19 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Desktop Sidebar */}
       <DesktopSidebar />
 
-      {/* Main content area */}
       <main className="flex-1 min-w-0">
-        <div
-          className={`p-6 pb-24 md:pb-6 transition-all duration-150`}
-        >
-          {/* Mobile header bar */}
-          <div className="flex items-center justify-between mb-6 md:mb-0">
-            <div className="md:hidden flex items-center gap-3">
-              <span className="gradient-text text-lg font-bold tracking-tight">DELULU</span>
-            </div>
+        <div className="content-area px-4 md:px-6 py-5 pb-20 md:pb-6">
+          {/* Mobile header */}
+          <div className="flex items-center justify-between mb-5 md:mb-0">
+            <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+              DELULU
+            </span>
             <button
               onClick={() => setCommandOpen(true)}
-              className="md:hidden flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent transition-colors duration-150 ml-auto"
-              aria-label="Open command palette"
+              className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors ml-auto"
+              aria-label="Search"
             >
               <Search className="size-4" />
             </button>
@@ -591,11 +558,8 @@ export function AppShell() {
         </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
       <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
       <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
-
-      {/* Command Palette */}
       <CommandPalette />
     </div>
   );

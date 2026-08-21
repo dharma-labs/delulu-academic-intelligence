@@ -1,0 +1,795 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useMemo } from 'react';
+     4→import { motion } from 'framer-motion';
+     5→import {
+     6→  Plus,
+     7→  ChevronLeft,
+     8→  ChevronRight,
+     9→  Clock,
+    10→  MapPin,
+    11→  Trash2,
+    12→  Calendar,
+    13→  Timer,
+    14→} from 'lucide-react';
+    15→import { format, addWeeks, subWeeks, startOfWeek, parseISO } from 'date-fns';
+    16→
+    17→import { useStore } from '@/lib/store';
+    18→import type { TimetableSlot } from '@/lib/types';
+    19→
+    20→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    21→import { Button } from '@/components/ui/button';
+    22→import { Badge } from '@/components/ui/badge';
+    23→import { Input } from '@/components/ui/input';
+    24→import { Label } from '@/components/ui/label';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogHeader,
+    29→  DialogTitle,
+    30→  DialogFooter,
+    31→} from '@/components/ui/dialog';
+    32→import {
+    33→  Select,
+    34→  SelectContent,
+    35→  SelectItem,
+    36→  SelectTrigger,
+    37→  SelectValue,
+    38→} from '@/components/ui/select';
+    39→import {
+    40→  AlertDialog,
+    41→  AlertDialogAction,
+    42→  AlertDialogCancel,
+    43→  AlertDialogContent,
+    44→  AlertDialogDescription,
+    45→  AlertDialogFooter,
+    46→  AlertDialogHeader,
+    47→  AlertDialogTitle,
+    48→} from '@/components/ui/alert-dialog';
+    49→
+    50→// -- Constants --------------------------------------------------------
+    51→const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+    52→const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+    53→const START_HOUR = 8; // 8:00 AM
+    54→const END_HOUR = 20; // 8:00 PM
+    55→const TOTAL_HOURS = END_HOUR - START_HOUR;
+    56→const SLOT_HEIGHT = 48; // px per 30 min
+    57→const HALF_HOUR_PX = SLOT_HEIGHT / 2; // 24px per 15 min
+    58→
+    59→function timeToMinutes(time: string): number {
+    60→  const [h, m] = time.split(':').map(Number);
+    61→  return h * 60 + m;
+    62→}
+    63→
+    64→function minutesToTime(minutes: number): string {
+    65→  const h = Math.floor(minutes / 60);
+    66→  const m = minutes % 60;
+    67→  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    68→}
+    69→
+    70→function formatTime(time: string): string {
+    71→  const [h, m] = time.split(':').map(Number);
+    72→  const ampm = h >= 12 ? 'PM' : 'AM';
+    73→  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    74→  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+    75→}
+    76→
+    77→function getSlotTop(time: string): number {
+    78→  const minutes = timeToMinutes(time);
+    79→  const offset = minutes - START_HOUR * 60;
+    80→  return (offset / 30) * SLOT_HEIGHT;
+    81→}
+    82→
+    83→function getSlotHeight(start: string, end: string): number {
+    84→  const diff = timeToMinutes(end) - timeToMinutes(start);
+    85→  return (diff / 30) * SLOT_HEIGHT;
+    86→}
+    87→
+    88→function getNowIndicatorTop(): number {
+    89→  const now = new Date();
+    90→  const minutes = now.getHours() * 60 + now.getMinutes();
+    91→  const offset = minutes - START_HOUR * 60;
+    92→  return (offset / 30) * SLOT_HEIGHT;
+    93→}
+    94→
+    95→// -- Animation --------------------------------------------------------
+    96→const fadeUp = {
+    97→  hidden: { opacity: 0, y: 12 },
+    98→  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+    99→};
+   100→
+   101→// -- Time labels ------------------------------------------------------
+   102→function generateTimeLabels(): string[] {
+   103→  const labels: string[] = [];
+   104→  for (let h = START_HOUR; h < END_HOUR; h++) {
+   105→    labels.push(formatTime(`${h}:00`));
+   106→  }
+   107→  labels.push(formatTime(`${END_HOUR}:00`));
+   108→  return labels;
+   109→}
+   110→
+   111→const TIME_LABELS = generateTimeLabels();
+   112→
+   113→// -- Add Slot Dialog --------------------------------------------------
+   114→function SlotDialog({
+   115→  open,
+   116→  onOpenChange,
+   117→  slot,
+   118→}: {
+   119→  open: boolean;
+   120→  onOpenChange: (v: boolean) => void;
+   121→  slot: TimetableSlot | null;
+   122→}) {
+   123→  const addTimetableSlot = useStore((s) => s.addTimetableSlot);
+   124→  const updateTimetableSlot = useStore((s) => s.updateTimetableSlot);
+   125→  const subjects = useStore((s) => s.subjects);
+   126→  const timetableSlots = useStore((s) => s.timetableSlots);
+   127→  const activeSubjects = subjects.filter((s) => !s.archived);
+   128→
+   129→  const isEditing = !!slot;
+   130→  const initialSubject = slot?.subjectId ?? (activeSubjects[0]?.id ?? '');
+   131→  const initialDay = slot ? String(slot.day) : String(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
+   132→  const initialStart = slot?.startTime ?? '09:00';
+   133→  const initialEnd = slot?.endTime ?? '10:00';
+   134→  const initialRoom = slot?.room ?? '';
+   135→  const initialType = slot?.type ?? 'lecture';
+   136→
+   137→  const [subjectId, setSubjectId] = useState(initialSubject);
+   138→  const [day, setDay] = useState(initialDay);
+   139→  const [startTime, setStartTime] = useState(initialStart);
+   140→  const [endTime, setEndTime] = useState(initialEnd);
+   141→  const [room, setRoom] = useState(initialRoom);
+   142→  const [type, setType] = useState<TimetableSlot['type']>(initialType);
+   143→  const [error, setError] = useState('');
+   144→
+   145→  const handleSubmit = () => {
+   146→    setError('');
+   147→
+   148→    if (!subjectId) {
+   149→      setError('Please select a subject.');
+   150→      return;
+   151→    }
+   152→
+   153→    const startMin = timeToMinutes(startTime);
+   154→    const endMin = timeToMinutes(endTime);
+   155→
+   156→    if (endMin <= startMin) {
+   157→      setError('End time must be after start time.');
+   158→      return;
+   159→    }
+   160→
+   161→    if (startMin < START_HOUR * 60 || endMin > END_HOUR * 60) {
+   162→      setError(`Time must be between ${formatTime(`${START_HOUR}:00`)} and ${formatTime(`${END_HOUR}:00`)}.`);
+   163→      return;
+   164→    }
+   165→
+   166→    // Check for overlap with existing slots on the same day
+   167→    const dayNum = Number(day) as TimetableSlot['day'];
+   168→    const overlapping = timetableSlots.find((s) => {
+   169→      if (s.id === slot?.id) return false;
+   170→      if (s.day !== dayNum) return false;
+   171→      const sStart = timeToMinutes(s.startTime);
+   172→      const sEnd = timeToMinutes(s.endTime);
+   173→      return startMin < sEnd && endMin > sStart;
+   174→    });
+   175→
+   176→    if (overlapping) {
+   177→      const subject = subjects.find((s) => s.id === overlapping.subjectId);
+   178→      setError(`Overlaps with ${subject?.name ?? 'another class'} (${formatTime(overlapping.startTime)} - ${formatTime(overlapping.endTime)}).`);
+   179→      return;
+   180→    }
+   181→
+   182→    const data = {
+   183→      subjectId,
+   184→      day: dayNum,
+   185→      startTime,
+   186→      endTime,
+   187→      room: room.trim() || undefined,
+   188→      type,
+   189→    };
+   190→
+   191→    if (isEditing && slot) {
+   192→      updateTimetableSlot(slot.id, data);
+   193→    } else {
+   194→      addTimetableSlot(data);
+   195→    }
+   196→    onOpenChange(false);
+   197→  };
+   198→
+   199→  return (
+   200→    <Dialog open={open} onOpenChange={onOpenChange}>
+   201→      <DialogContent className='sm:max-w-md'>
+   202→        <DialogHeader>
+   203→          <DialogTitle>{isEditing ? 'Edit Slot' : 'Add Timetable Slot'}</DialogTitle>
+   204→        </DialogHeader>
+   205→
+   206→        <div className='space-y-4 py-2'>
+   207→          {error && (
+   208→            <div className='text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2'>
+   209→              {error}
+   210→            </div>
+   211→          )}
+   212→
+   213→          <div className='space-y-2'>
+   214→            <Label>Subject *</Label>
+   215→            <Select value={subjectId} onValueChange={setSubjectId}>
+   216→              <SelectTrigger><SelectValue placeholder='Select subject' /></SelectTrigger>
+   217→              <SelectContent>
+   218→                {activeSubjects.map((s) => (
+   219→                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+   220→                ))}
+   221→              </SelectContent>
+   222→            </Select>
+   223→          </div>
+   224→
+   225→          <div className='grid grid-cols-2 gap-3'>
+   226→            <div className='space-y-2'>
+   227→              <Label>Day</Label>
+   228→              <Select value={day} onValueChange={setDay}>
+   229→                <SelectTrigger><SelectValue /></SelectTrigger>
+   230→                <SelectContent>
+   231→                  {DAYS.map((d, i) => (
+   232→                    <SelectItem key={i} value={String(i)}>{DAY_FULL[i]}</SelectItem>
+   233→                  ))}
+   234→                </SelectContent>
+   235→              </Select>
+   236→            </div>
+   237→
+   238→            <div className='space-y-2'>
+   239→              <Label>Type</Label>
+   240→              <Select value={type} onValueChange={(v) => setType(v as TimetableSlot['type'])}>
+   241→                <SelectTrigger><SelectValue /></SelectTrigger>
+   242→                <SelectContent>
+   243→                  <SelectItem value='lecture'>Lecture</SelectItem>
+   244→                  <SelectItem value='lab'>Lab</SelectItem>
+   245→                  <SelectItem value='tutorial'>Tutorial</SelectItem>
+   246→                </SelectContent>
+   247→              </Select>
+   248→            </div>
+   249→          </div>
+   250→
+   251→          <div className='grid grid-cols-2 gap-3'>
+   252→            <div className='space-y-2'>
+   253→              <Label>Start Time</Label>
+   254→              <Input type='time' value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+   255→            </div>
+   256→            <div className='space-y-2'>
+   257→              <Label>End Time</Label>
+   258→              <Input type='time' value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+   259→            </div>
+   260→          </div>
+   261→
+   262→          <div className='space-y-2'>
+   263→            <Label htmlFor='slot-room'>Room (optional)</Label>
+   264→            <Input id='slot-room' placeholder='e.g. Room 301' value={room} onChange={(e) => setRoom(e.target.value)} />
+   265→          </div>
+   266→        </div>
+   267→
+   268→        <DialogFooter>
+   269→          <Button variant='outline' onClick={() => onOpenChange(false)}>Cancel</Button>
+   270→          <Button onClick={handleSubmit}>Save</Button>
+   271→        </DialogFooter>
+   272→      </DialogContent>
+   273→    </Dialog>
+   274→  );
+   275→}
+   276→
+   277→// -- Desktop Weekly Grid ----------------------------------------------
+   278→function WeeklyGrid({
+   279→  weekStart,
+   280→  onSlotClick,
+   281→}: {
+   282→  weekStart: Date;
+   283→  onSlotClick: (slot: TimetableSlot) => void;
+   284→}) {
+   285→  const timetableSlots = useStore((s) => s.timetableSlots);
+   286→  const subjects = useStore((s) => s.subjects);
+   287→  const today = new Date();
+   288→  const gridRef = useRef<HTMLDivElement>(null);
+   289→  const [nowTop, setNowTop] = useState(getNowIndicatorTop);
+   290→
+   291→  // Map day number (0=Sun..6=Sat) to column index (0=Mon..6=Sun)
+   292→  const getColIndex = (day: number) => (day === 0 ? 6 : day - 1);
+   293→  const todayCol = getColIndex(today.getDay());
+   294→
+   295→  // Update now indicator every minute
+   296→  useEffect(() => {
+   297→    const interval = setInterval(() => {
+   298→      setNowTop(getNowIndicatorTop());
+   299→    }, 60000);
+   300→    return () => clearInterval(interval);
+   301→  }, []);
+   302→
+   303→  // Scroll to current time on mount
+   304→  useEffect(() => {
+   305→    if (gridRef.current) {
+   306→      const top = getNowIndicatorTop() - 200;
+   307→      gridRef.current.scrollTop = Math.max(0, top);
+   308→    }
+   309→  }, []);
+   310→
+   311→  const totalHeight = TOTAL_HOURS * 2 * SLOT_HEIGHT;
+   312→  const isTodayInView = todayCol >= 0 && todayCol <= 6;
+   313→  const nowInRange = nowTop >= 0 && nowTop <= totalHeight;
+   314→
+   315→  return (
+   316→    <div ref={gridRef} className='overflow-y-auto scrollbar-thin max-h-[calc(100vh-280px)] rounded-lg border border-border bg-card'>
+   317→      <div className='relative min-w-[700px]'>
+   318→        {/* Header row */}
+   319→        <div className='sticky top-0 z-20 bg-card border-b border-border'>
+   320→          <div className='grid grid-cols-[60px_repeat(7,1fr)]'>
+   321→            <div className='p-2' />
+   322→            {DAYS.map((d, i) => (
+   323→              <div
+   324→                key={d}
+   325→                className={`text-center text-xs font-medium py-2 border-l border-border ${
+   326→                  i === todayCol ? 'bg-primary/5 text-primary' : 'text-muted-foreground'
+   327→                }`}
+   328→              >
+   329→                {d}
+   330→              </div>
+   331→            ))}
+   332→          </div>
+   333→        </div>
+   334→
+   335→        {/* Time grid */}
+   336→        <div className='relative' style={{ height: totalHeight }}>
+   337→          {/* Grid lines and labels */}
+   338→          {TIME_LABELS.map((label, i) => {
+   339→            const top = i * SLOT_HEIGHT;
+   340→            return (
+   341→              <div key={label}>
+   342→                {/* Label */}
+   343→                <div
+   344→                  className='absolute left-0 w-[56px] text-right pr-2 text-[10px] text-muted-foreground -translate-y-1/2'
+   345→                  style={{ top }}
+   346→                >
+   347→                  {label}
+   348→                </div>
+   349→                {/* Horizontal line */}
+   350→                <div
+   351→                  className='absolute left-[60px] right-0 border-t border-border/50'
+   352→                  style={{ top }}
+   353→                />
+   354→              </div>
+   355→            );
+   356→          })}
+   357→
+   358→          {/* Vertical day lines */}
+   359→          {DAYS.map((_, i) => (
+   360→            <div
+   361→              key={`vline-${i}`}
+   362→              className={`absolute top-0 bottom-0 border-l border-border/50 ${
+   363→                i === todayCol ? 'bg-primary/[0.03]' : ''
+   364→              }`}
+   365→              style={{
+   366→                left: `calc(60px + ${i} * ((100% - 60px) / 7))`,
+   367→              }}
+   368→            />
+   369→          ))}
+   370→
+   371→          {/* Today highlight column */}
+   372→          {isTodayInView && (
+   373→            <div
+   374→              className='absolute top-0 bottom-0 bg-primary/[0.04] pointer-events-none'
+   375→              style={{
+   376→                left: `calc(60px + ${todayCol} * ((100% - 60px) / 7))`,
+   377→                width: `calc((100% - 60px) / 7)`,
+   378→              }}
+   379→            />
+   380→          )}
+   381→
+   382→          {/* Slots */}
+   383→          {timetableSlots.map((slot) => {
+   384→            const colIndex = slot.day === 0 ? 6 : slot.day - 1;
+   385→            const subject = subjects.find((s) => s.id === slot.subjectId);
+   386→            if (!subject) return null;
+   387→
+   388→            const top = getSlotTop(slot.startTime);
+   389→            const height = getSlotHeight(slot.startTime, slot.endTime);
+   390→
+   391→            return (
+   392→              <button
+   393→                key={slot.id}
+   394→                onClick={() => onSlotClick(slot)}
+   395→                className='absolute left-[62px] right-[2px] rounded-md px-2 py-1 text-left overflow-hidden cursor-pointer transition-all hover:brightness-110 hover:shadow-md hover:z-10 group'
+   396→                style={{
+   397→                  top: top + 1,
+   398→                  height: height - 2,
+   399→                  left: `calc(60px + ${colIndex} * ((100% - 60px) / 7) + 2px)`,
+   400→                  width: `calc((100% - 60px) / 7 - 4px)`,
+   401→                  backgroundColor: subject.color + '18',
+   402→                  borderLeft: `3px solid ${subject.color}`,
+   403→                }}
+   404→              >
+   405→                <p className='text-[11px] font-semibold truncate' style={{ color: subject.color }}>
+   406→                  {subject.code}
+   407→                </p>
+   408→                {height >= 40 && (
+   409→                  <p className='text-[10px] text-muted-foreground truncate'>
+   410→                    {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+   411→                  </p>
+   412→                )}
+   413→                {height >= 56 && slot.room && (
+   414→                  <p className='text-[10px] text-muted-foreground truncate flex items-center gap-0.5'>
+   415→                    <MapPin className='h-2.5 w-2.5' />{slot.room}
+   416→                  </p>
+   417→                )}
+   418→                {height >= 72 && (
+   419→                  <Badge variant='outline' className='text-[9px] px-1 py-0 mt-0.5 capitalize'>
+   420→                    {slot.type}
+   421→                  </Badge>
+   422→                )}
+   423→                {/* Delete button on hover */}
+   424→                <div className='absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+   425→                  <div
+   426→                    onClick={(e) => {
+   427→                      e.stopPropagation();
+   428→                    }}
+   429→                    className='h-5 w-5 rounded-full bg-background/80 flex items-center justify-center'
+   430→                  >
+   431→                    <Trash2 className='h-2.5 w-2.5 text-muted-foreground' />
+   432→                  </div>
+   433→                </div>
+   434→              </button>
+   435→            );
+   436→          })}
+   437→
+   438→          {/* Now indicator */}
+   439→          {isTodayInView && nowInRange && (
+   440→            <div
+   441→              className='absolute left-[60px] right-0 z-30 pointer-events-none'
+   442→              style={{ top: nowTop }}
+   443→            >
+   444→              <div className='flex items-center'>
+   445→                <div className='w-2.5 h-2.5 rounded-full bg-red-500 -ml-[5px] shrink-0' />
+   446→                <div className='h-[2px] flex-1 bg-red-500' />
+   447→              </div>
+   448→            </div>
+   449→          )}
+   450→        </div>
+   451→      </div>
+   452→    </div>
+   453→  );
+   454→}
+   455→
+   456→// -- Mobile Today View ------------------------------------------------
+   457→function MobileTodayView({ onSlotClick }: { onSlotClick: (slot: TimetableSlot) => void }) {
+   458→  const timetableSlots = useStore((s) => s.timetableSlots);
+   459→  const subjects = useStore((s) => s.subjects);
+   460→
+   461→  const today = new Date();
+   462→  const jsDay = today.getDay(); // 0=Sun
+   463→  const storeDay = (jsDay === 0 ? 6 : jsDay - 1) as TimetableSlot['day'];
+   464→
+   465→  const todaySlots = timetableSlots
+   466→    .filter((s) => s.day === storeDay)
+   467→    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+   468→
+   469→  const nowMinutes = today.getHours() * 60 + today.getMinutes();
+   470→
+   471→  // Find current and next class
+   472→  const currentSlot = todaySlots.find((s) => {
+   473→    const start = timeToMinutes(s.startTime);
+   474→    const end = timeToMinutes(s.endTime);
+   475→    return nowMinutes >= start && nowMinutes < end;
+   476→  });
+   477→
+   478→  const nextSlot = todaySlots.find((s) => timeToMinutes(s.startTime) > nowMinutes);
+   479→
+   480→  const typeBadgeClass = (type: TimetableSlot['type']) => {
+   481→    switch (type) {
+   482→      case 'lecture': return 'bg-primary/10 text-primary';
+   483→      case 'lab': return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400';
+   484→      case 'tutorial': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400';
+   485→    }
+   486→  };
+   487→
+   488→  if (todaySlots.length === 0) {
+   489→    return (
+   490→      <motion.div
+   491→        initial={{ opacity: 0, y: 12 }}
+   492→        animate={{ opacity: 1, y: 0 }}
+   493→        className='flex flex-col items-center justify-center py-16 px-4 text-center'
+   494→      >
+   495→        <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
+   496→          <Calendar className='h-6 w-6 text-muted-foreground' />
+   497→        </div>
+   498→        <p className='font-medium text-sm'>No classes today</p>
+   499→        <p className='text-sm text-muted-foreground mt-1'>Enjoy your day off or catch up on studies.</p>
+   500→      </motion.div>
+   501→    );
+   502→  }
+   503→
+   504→  return (
+   505→    <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }} initial='hidden' animate='show' className='space-y-3'>
+   506→      {todaySlots.map((slot) => {
+   507→        const subject = subjects.find((s) => s.id === slot.subjectId);
+   508→        if (!subject) return null;
+   509→
+   510→        const isCurrent = currentSlot?.id === slot.id;
+   511→        const isNext = nextSlot?.id === slot.id;
+   512→        const startMin = timeToMinutes(slot.startTime);
+   513→        const isPast = nowMinutes >= timeToMinutes(slot.endTime);
+   514→
+   515→        return (
+   516→          <motion.div
+   517→            key={slot.id}
+   518→            variants={{ hidden: { opacity: 0, x: -12 }, show: { opacity: 1, x: 0, transition: { duration: 0.3 } } }}
+   519→          >
+   520→            <button
+   521→              onClick={() => onSlotClick(slot)}
+   522→              className={`w-full text-left rounded-lg border p-4 transition-colors ${
+   523→                isCurrent
+   524→                  ? 'border-primary bg-primary/5 shadow-sm'
+   525→                  : isNext
+   526→                  ? 'border-primary/40 bg-card hover:border-primary/60'
+   527→                  : isPast
+   528→                  ? 'border-border opacity-50'
+   529→                  : 'border-border bg-card hover:border-primary/30'
+   530→              }`}
+   531→            >
+   532→              <div className='flex items-start gap-3'>
+   533→                {/* Timeline dot */}
+   534→                <div className='flex flex-col items-center pt-1'>
+   535→                  <div
+   536→                    className={`h-3 w-3 rounded-full shrink-0 ${
+   537→                      isCurrent ? 'bg-primary ring-2 ring-primary/30' :
+   538→                      isNext ? 'bg-primary' :
+   539→                      'bg-muted-foreground/30'
+   540→                    }`}
+   541→                  />
+   542→                  <div className={`w-px h-8 mt-1 ${isPast ? 'bg-border' : 'bg-border'}`} />
+   543→                </div>
+   544→
+   545→                <div className='flex-1 min-w-0'>
+   546→                  <div className='flex items-center gap-2 flex-wrap'>
+   547→                    <span className='font-semibold text-sm' style={{ color: subject.color }}>
+   548→                      {subject.name}
+   549→                    </span>
+   550→                    <Badge variant='outline' className={`text-[10px] px-1.5 py-0 ${typeBadgeClass(slot.type)}`}>
+   551→                      {slot.type}
+   552→                    </Badge>
+   553→                    {isCurrent && (
+   554→                      <Badge className='text-[10px] px-1.5 py-0 bg-primary text-primary-foreground'>
+   555→                        NOW
+   556→                      </Badge>
+   557→                    )}
+   558→                    {isNext && !isCurrent && (
+   559→                      <Badge variant='secondary' className='text-[10px] px-1.5 py-0'>
+   560→                        NEXT
+   561→                      </Badge>
+   562→                    )}
+   563→                  </div>
+   564→
+   565→                  <div className='flex items-center gap-3 mt-1.5 text-xs text-muted-foreground'>
+   566→                    <span className='flex items-center gap-1'>
+   567→                      <Clock className='h-3 w-3' />
+   568→                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+   569→                    </span>
+   570→                    {slot.room && (
+   571→                      <span className='flex items-center gap-1'>
+   572→                        <MapPin className='h-3 w-3' />
+   573→                        {slot.room}
+   574→                      </span>
+   575→                    )}
+   576→                  </div>
+   577→                </div>
+   578→              </div>
+   579→            </button>
+   580→          </motion.div>
+   581→        );
+   582→      })}
+   583→    </motion.div>
+   584→  );
+   585→}
+   586→
+   587→// -- Next Class Card --------------------------------------------------
+   588→function NextClassCard() {
+   589→  const timetableSlots = useStore((s) => s.timetableSlots);
+   590→  const subjects = useStore((s) => s.subjects);
+   591→
+   592→  const today = new Date();
+   593→  const jsDay = today.getDay();
+   594→  const storeDay = (jsDay === 0 ? 6 : jsDay - 1) as TimetableSlot['day'];
+   595→  const nowMinutes = today.getHours() * 60 + today.getMinutes();
+   596→
+   597→  const todaySlots = timetableSlots
+   598→    .filter((s) => s.day === storeDay)
+   599→    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+   600→
+   601→  const nextSlot = todaySlots.find((s) => timeToMinutes(s.startTime) > nowMinutes);
+   602→  const subject = nextSlot ? subjects.find((s) => s.id === nextSlot.subjectId) : null;
+   603→
+   604→  const [countdown, setCountdown] = useState('');
+   605→
+   606→  useEffect(() => {
+   607→    if (!nextSlot) return;
+   608→
+   609→    const update = () => {
+   610→      const now = new Date();
+   611→      const nowMin = now.getHours() * 60 + now.getMinutes();
+   612→      const startMin = timeToMinutes(nextSlot.startTime);
+   613→      const diff = startMin - nowMin;
+   614→      if (diff <= 0) {
+   615→        setCountdown('Starting now');
+   616→      } else if (diff < 60) {
+   617→        setCountdown(`Starts in ${diff} min`);
+   618→      } else {
+   619→        const h = Math.floor(diff / 60);
+   620→        const m = diff % 60;
+   621→        setCountdown(`Starts in ${h}h ${m}m`);
+   622→      }
+   623→    };
+   624→
+   625→    update();
+   626→    const interval = setInterval(update, 30000);
+   627→    return () => clearInterval(interval);
+   628→  }, [nextSlot]);
+   629→
+   630→  if (!nextSlot || !subject) return null;
+   631→
+   632→  return (
+   633→    <motion.div variants={fadeUp} initial='hidden' animate='show'>
+   634→      <Card className='border-primary/20 bg-gradient-to-r from-primary/5 to-transparent'>
+   635→        <CardContent className='p-4 flex items-center gap-4'>
+   636→          <div
+   637→            className='h-12 w-12 rounded-xl flex items-center justify-center shrink-0'
+   638→            style={{ backgroundColor: subject.color + '18' }}
+   639→          >
+   640→            <Timer className='h-6 w-6' style={{ color: subject.color }} />
+   641→          </div>
+   642→          <div className='flex-1 min-w-0'>
+   643→            <p className='text-xs text-muted-foreground font-medium uppercase tracking-wide'>
+   644→              Next Class
+   645→            </p>
+   646→            <p className='font-semibold text-sm mt-0.5 truncate'>{subject.name}</p>
+   647→            <div className='flex items-center gap-2 text-xs text-muted-foreground mt-1'>
+   648→              <Clock className='h-3 w-3' />
+   649→              {formatTime(nextSlot.startTime)} - {formatTime(nextSlot.endTime)}
+   650→              {nextSlot.room && (
+   651→                <>
+   652→                  <span className='text-border'>|</span>
+   653→                  <MapPin className='h-3 w-3' />
+   654→                  {nextSlot.room}
+   655→                </>
+   656→              )}
+   657→            </div>
+   658→          </div>
+   659→          <div className='text-right shrink-0'>
+   660→            <p className='text-sm font-semibold text-primary'>{countdown}</p>
+   661→          </div>
+   662→        </CardContent>
+   663→      </Card>
+   664→    </motion.div>
+   665→  );
+   666→}
+   667→
+   668→// -- Main Component ---------------------------------------------------
+   669→export default function TimetableView() {
+   670→  const deleteTimetableSlot = useStore((s) => s.deleteTimetableSlot);
+   671→
+   672→  const [weekOffset, setWeekOffset] = useState(0);
+   673→  const [dialogOpen, setDialogOpen] = useState(false);
+   674→  const [editingSlot, setEditingSlot] = useState<TimetableSlot | null>(null);
+   675→  const [deleteId, setDeleteId] = useState<string | null>(null);
+   676→
+   677→  const weekStart = useMemo(
+   678→    () => startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 }),
+   679→    [weekOffset],
+   680→  );
+   681→
+   682→  const weekLabel = useMemo(() => {
+   683→    if (weekOffset === 0) return 'Current Week';
+   684→    if (weekOffset === 1) return 'Next Week';
+   685→    if (weekOffset === -1) return 'Last Week';
+   686→    return `Week of ${format(weekStart, 'MMM d')}`;
+   687→  }, [weekOffset, weekStart]);
+   688→
+   689→  const handleSlotClick = (slot: TimetableSlot) => {
+   690→    setEditingSlot(slot);
+   691→    setDialogOpen(true);
+   692→  };
+   693→
+   694→  return (
+   695→    <div className='p-4 md:p-6 max-w-7xl mx-auto space-y-4'>
+   696→      {/* Header */}
+   697→      <div className='flex items-center justify-between flex-wrap gap-2'>
+   698→        <div>
+   699→          <h1 className='text-2xl font-semibold tracking-tight'>Timetable</h1>
+   700→          <p className='text-sm text-muted-foreground mt-0.5'>
+   701→            {weekLabel}
+   702→          </p>
+   703→        </div>
+   704→        <div className='flex items-center gap-2'>
+   705→          <div className='flex items-center bg-muted rounded-lg p-0.5'>
+   706→            <Button
+   707→              variant='ghost'
+   708→              size='icon'
+   709→              className='h-8 w-8'
+   710→              onClick={() => setWeekOffset((w) => w - 1)}
+   711→            >
+   712→              <ChevronLeft className='h-4 w-4' />
+   713→            </Button>
+   714→            <Button
+   715→              variant='ghost'
+   716→              size='sm'
+   717→              className='h-8 px-3 text-xs'
+   718→              onClick={() => setWeekOffset(0)}
+   719→            >
+   720→              Today
+   721→            </Button>
+   722→            <Button
+   723→              variant='ghost'
+   724→              size='icon'
+   725→              className='h-8 w-8'
+   726→              onClick={() => setWeekOffset((w) => w + 1)}
+   727→            >
+   728→              <ChevronRight className='h-4 w-4' />
+   729→            </Button>
+   730→          </div>
+   731→          <Button
+   732→            size='sm'
+   733→            className='gap-1.5'
+   734→            onClick={() => {
+   735→              setEditingSlot(null);
+   736→              setDialogOpen(true);
+   737→            }}
+   738→          >
+   739→            <Plus className='h-4 w-4' />
+   740→            <span className='hidden sm:inline'>Add Slot</span>
+   741→          </Button>
+   742→        </div>
+   743→      </div>
+   744→
+   745→      {/* Next Class Card (mobile and desktop) */}
+   746→      <NextClassCard />
+   747→
+   748→      {/* Desktop: Weekly Grid */}
+   749→      <div className='hidden md:block'>
+   750→        <WeeklyGrid weekStart={weekStart} onSlotClick={handleSlotClick} />
+   751→      </div>
+   752→
+   753→      {/* Mobile: Today's Schedule */}
+   754→      <div className='md:hidden'>
+   755→        <MobileTodayView onSlotClick={handleSlotClick} />
+   756→      </div>
+   757→
+   758→      {/* Add/Edit Dialog */}
+   759→      <SlotDialog
+   760→        key={editingSlot?.id ?? 'new'}
+   761→        open={dialogOpen}
+   762→        onOpenChange={(v) => {
+   763→          setDialogOpen(v);
+   764→          if (!v) setEditingSlot(null);
+   765→        }}
+   766→        slot={editingSlot}
+   767→      />
+   768→
+   769→      {/* Delete Confirmation */}
+   770→      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+   771→        <AlertDialogContent>
+   772→          <AlertDialogHeader>
+   773→            <AlertDialogTitle>Delete Slot</AlertDialogTitle>
+   774→            <AlertDialogDescription>
+   775→              Are you sure you want to remove this timetable slot? This action cannot be undone.
+   776→            </AlertDialogDescription>
+   777→          </AlertDialogHeader>
+   778→          <AlertDialogFooter>
+   779→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   780→            <AlertDialogAction
+   781→              onClick={() => {
+   782→                if (deleteId) deleteTimetableSlot(deleteId);
+   783→                setDeleteId(null);
+   784→              }}
+   785→              className='bg-destructive text-white hover:bg-destructive/90'
+   786→            >
+   787→              Delete
+   788→            </AlertDialogAction>
+   789→          </AlertDialogFooter>
+   790→        </AlertDialogContent>
+   791→      </AlertDialog>
+   792→    </div>
+   793→  );
+   794→}
+   795→

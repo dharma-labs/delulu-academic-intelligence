@@ -1,0 +1,942 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useMemo } from 'react';
+     4→     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→     5→import {
+     6→     6→  Plus,
+     7→     7→  CalendarDays,
+     8→     8→  Clock,
+     9→     9→  GraduationCap,
+    10→    10→  ChevronDown,
+    11→    11→  ChevronRight,
+    12→    12→  BookOpen,
+    13→    13→  Trash2,
+    14→    14→  Target,
+    15→    15→  FileText,
+    16→    16→  AlertCircle,
+    17→    17→} from 'lucide-react';
+    18→    18→import { format, differenceInDays, parseISO } from 'date-fns';
+    19→    19→
+    20→    20→import { useStore } from '@/lib/store';
+    21→    21→import type { Exam, PYQ } from '@/lib/types';
+    22→    22→import { GRADE_FROM_PERCENTAGE } from '@/lib/types';
+    23→    23→
+    24→    24→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    25→    25→import { Button } from '@/components/ui/button';
+    26→    26→import { Badge } from '@/components/ui/badge';
+    27→    27→import { Input } from '@/components/ui/input';
+    28→    28→import { Label } from '@/components/ui/label';
+    29→    29→import { Textarea } from '@/components/ui/textarea';
+    30→    30→import { Separator } from '@/components/ui/separator';
+    31→    31→import {
+    32→    32→  Dialog,
+    33→    33→  DialogContent,
+    34→    34→  DialogHeader,
+    35→    35→  DialogTitle,
+    36→    36→  DialogFooter,
+    37→    37→} from '@/components/ui/dialog';
+    38→    38→import {
+    39→    39→  Select,
+    40→    40→  SelectContent,
+    41→    41→  SelectItem,
+    42→    42→  SelectTrigger,
+    43→    43→  SelectValue,
+    44→    44→} from '@/components/ui/select';
+    45→    45→import {
+    46→    46→  AlertDialog,
+    47→    47→  AlertDialogAction,
+    48→    48→  AlertDialogCancel,
+    49→    49→  AlertDialogContent,
+    50→    50→  AlertDialogDescription,
+    51→    51→  AlertDialogFooter,
+    52→    52→  AlertDialogHeader,
+    53→    53→  AlertDialogTitle,
+    54→    54→} from '@/components/ui/alert-dialog';
+    55→    55→import {
+    56→    56→  Collapsible,
+    57→    57→  CollapsibleContent,
+    58→    58→  CollapsibleTrigger,
+    59→    59→} from '@/components/ui/collapsible';
+    60→    60→
+    61→    61→// -- Animation helpers ------------------------------------------------
+    62→    62→const container = {
+    63→    63→  hidden: { opacity: 0 },
+    64→    64→  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+    65→    65→};
+    66→    66→
+    67→    67→const fadeUp = {
+    68→    68→  hidden: { opacity: 0, y: 12 },
+    69→    69→  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+    70→    70→};
+    71→    71→
+    72→    72→// -- Helpers ----------------------------------------------------------
+    73→    73→const todayStr = () => new Date().toISOString().split('T')[0];
+    74→    74→
+    75→    75→function examTypeConfig(type: Exam['type']) {
+    76→    76→  switch (type) {
+    77→    77→    case 'midsem':
+    78→    78→      return { label: 'Mid-Sem', className: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400 border-violet-200 dark:border-violet-900' };
+    79→    79→    case 'endsem':
+    80→    80→      return { label: 'End-Sem', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900' };
+    81→    81→    case 'quiz':
+    82→    82→      return { label: 'Quiz', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900' };
+    83→    83→    case 'practical':
+    84→    84→      return { label: 'Practical', className: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 border-teal-200 dark:border-teal-900' };
+    85→    85→    case 'other':
+    86→    86→      return { label: 'Other', className: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-400 border-gray-200 dark:border-gray-900' };
+    87→    87→  }
+    88→    88→}
+    89→    89→
+    90→    90→function difficultyConfig(difficulty?: PYQ['difficulty']) {
+    91→    91→  switch (difficulty) {
+    92→    92→    case 'easy':
+    93→    93→      return { label: 'Easy', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' };
+    94→    94→    case 'medium':
+    95→    95→      return { label: 'Medium', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' };
+    96→    96→    case 'hard':
+    97→    97→      return { label: 'Hard', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' };
+    98→    98→    default:
+    99→    99→      return null;
+   100→   100→  }
+   101→   101→}
+   102→   102→
+   103→   103→// -- Empty State ------------------------------------------------------
+   104→   104→function EmptyState({ icon: Icon, title, description, action }: {
+   105→   105→  icon: React.ElementType;
+   106→   106→  title: string;
+   107→   107→  description: string;
+   108→   108→  action?: { label: string; onClick: () => void };
+   109→   109→}) {
+   110→   110→  return (
+   111→   111→    <motion.div
+   112→   112→      initial={{ opacity: 0, y: 12 }}
+   113→   113→      animate={{ opacity: 1, y: 0 }}
+   114→   114→      className='flex flex-col items-center justify-center py-16 px-4 text-center'
+   115→   115→    >
+   116→   116→      <div className='h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4'>
+   117→   117→        <Icon className='h-6 w-6 text-muted-foreground' />
+   118→   118→      </div>
+   119→   119→      <p className='font-medium text-sm text-foreground mb-1'>{title}</p>
+   120→   120→      <p className='text-sm text-muted-foreground max-w-sm'>{description}</p>
+   121→   121→      {action && (
+   122→   122→        <Button variant='outline' size='sm' className='mt-4' onClick={action.onClick}>
+   123→   123→          {action.label}
+   124→   124→        </Button>
+   125→   125→      )}
+   126→   126→    </motion.div>
+   127→   127→  );
+   128→   128→}
+   129→   129→
+   130→   130→// -- Add Exam Dialog --------------------------------------------------
+   131→   131→function AddExamDialog({ open, onOpenChange }: {
+   132→   132→  open: boolean;
+   133→   133→  onOpenChange: (v: boolean) => void;
+   134→   134→}) {
+   135→   135→  const addExam = useStore((s) => s.addExam);
+   136→   136→  const subjects = useStore((s) => s.subjects);
+   137→   137→  const activeSubjects = subjects.filter((s) => !s.archived);
+   138→   138→
+   139→   139→  const [subjectId, setSubjectId] = useState('');
+   140→   140→  const [name, setName] = useState('');
+   141→   141→  const [date, setDate] = useState('');
+   142→   142→  const [type, setType] = useState<Exam['type']>('midsem');
+   143→   143→  const [totalMarks, setTotalMarks] = useState('');
+   144→   144→  const [status, setStatus] = useState<Exam['status']>('upcoming');
+   145→   145→  const [obtainedMarks, setObtainedMarks] = useState('');
+   146→   146→
+   147→   147→  const handleSubmit = () => {
+   148→   148→    if (!subjectId || !name.trim() || !date || !totalMarks) return;
+   149→   149→
+   150→   150→    const examData: Omit<Exam, 'id' | 'createdAt'> = {
+   151→   151→      subjectId,
+   152→   152→      name: name.trim(),
+   153→   153→      date,
+   154→   154→      type,
+   155→   155→      totalMarks: Number(totalMarks),
+   156→   156→      status,
+   157→   157→      obtainedMarks: status === 'completed' && obtainedMarks ? Number(obtainedMarks) : undefined,
+   158→   158→    };
+   159→   159→
+   160→   160→    addExam(examData);
+   161→   161→    onOpenChange(false);
+   162→   162→
+   163→   163→    // Reset form
+   164→   164→    setSubjectId('');
+   165→   165→    setName('');
+   166→   166→    setDate('');
+   167→   167→    setType('midsem');
+   168→   168→    setTotalMarks('');
+   169→   169→    setStatus('upcoming');
+   170→   170→    setObtainedMarks('');
+   171→   171→  };
+   172→   172→
+   173→   173→  return (
+   174→   174→    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); }}>
+   175→   175→      <DialogContent className='sm:max-w-md'>
+   176→   176→        <DialogHeader>
+   177→   177→          <DialogTitle>Add Exam</DialogTitle>
+   178→   178→        </DialogHeader>
+   179→   179→
+   180→   180→        <div className='space-y-4 py-2'>
+   181→   181→          <div className='space-y-2'>
+   182→   182→            <Label>Subject *</Label>
+   183→   183→            <Select value={subjectId} onValueChange={setSubjectId}>
+   184→   184→              <SelectTrigger><SelectValue placeholder='Select subject' /></SelectTrigger>
+   185→   185→              <SelectContent>
+   186→   186→                {activeSubjects.map((s) => (
+   187→   187→                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+   188→   188→                ))}
+   189→   189→              </SelectContent>
+   190→   190→            </Select>
+   191→   191→          </div>
+   192→   192→
+   193→   193→          <div className='space-y-2'>
+   194→   194→            <Label htmlFor='exam-name'>Exam Name *</Label>
+   195→   195→            <Input
+   196→   196→              id='exam-name'
+   197→   197→              placeholder='e.g. Mid-Semester Examination'
+   198→   198→              value={name}
+   199→   199→              onChange={(e) => setName(e.target.value)}
+   200→   200→              autoFocus
+   201→   201→            />
+   202→   202→          </div>
+   203→   203→
+   204→   204→          <div className='grid grid-cols-2 gap-3'>
+   205→   205→            <div className='space-y-2'>
+   206→   206→              <Label htmlFor='exam-date'>Date *</Label>
+   207→   207→              <Input
+   208→   208→                id='exam-date'
+   209→   209→                type='date'
+   210→   210→                value={date}
+   211→   211→                onChange={(e) => setDate(e.target.value)}
+   212→   212→              />
+   213→   213→            </div>
+   214→   214→            <div className='space-y-2'>
+   215→   215→              <Label>Type</Label>
+   216→   216→              <Select value={type} onValueChange={(v) => setType(v as Exam['type'])}>
+   217→   217→                <SelectTrigger><SelectValue /></SelectTrigger>
+   218→   218→                <SelectContent>
+   219→   219→                  <SelectItem value='midsem'>Mid-Semester</SelectItem>
+   220→   220→                  <SelectItem value='endsem'>End-Semester</SelectItem>
+   221→   221→                  <SelectItem value='quiz'>Quiz</SelectItem>
+   222→   222→                  <SelectItem value='practical'>Practical</SelectItem>
+   223→   223→                  <SelectItem value='other'>Other</SelectItem>
+   224→   224→                </SelectContent>
+   225→   225→              </Select>
+   226→   226→            </div>
+   227→   227→          </div>
+   228→   228→
+   229→   229→          <div className='grid grid-cols-2 gap-3'>
+   230→   230→            <div className='space-y-2'>
+   231→   231→              <Label htmlFor='exam-marks'>Total Marks *</Label>
+   232→   232→              <Input
+   233→   233→                id='exam-marks'
+   234→   234→                type='number'
+   235→   235→                min='1'
+   236→   236→                placeholder='100'
+   237→   237→                value={totalMarks}
+   238→   238→                onChange={(e) => setTotalMarks(e.target.value)}
+   239→   239→              />
+   240→   240→            </div>
+   241→   241→            <div className='space-y-2'>
+   242→   242→              <Label>Status</Label>
+   243→   243→              <Select value={status} onValueChange={(v) => setStatus(v as Exam['status'])}>
+   244→   244→                <SelectTrigger><SelectValue /></SelectTrigger>
+   245→   245→                <SelectContent>
+   246→   246→                  <SelectItem value='upcoming'>Upcoming</SelectItem>
+   247→   247→                  <SelectItem value='completed'>Completed</SelectItem>
+   248→   248→                </SelectContent>
+   249→   249→              </Select>
+   250→   250→            </div>
+   251→   251→          </div>
+   252→   252→
+   253→   253→          {status === 'completed' && (
+   254→   254→            <div className='space-y-2'>
+   255→   255→              <Label htmlFor='exam-obtained'>Obtained Marks</Label>
+   256→   256→              <Input
+   257→   257→                id='exam-obtained'
+   258→   258→                type='number'
+   259→   259→                min='0'
+   260→   260→                placeholder='Obtained marks (optional)'
+   261→   261→                value={obtainedMarks}
+   262→   262→                onChange={(e) => setObtainedMarks(e.target.value)}
+   263→   263→              />
+   264→   264→            </div>
+   265→   265→          )}
+   266→   266→        </div>
+   267→   267→
+   268→   268→        <DialogFooter>
+   269→   269→          <Button variant='outline' onClick={() => onOpenChange(false)}>Cancel</Button>
+   270→   270→          <Button onClick={handleSubmit} disabled={!subjectId || !name.trim() || !date || !totalMarks}>
+   271→   271→            Add Exam
+   272→   272→          </Button>
+   273→   273→        </DialogFooter>
+   274→   274→      </DialogContent>
+   275→   275→    </Dialog>
+   276→   276→  );
+   277→   277→}
+   278→   278→
+   279→   279→// -- Add PYQ Dialog ---------------------------------------------------
+   280→   280→function AddPYQDialog({ examId, subjectId, open, onOpenChange }: {
+   281→   281→  examId: string;
+   282→   282→  subjectId: string;
+   283→   283→  open: boolean;
+   284→   284→  onOpenChange: (v: boolean) => void;
+   285→   285→}) {
+   286→   286→  const addPYQ = useStore((s) => s.addPYQ);
+   287→   287→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   288→   288→
+   289→   289→  const allTopics = useMemo(
+   290→   290→    () => syllabusUnits.filter((u) => u.subjectId === subjectId).flatMap((u) => u.topics),
+   291→   291→    [syllabusUnits, subjectId]
+   292→   292→  );
+   293→   293→
+   294→   294→  const [year, setYear] = useState('');
+   295→   295→  const [question, setQuestion] = useState('');
+   296→   296→  const [answer, setAnswer] = useState('');
+   297→   297→  const [topicId, setTopicId] = useState('none');
+   298→   298→  const [difficulty, setDifficulty] = useState<PYQ['difficulty']>('medium');
+   299→   299→  const [attempted, setAttempted] = useState(false);
+   300→   300→  const [correct, setCorrect] = useState(false);
+   301→   301→
+   302→   302→  const handleSubmit = () => {
+   303→   303→    if (!year.trim() || !question.trim()) return;
+   304→   304→
+   305→   305→    addPYQ({
+   306→   306→      examId,
+   307→   307→      subjectId,
+   308→   308→      year: year.trim(),
+   309→   309→      question: question.trim(),
+   310→   310→      answer: answer.trim() || undefined,
+   311→   311→      topicId: topicId === 'none' ? undefined : topicId,
+   312→   312→      difficulty,
+   313→   313→      attempted,
+   314→   314→      correct: attempted ? correct : undefined,
+   315→   315→    });
+   316→   316→
+   317→   317→    onOpenChange(false);
+   318→   318→    setYear('');
+   319→   319→    setQuestion('');
+   320→   320→    setAnswer('');
+   321→   321→    setTopicId('none');
+   322→   322→    setDifficulty('medium');
+   323→   323→    setAttempted(false);
+   324→   324→    setCorrect(false);
+   325→   325→  };
+   326→   326→
+   327→   327→  return (
+   328→   328→    <Dialog open={open} onOpenChange={onOpenChange}>
+   329→   329→      <DialogContent className='sm:max-w-lg'>
+   330→   330→        <DialogHeader>
+   331→   331→          <DialogTitle>Add Previous Year Question</DialogTitle>
+   332→   332→        </DialogHeader>
+   333→   333→
+   334→   334→        <div className='space-y-4 py-2'>
+   335→   335→          <div className='grid grid-cols-2 gap-3'>
+   336→   336→            <div className='space-y-2'>
+   337→   337→              <Label htmlFor='pyq-year'>Year *</Label>
+   338→   338→              <Input
+   339→   339→                id='pyq-year'
+   340→   340→                placeholder='e.g. 2023'
+   341→   341→                value={year}
+   342→   342→                onChange={(e) => setYear(e.target.value)}
+   343→   343→                autoFocus
+   344→   344→              />
+   345→   345→            </div>
+   346→   346→            <div className='space-y-2'>
+   347→   347→              <Label>Difficulty</Label>
+   348→   348→              <Select value={difficulty} onValueChange={(v) => setDifficulty(v as PYQ['difficulty'])}>
+   349→   349→                <SelectTrigger><SelectValue /></SelectTrigger>
+   350→   350→                <SelectContent>
+   351→   351→                  <SelectItem value='easy'>Easy</SelectItem>
+   352→   352→                  <SelectItem value='medium'>Medium</SelectItem>
+   353→   353→                  <SelectItem value='hard'>Hard</SelectItem>
+   354→   354→                </SelectContent>
+   355→   355→              </Select>
+   356→   356→            </div>
+   357→   357→          </div>
+   358→   358→
+   359→   359→          <div className='space-y-2'>
+   360→   360→            <Label>Topic</Label>
+   361→   361→            <Select value={topicId} onValueChange={setTopicId}>
+   362→   362→              <SelectTrigger><SelectValue placeholder='Select topic (optional)' /></SelectTrigger>
+   363→   363→              <SelectContent>
+   364→   364→                <SelectItem value='none'>None</SelectItem>
+   365→   365→                {allTopics.map((t) => (
+   366→   366→                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+   367→   367→                ))}
+   368→   368→              </SelectContent>
+   369→   369→            </Select>
+   370→   370→          </div>
+   371→   371→
+   372→   372→          <div className='space-y-2'>
+   373→   373→            <Label htmlFor='pyq-question'>Question *</Label>
+   374→   374→            <Textarea
+   375→   375→              id='pyq-question'
+   376→   376→              placeholder='Enter the question...'
+   377→   377→              value={question}
+   378→   378→              onChange={(e) => setQuestion(e.target.value)}
+   379→   379→              rows={3}
+   380→   380→              className='resize-none'
+   381→   381→            />
+   382→   382→          </div>
+   383→   383→
+   384→   384→          <div className='space-y-2'>
+   385→   385→            <Label htmlFor='pyq-answer'>Answer</Label>
+   386→   386→            <Textarea
+   387→   387→              id='pyq-answer'
+   388→   388→              placeholder='Enter the answer (optional)...'
+   389→   389→              value={answer}
+   390→   390→              onChange={(e) => setAnswer(e.target.value)}
+   391→   391→              rows={3}
+   392→   392→              className='resize-none'
+   393→   393→            />
+   394→   394→          </div>
+   395→   395→
+   396→   396→          <div className='flex items-center gap-6'>
+   397→   397→            <label className='flex items-center gap-2 text-sm cursor-pointer'>
+   398→   398→              <input
+   399→   399→                type='checkbox'
+   400→   400→                checked={attempted}
+   401→   401→                onChange={(e) => setAttempted(e.target.checked)}
+   402→   402→                className='rounded border-gray-300'
+   403→   403→              />
+   404→   404→              Attempted
+   405→   405→            </label>
+   406→   406→            {attempted && (
+   407→   407→              <label className='flex items-center gap-2 text-sm cursor-pointer'>
+   408→   408→                <input
+   409→   409→                  type='checkbox'
+   410→   410→                  checked={correct}
+   411→   411→                  onChange={(e) => setCorrect(e.target.checked)}
+   412→   412→                  className='rounded border-gray-300'
+   413→   413→                />
+   414→   414→                Correct
+   415→   415→              </label>
+   416→   416→            )}
+   417→   417→          </div>
+   418→   418→        </div>
+   419→   419→
+   420→   420→        <DialogFooter>
+   421→   421→          <Button variant='outline' onClick={() => onOpenChange(false)}>Cancel</Button>
+   422→   422→          <Button onClick={handleSubmit} disabled={!year.trim() || !question.trim()}>
+   423→   423→            Add PYQ
+   424→   424→          </Button>
+   425→   425→        </DialogFooter>
+   426→   426→      </DialogContent>
+   427→   427→    </Dialog>
+   428→   428→  );
+   429→   429→}
+   430→   430→
+   431→   431→// -- Exam Detail (expanded) -------------------------------------------
+   432→   432→function ExamDetail({
+   433→   433→  exam,
+   434→   434→  onCollapse,
+   435→   435→}: {
+   436→   436→  exam: Exam;
+   437→   437→  onCollapse: () => void;
+   438→   438→}) {
+   439→   439→  const subjects = useStore((s) => s.subjects);
+   440→   440→  const pyqs = useStore((s) => s.pyqs);
+   441→   441→  const updateExam = useStore((s) => s.updateExam);
+   442→   442→  const deletePYQ = useStore((s) => s.deletePYQ);
+   443→   443→  const deleteExam = useStore((s) => s.deleteExam);
+   444→   444→
+   445→   445→  const subject = subjects.find((s) => s.id === exam.subjectId);
+   446→   446→  const examPyqs = pyqs.filter((p) => p.examId === exam.id);
+   447→   447→  const typeConf = examTypeConfig(exam.type);
+   448→   448→
+   449→   449→  const [prepNotes, setPrepNotes] = useState(exam.preparationNotes ?? '');
+   450→   450→  const [pyqDialogOpen, setPyqDialogOpen] = useState(false);
+   451→   451→  const [deleteId, setDeleteId] = useState<string | null>(null);
+   452→   452→
+   453→   453→  const handleSaveNotes = () => {
+   454→   454→    updateExam(exam.id, { preparationNotes: prepNotes });
+   455→   455→  };
+   456→   456→
+   457→   457→  const handleDeleteExam = () => {
+   458→   458→    deleteExam(exam.id);
+   459→   459→    onCollapse();
+   460→   460→  };
+   461→   461→
+   462→   462→  const percentage =
+   463→   463→    exam.status === 'completed' && exam.obtainedMarks !== undefined && exam.totalMarks > 0
+   464→   464→      ? Math.round((exam.obtainedMarks / exam.totalMarks) * 100)
+   465→   465→      : null;
+   466→   466→  const grade = percentage !== null ? GRADE_FROM_PERCENTAGE(percentage) : null;
+   467→   467→
+   468→   468→  return (
+   469→   469→    <motion.div
+   470→   470→      initial={{ opacity: 0, height: 0 }}
+   471→   471→      animate={{ opacity: 1, height: 'auto' }}
+   472→   472→      exit={{ opacity: 0, height: 0 }}
+   473→   473→      className='overflow-hidden'
+   474→   474→    >
+   475→   475→      <Card className='border-primary/20'>
+   476→   476→        <CardHeader className='pb-3'>
+   477→   477→          <div className='flex items-start justify-between gap-3'>
+   478→   478→            <div className='space-y-1'>
+   479→   479→              <CardTitle className='text-lg'>{exam.name}</CardTitle>
+   480→   480→              <div className='flex items-center gap-2 flex-wrap'>
+   481→   481→                {subject && (
+   482→   482→                  <Badge
+   483→   483→                    variant='outline'
+   484→   484→                    className='text-xs'
+   485→   485→                    style={{
+   486→   486→                      borderColor: subject.color + '60',
+   487→   487→                      color: subject.color,
+   488→   488→                    }}
+   489→   489→                  >
+   490→   490→                    {subject.code}
+   491→   491→                  </Badge>
+   492→   492→                )}
+   493→   493→                <Badge variant='outline' className={`text-xs border ${typeConf.className}`}>
+   494→   494→                  {typeConf.label}
+   495→   495→                </Badge>
+   496→   496→                <Badge variant='outline' className='text-xs'>
+   497→   497→                  {exam.totalMarks} marks
+   498→   498→                </Badge>
+   499→   499→                <span className='text-xs text-muted-foreground flex items-center gap-1'>
+   500→   500→                  <CalendarDays className='h-3 w-3' />
+   501→   501→                  {format(parseISO(exam.date), 'MMM d, yyyy')}
+   502→   502→                </span>
+   503→   503→              </div>
+   504→   504→            </div>
+   505→   505→            <div className='flex items-center gap-2 shrink-0'>
+   506→   506→              <Button variant='ghost' size='sm' onClick={onCollapse}>
+   507→   507→                <ChevronDown className='h-4 w-4' />
+   508→   508→              </Button>
+   509→   509→              <Button
+   510→   510→                variant='ghost'
+   511→   511→                size='icon'
+   512→   512→                className='h-8 w-8 text-destructive hover:text-destructive'
+   513→   513→                onClick={() => setDeleteId('exam')}
+   514→   514→              >
+   515→   515→                <Trash2 className='h-3.5 w-3.5' />
+   516→   516→              </Button>
+   517→   517→            </div>
+   518→   518→          </div>
+   519→   519→
+   520→   520→          {/* Completed stats row */}
+   521→   521→          {exam.status === 'completed' && percentage !== null && (
+   522→   522→            <div className='flex items-center gap-4 mt-3'>
+   523→   523→              <div className='text-sm'>
+   524→   524→                <span className='font-semibold'>{exam.obtainedMarks}</span>
+   525→   525→                <span className='text-muted-foreground'> / {exam.totalMarks}</span>
+   526→   526→              </div>
+   527→   527→              <Badge variant='outline' className='text-xs'>{percentage}%</Badge>
+   528→   528→              {grade && (
+   529→   529→                <Badge className='text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
+   530→   530→                  {grade}
+   531→   531→                </Badge>
+   532→   532→              )}
+   533→   533→            </div>
+   534→   534→          )}
+   535→   535→
+   536→   536→          {/* Upcoming days remaining */}
+   537→   537→          {exam.status === 'upcoming' && (
+   538→   538→            <div className='mt-2'>
+   539→   539→              <Badge className='text-xs bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400'>
+   540→   540→                UPCOMING
+   541→   541→              </Badge>
+   542→   542→            </div>
+   543→   543→          )}
+   544→   544→        </CardHeader>
+   545→   545→
+   546→   546→        <Separator />
+   547→   547→
+   548→   548→        <CardContent className='pt-4 space-y-6'>
+   549→   549→          {/* PYQ Section */}
+   550→   550→          <div>
+   551→   551→            <div className='flex items-center justify-between mb-3'>
+   552→   552→              <h3 className='text-sm font-semibold flex items-center gap-2'>
+   553→   553→                <FileText className='h-4 w-4' />
+   554→   554→                Previous Year Questions ({examPyqs.length})
+   555→   555→              </h3>
+   556→   556→              <Button size='sm' variant='outline' className='gap-1.5 h-8' onClick={() => setPyqDialogOpen(true)}>
+   557→   557→                <Plus className='h-3.5 w-3.5' />
+   558→   558→                Add PYQ
+   559→   559→              </Button>
+   560→   560→            </div>
+   561→   561→
+   562→   562→            {examPyqs.length === 0 ? (
+   563→   563→              <p className='text-sm text-muted-foreground py-4 text-center'>
+   564→   564→                No previous year questions added yet.
+   565→   565→              </p>
+   566→   566→            ) : (
+   567→   567→              <div className='space-y-2 max-h-96 overflow-y-auto scrollbar-thin'>
+   568→   568→                {examPyqs.map((pyq) => {
+   569→   569→                  const diffConf = difficultyConfig(pyq.difficulty);
+   570→   570→                  return (
+   571→   571→                    <div
+   572→   572→                      key={pyq.id}
+   573→   573→                      className='rounded-lg border border-border p-3 hover:border-primary/20 transition-colors group'
+   574→   574→                    >
+   575→   575→                      <div className='flex items-start justify-between gap-2'>
+   576→   576→                        <div className='flex-1 min-w-0'>
+   577→   577→                          <div className='flex items-center gap-2 flex-wrap mb-1'>
+   578→   578→                            <span className='text-xs font-medium text-muted-foreground'>{pyq.year}</span>
+   579→   579→                            {diffConf && (
+   580→   580→                              <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border-0 ${diffConf.className}`}>
+   581→   581→                                {diffConf.label}
+   582→   582→                              </Badge>
+   583→   583→                            )}
+   584→   584→                            {pyq.attempted && (
+   585→   585→                              pyq.correct ? (
+   586→   586→                                <Badge className='text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
+   587→   587→                                  Correct
+   588→   588→                                </Badge>
+   589→   589→                              ) : (
+   590→   590→                                <Badge className='text-[10px] px-1.5 py-0 bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'>
+   591→   591→                                  Incorrect
+   592→   592→                                </Badge>
+   593→   593→                              )
+   594→   594→                            )}
+   595→   595→                            {!pyq.attempted && (
+   596→   596→                              <Badge variant='outline' className='text-[10px] px-1.5 py-0'>
+   597→   597→                                Not attempted
+   598→   598→                              </Badge>
+   599→   599→                            )}
+   600→   600→                          </div>
+   601→   601→                          <p className='text-sm leading-relaxed'>{pyq.question}</p>
+   602→   602→                          {pyq.answer && (
+   603→   603→                            <p className='text-xs text-muted-foreground mt-1.5 line-clamp-2'>{pyq.answer}</p>
+   604→   604→                          )}
+   605→   605→                        </div>
+   606→   606→                        <Button
+   607→   607→                          variant='ghost'
+   608→   608→                          size='icon'
+   609→   609→                          className='h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive'
+   610→   610→                          onClick={() => setDeleteId(pyq.id)}
+   611→   611→                        >
+   612→   612→                          <Trash2 className='h-3 w-3' />
+   613→   613→                        </Button>
+   614→   614→                      </div>
+   615→   615→                    </div>
+   616→   616→                  );
+   617→   617→                })}
+   618→   618→              </div>
+   619→   619→            )}
+   620→   620→          </div>
+   621→   621→
+   622→   622→          {/* Preparation Notes */}
+   623→   623→          <div>
+   624→   624→            <h3 className='text-sm font-semibold flex items-center gap-2 mb-3'>
+   625→   625→              <BookOpen className='h-4 w-4' />
+   626→   626→              Preparation Notes
+   627→   627→            </h3>
+   628→   628→            <Textarea
+   629→   629→              placeholder='Add your preparation notes, key topics to revise, formulas, etc.'
+   630→   630→              value={prepNotes}
+   631→   631→              onChange={(e) => setPrepNotes(e.target.value)}
+   632→   632→              onBlur={handleSaveNotes}
+   633→   633→              rows={4}
+   634→   634→              className='resize-none'
+   635→   635→            />
+   636→   636→            <p className='text-[11px] text-muted-foreground mt-1'>Auto-saves when you click away</p>
+   637→   637→          </div>
+   638→   638→        </CardContent>
+   639→   639→      </Card>
+   640→   640→
+   641→   641→      <AddPYQDialog
+   642→   642→        examId={exam.id}
+   643→   643→        subjectId={exam.subjectId}
+   644→   644→        open={pyqDialogOpen}
+   645→   645→        onOpenChange={setPyqDialogOpen}
+   646→   646→      />
+   647→   647→
+   648→   648→      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+   649→   649→        <AlertDialogContent>
+   650→   650→          <AlertDialogHeader>
+   651→   651→            <AlertDialogTitle>{deleteId === 'exam' ? 'Delete Exam' : 'Delete PYQ'}</AlertDialogTitle>
+   652→   652→            <AlertDialogDescription>
+   653→   653→              {deleteId === 'exam'
+   654→   654→                ? 'Are you sure you want to delete this exam and all its PYQs? This action cannot be undone.'
+   655→   655→                : 'Are you sure you want to delete this previous year question?'
+   656→   656→              }
+   657→   657→            </AlertDialogDescription>
+   658→   658→          </AlertDialogHeader>
+   659→   659→          <AlertDialogFooter>
+   660→   660→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   661→   661→            <AlertDialogAction
+   662→   662→              onClick={() => {
+   663→   663→                if (deleteId === 'exam') {
+   664→   664→                  handleDeleteExam();
+   665→   665→                } else if (deleteId) {
+   666→   666→                  deletePYQ(deleteId);
+   667→   667→                }
+   668→   668→                setDeleteId(null);
+   669→   669→              }}
+   670→   670→              className='bg-destructive text-white hover:bg-destructive/90'
+   671→   671→            >
+   672→   672→              Delete
+   673→   673→            </AlertDialogAction>
+   674→   674→          </AlertDialogFooter>
+   675→   675→        </AlertDialogContent>
+   676→   676→      </AlertDialog>
+   677→   677→    </motion.div>
+   678→   678→  );
+   679→   679→}
+   680→   680→
+   681→   681→// -- Main Component ---------------------------------------------------
+   682→   682→export default function ExamsView() {
+   683→   683→  const exams = useStore((s) => s.exams);
+   684→   684→  const subjects = useStore((s) => s.subjects);
+   685→   685→  const navigate = useStore((s) => s.navigate);
+   686→   686→  const selectSubject = useStore((s) => s.selectSubject);
+   687→   687→
+   688→   688→  const [dialogOpen, setDialogOpen] = useState(false);
+   689→   689→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   690→   690→  const [completedOpen, setCompletedOpen] = useState(false);
+   691→   691→
+   692→   692→  const today = todayStr();
+   693→   693→
+   694→   694→  const upcomingExams = useMemo(
+   695→   695→    () =>
+   696→   696→      exams
+   697→   697→        .filter((e) => e.status === 'upcoming')
+   698→   698→        .sort((a, b) => a.date.localeCompare(b.date)),
+   699→   699→    [exams],
+   700→   700→  );
+   701→   701→
+   702→   702→  const completedExams = useMemo(
+   703→   703→    () =>
+   704→   704→      exams
+   705→   705→        .filter((e) => e.status === 'completed')
+   706→   706→        .sort((a, b) => b.date.localeCompare(a.date)),
+   707→   707→    [exams],
+   708→   708→  );
+   709→   709→
+   710→   710→  if (exams.length === 0) {
+   711→   711→    return (
+   712→   712→      <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-4'>
+   713→   713→        <div className='flex items-center justify-between'>
+   714→   714→          <h1 className='text-2xl font-semibold tracking-tight'>Exams</h1>
+   715→   715→          <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
+   716→   716→            <Plus className='h-4 w-4' />
+   717→   717→            Add Exam
+   718→   718→          </Button>
+   719→   719→        </div>
+   720→   720→        <EmptyState
+   721→   721→          icon={GraduationCap}
+   722→   722→          title='No exams scheduled'
+   723→   723→          description='No exams scheduled. Add your first exam to start tracking.'
+   724→   724→          action={{ label: 'Add Exam', onClick: () => setDialogOpen(true) }}
+   725→   725→        />
+   726→   726→        <AddExamDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+   727→   727→      </div>
+   728→   728→    );
+   729→   729→  }
+   730→   730→
+   731→   731→  return (
+   732→   732→    <div className='p-4 md:p-6 max-w-4xl mx-auto space-y-6'>
+   733→   733→      {/* Header */}
+   734→   734→      <div className='flex items-center justify-between'>
+   735→   735→        <div>
+   736→   736→          <h1 className='text-2xl font-semibold tracking-tight'>Exams</h1>
+   737→   737→          <p className='text-sm text-muted-foreground mt-0.5'>
+   738→   738→            {upcomingExams.length} upcoming, {completedExams.length} completed
+   739→   739→          </p>
+   740→   740→        </div>
+   741→   741→        <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
+   742→   742→          <Plus className='h-4 w-4' />
+   743→   743→          <span className='hidden sm:inline'>Add Exam</span>
+   744→   744→        </Button>
+   745→   745→      </div>
+   746→   746→
+   747→   747→      <Separator />
+   748→   748→
+   749→   749→      {/* Upcoming Exams */}
+   750→   750→      <section>
+   751→   751→        <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3'>
+   752→   752→          Upcoming Exams
+   753→   753→        </h2>
+   754→   754→
+   755→   755→        {upcomingExams.length === 0 ? (
+   756→   756→          <p className='text-sm text-muted-foreground py-8 text-center'>No upcoming exams.</p>
+   757→   757→        ) : (
+   758→   758→          <motion.div variants={container} initial='hidden' animate='show' className='space-y-2'>
+   759→   759→            {upcomingExams.map((exam) => {
+   760→   760→              const subject = subjects.find((s) => s.id === exam.subjectId);
+   761→   761→              const typeConf = examTypeConfig(exam.type);
+   762→   762→              const daysRemaining = differenceInDays(parseISO(exam.date), new Date());
+   763→   763→              const isExpanded = expandedId === exam.id;
+   764→   764→
+   765→   765→              return (
+   766→   766→                <motion.div key={exam.id} variants={fadeUp}>
+   767→   767→                  {isExpanded ? (
+   768→   768→                    <ExamDetail exam={exam} onCollapse={() => setExpandedId(null)} />
+   769→   769→                  ) : (
+   770→   770→                    <Card
+   771→   771→                      className='group cursor-pointer transition-colors hover:border-primary/30'
+   772→   772→                      onClick={() => setExpandedId(exam.id)}
+   773→   773→                    >
+   774→   774→                      <CardContent className='p-4'>
+   775→   775→                        <div className='flex items-start justify-between gap-3'>
+   776→   776→                          <div className='flex-1 min-w-0'>
+   777→   777→                            <p className='font-medium text-sm'>{exam.name}</p>
+   778→   778→                            <div className='flex items-center gap-2 mt-2 flex-wrap'>
+   779→   779→                              {subject && (
+   780→   780→                                <Badge
+   781→   781→                                  variant='outline'
+   782→   782→                                  className='text-[10px] px-1.5 py-0'
+   783→   783→                                  style={{
+   784→   784→                                    borderColor: subject.color + '60',
+   785→   785→                                    color: subject.color,
+   786→   786→                                  }}
+   787→   787→                                >
+   788→   788→                                  {subject.code}
+   789→   789→                                </Badge>
+   790→   790→                              )}
+   791→   791→                              <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${typeConf.className}`}>
+   792→   792→                                {typeConf.label}
+   793→   793→                              </Badge>
+   794→   794→                              <Badge className='text-[10px] px-1.5 py-0 bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400'>
+   795→   795→                                UPCOMING
+   796→   796→                              </Badge>
+   797→   797→                            </div>
+   798→   798→                          </div>
+   799→   799→
+   800→   800→                          <div className='flex flex-col items-end gap-2 shrink-0'>
+   801→   801→                            <div className='text-right'>
+   802→   802→                              <p className='text-xs text-muted-foreground flex items-center gap-1'>
+   803→   803→                                <CalendarDays className='h-3 w-3' />
+   804→   804→                                {format(parseISO(exam.date), 'MMM d')}
+   805→   805→                              </p>
+   806→   806→                              <p className={`text-xs font-medium mt-0.5 ${daysRemaining <= 3 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+   807→   807→                                {daysRemaining === 0 ? 'Today' : daysRemaining === 1 ? 'Tomorrow' : `${daysRemaining} days left`}
+   808→   808→                              </p>
+   809→   809→                            </div>
+   810→   810→                            <Badge variant='outline' className='text-[10px]'>
+   811→   811→                              {exam.totalMarks} marks
+   812→   812→                            </Badge>
+   813→   813→                          </div>
+   814→   814→                        </div>
+   815→   815→
+   816→   816→                        {/* Prepare Now button */}
+   817→   817→                        <div className='mt-3 flex justify-end'>
+   818→   818→                          <Button
+   819→   819→                            size='sm'
+   820→   820→                            variant='outline'
+   821→   821→                            className='h-8 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity'
+   822→   822→                            onClick={(e) => {
+   823→   823→                              e.stopPropagation();
+   824→   824→                              selectSubject(exam.subjectId);
+   825→   825→                              navigate('subject-detail');
+   826→   826→                            }}
+   827→   827→                          >
+   828→   828→                            <Target className='h-3.5 w-3.5' />
+   829→   829→                            Prepare Now
+   830→   830→                          </Button>
+   831→   831→                        </div>
+   832→   832→                      </CardContent>
+   833→   833→                    </Card>
+   834→   834→                  )}
+   835→   835→                </motion.div>
+   836→   836→              );
+   837→   837→            })}
+   838→   838→          </motion.div>
+   839→   839→        )}
+   840→   840→      </section>
+   841→   841→
+   842→   842→      {/* Completed Exams */}
+   843→   843→      <section>
+   844→   844→        <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
+   845→   845→          <CollapsibleTrigger className='flex items-center gap-2 w-full group cursor-pointer py-1'>
+   846→   846→            <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wider'>
+   847→   847→              Completed Exams ({completedExams.length})
+   848→   848→            </h2>
+   849→   849→            {completedOpen ? (
+   850→   850→              <ChevronDown className='h-4 w-4 text-muted-foreground' />
+   851→   851→            ) : (
+   852→   852→              <ChevronRight className='h-4 w-4 text-muted-foreground' />
+   853→   853→            )}
+   854→   854→          </CollapsibleTrigger>
+   855→   855→
+   856→   856→          <CollapsibleContent>
+   857→   857→            {completedExams.length === 0 ? (
+   858→   858→              <p className='text-sm text-muted-foreground py-8 text-center'>No completed exams.</p>
+   859→   859→            ) : (
+   860→   860→              <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 mt-3'>
+   861→   861→                {completedExams.map((exam) => {
+   862→   862→                  const subject = subjects.find((s) => s.id === exam.subjectId);
+   863→   863→                  const typeConf = examTypeConfig(exam.type);
+   864→   864→                  const percentage =
+   865→   865→                    exam.obtainedMarks !== undefined && exam.totalMarks > 0
+   866→   866→                      ? Math.round((exam.obtainedMarks / exam.totalMarks) * 100)
+   867→   867→                      : null;
+   868→   868→                  const grade = percentage !== null ? GRADE_FROM_PERCENTAGE(percentage) : null;
+   869→   869→                  const isExpanded = expandedId === exam.id;
+   870→   870→
+   871→   871→                  return (
+   872→   872→                    <motion.div key={exam.id} variants={fadeUp}>
+   873→   873→                      {isExpanded ? (
+   874→   874→                        <ExamDetail exam={exam} onCollapse={() => setExpandedId(null)} />
+   875→   875→                      ) : (
+   876→   876→                        <Card
+   877→   877→                          className='group cursor-pointer transition-colors hover:border-primary/30 opacity-80'
+   878→   878→                          onClick={() => setExpandedId(exam.id)}
+   879→   879→                        >
+   880→   880→                          <CardContent className='p-4'>
+   881→   881→                            <div className='flex items-center justify-between gap-3'>
+   882→   882→                              <div className='flex-1 min-w-0'>
+   883→   883→                                <p className='font-medium text-sm'>{exam.name}</p>
+   884→   884→                                <div className='flex items-center gap-2 mt-2 flex-wrap'>
+   885→   885→                                  {subject && (
+   886→   886→                                    <Badge
+   887→   887→                                      variant='outline'
+   888→   888→                                      className='text-[10px] px-1.5 py-0'
+   889→   889→                                      style={{
+   890→   890→                                        borderColor: subject.color + '60',
+   891→   891→                                        color: subject.color,
+   892→   892→                                      }}
+   893→   893→                                    >
+   894→   894→                                      {subject.code}
+   895→   895→                                    </Badge>
+   896→   896→                                  )}
+   897→   897→                                  <Badge variant='outline' className={`text-[10px] px-1.5 py-0 border ${typeConf.className}`}>
+   898→   898→                                    {typeConf.label}
+   899→   899→                                  </Badge>
+   900→   900→                                  <span className='text-[11px] text-muted-foreground flex items-center gap-1'>
+   901→   901→                                    <CalendarDays className='h-3 w-3' />
+   902→   902→                                    {format(parseISO(exam.date), 'MMM d, yyyy')}
+   903→   903→                                  </span>
+   904→   904→                                </div>
+   905→   905→                              </div>
+   906→   906→
+   907→   907→                              <div className='flex items-center gap-3 shrink-0'>
+   908→   908→                                {percentage !== null && (
+   909→   909→                                  <div className='text-right'>
+   910→   910→                                    <p className='text-sm font-semibold'>
+   911→   911→                                      {exam.obtainedMarks}<span className='text-muted-foreground font-normal'>/{exam.totalMarks}</span>
+   912→   912→                                    </p>
+   913→   913→                                    <div className='flex items-center gap-1.5 justify-end mt-0.5'>
+   914→   914→                                      <Badge variant='outline' className='text-[10px]'>
+   915→   915→                                        {percentage}%
+   916→   916→                                      </Badge>
+   917→   917→                                      {grade && (
+   918→   918→                                        <Badge className='text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'>
+   919→   919→                                          {grade}
+   920→   920→                                        </Badge>
+   921→   921→                                      )}
+   922→   922→                                    </div>
+   923→   923→                                  </div>
+   924→   924→                                )}
+   925→   925→                              </div>
+   926→   926→                            </div>
+   927→   927→                          </CardContent>
+   928→   928→                        </Card>
+   929→   929→                      )}
+   930→   930→                    </motion.div>
+   931→   931→                  );
+   932→   932→                })}
+   933→   933→              </motion.div>
+   934→   934→            )}
+   935→   935→          </CollapsibleContent>
+   936→   936→        </Collapsible>
+   937→   937→      </section>
+   938→   938→
+   939→   939→      <AddExamDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+   940→   940→    </div>
+   941→   941→  );
+   942→   942→}

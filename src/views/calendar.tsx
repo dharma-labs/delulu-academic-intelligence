@@ -14,7 +14,6 @@ import {
   addMonths,
   subMonths,
   parseISO,
-  getDay,
 } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -33,7 +32,6 @@ import {
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -55,6 +53,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PageHeader, EmptyState } from '@/components/shared';
 import type { CalendarEvent } from '@/lib/types';
 
 // -- Animation helpers ------------------------------------------------
@@ -217,7 +216,6 @@ export default function CalendarView() {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    // Only allow delete for real calendar events (not derived)
     if (eventId.startsWith('task-') || eventId.startsWith('asgn-') || eventId.startsWith('exam-')) return;
     deleteCalendarEvent(eventId);
   };
@@ -232,22 +230,18 @@ export default function CalendarView() {
   };
 
   return (
-    <div className='p-4 md:p-6 max-w-7xl mx-auto'>
+    <div className='p-4 md:p-6 content-area animate-fade-slide-in'>
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'
-      >
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Calendar</h1>
-          <p className='text-muted-foreground text-sm mt-1'>Track exams, deadlines, and events</p>
-        </div>
-        <Button onClick={() => openAddDialog()} className='w-full sm:w-auto'>
-          <Plus className='h-4 w-4 mr-2' />
-          Add Event
-        </Button>
-      </motion.div>
+      <PageHeader
+        title='Calendar'
+        subtitle='Track exams, deadlines, and events'
+        actions={
+          <Button onClick={() => openAddDialog()} size='sm'>
+            <Plus className='h-4 w-4 mr-1.5' />
+            Add Event
+          </Button>
+        }
+      />
 
       {/* Month Navigation */}
       <motion.div
@@ -256,22 +250,22 @@ export default function CalendarView() {
         transition={{ delay: 0.05 }}
         className='flex items-center justify-between mb-4'
       >
-        <Button variant='outline' size='icon' onClick={goToPrevMonth}>
+        <Button variant='outline' size='icon' className='h-8 w-8' onClick={goToPrevMonth}>
           <ChevronLeft className='h-4 w-4' />
         </Button>
         <div className='flex items-center gap-3'>
-          <h2 className='text-lg font-semibold'>{format(currentMonth, 'MMMM yyyy')}</h2>
-          <Button variant='outline' size='sm' onClick={goToToday}>
+          <h2 className='text-sm font-semibold'>{format(currentMonth, 'MMMM yyyy')}</h2>
+          <Button variant='outline' size='sm' className='h-7 text-xs' onClick={goToToday}>
             Today
           </Button>
         </div>
-        <Button variant='outline' size='icon' onClick={goToNextMonth}>
+        <Button variant='outline' size='icon' className='h-8 w-8' onClick={goToNextMonth}>
           <ChevronRight className='h-4 w-4' />
         </Button>
       </motion.div>
 
       {/* Calendar Grid + Day Detail */}
-      <div className='flex flex-col lg:flex-row gap-6'>
+      <div className='flex flex-col lg:flex-row gap-4'>
         {/* Calendar Grid */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -279,13 +273,13 @@ export default function CalendarView() {
           transition={{ delay: 0.1 }}
           className='flex-1 min-w-0'
         >
-          <Card>
+          <div className='bg-card border border-border rounded-lg overflow-hidden'>
             {/* Week Day Headers */}
-            <div className='grid grid-cols-7 border-b'>
+            <div className='grid grid-cols-7 border-b border-border'>
               {WEEK_DAYS.map((day) => (
                 <div
                   key={day}
-                  className='py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider'
+                  className='py-2.5 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider'
                 >
                   {day}
                 </div>
@@ -305,16 +299,16 @@ export default function CalendarView() {
                     key={day.toISOString()}
                     onClick={() => setSelectedDate(day)}
                     className={`
-                      relative min-h-[80px] md:min-h-[100px] p-2 text-left border-b border-r transition-colors
+                      relative min-h-[72px] md:min-h-[88px] p-1.5 text-left border-b border-r border-border transition-colors
                       focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50
-                      ${!isCurrentMonth ? 'opacity-30 bg-muted/30' : 'hover:bg-muted/50'}
-                      ${isSelected ? 'bg-primary/5 ring-2 ring-inset ring-primary' : ''}
+                      ${!isCurrentMonth ? 'opacity-25 bg-secondary/50' : 'hover:bg-secondary/50'}
+                      ${isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary/40' : ''}
                     `}
                   >
                     <span
                       className={`
-                        inline-flex items-center justify-center h-7 w-7 rounded-full text-sm font-medium
-                        ${isTodayDate ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : ''}
+                        inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-medium
+                        ${isTodayDate ? 'bg-primary text-primary-foreground' : ''}
                         ${!isTodayDate && isSelected ? 'font-bold text-primary' : ''}
                       `}
                     >
@@ -322,19 +316,19 @@ export default function CalendarView() {
                     </span>
 
                     {/* Event dots */}
-                    <div className='mt-1 flex flex-wrap gap-1'>
-                      {dayEvents.slice(0, 3).map((ev) => (
+                    <div className='mt-1 flex flex-wrap gap-[3px]'>
+                      {dayEvents.slice(0, 4).map((ev) => (
                         <span
                           key={ev.id}
-                          className='h-1.5 w-1.5 rounded-full flex-shrink-0'
+                          className='h-1.5 w-1.5 rounded-full shrink-0'
                           style={{
                             backgroundColor: ev.color || EVENT_TYPES[ev.type]?.color || '#737373',
                           }}
                         />
                       ))}
-                      {dayEvents.length > 3 && (
-                        <span className='text-[10px] text-muted-foreground leading-none'>
-                          +{dayEvents.length - 3}
+                      {dayEvents.length > 4 && (
+                        <span className='text-[9px] text-muted-foreground leading-none ml-0.5'>
+                          +{dayEvents.length - 4}
                         </span>
                       )}
                     </div>
@@ -342,7 +336,7 @@ export default function CalendarView() {
                 );
               })}
             </div>
-          </Card>
+          </div>
         </motion.div>
 
         {/* Day Detail Panel */}
@@ -354,55 +348,60 @@ export default function CalendarView() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
-              className='w-full lg:w-80 xl:w-96 flex-shrink-0'
+              className='w-full lg:w-80 xl:w-96 shrink-0'
             >
-              <Card className='sticky top-6'>
-                <CardHeader className='pb-3'>
+              <div className='bg-card border border-border rounded-lg sticky top-6'>
+                <div className='p-4 pb-3'>
                   <div className='flex items-center justify-between'>
-                    <CardTitle className='text-lg'>
-                      {format(selectedDate, 'EEEE, MMM d')}
-                    </CardTitle>
-                    <div className='flex items-center gap-1'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {format(selectedDate, 'EEEE, MMM d')}
+                      </h3>
+                      {isToday(selectedDate) && (
+                        <span className='signal-healthy inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider'>
+                          Today
+                        </span>
+                      )}
+                    </div>
+                    <div className='flex items-center gap-0.5'>
                       <Button
                         variant='ghost'
                         size='icon'
-                        className='h-8 w-8'
+                        className='h-7 w-7'
                         onClick={() => openAddDialog(selectedDate)}
                       >
-                        <Plus className='h-4 w-4' />
+                        <Plus className='h-3.5 w-3.5' />
                       </Button>
                       <Button
                         variant='ghost'
                         size='icon'
-                        className='h-8 w-8'
+                        className='h-7 w-7'
                         onClick={() => setSelectedDate(null)}
                       >
-                        <X className='h-4 w-4' />
+                        <X className='h-3.5 w-3.5' />
                       </Button>
                     </div>
                   </div>
-                  {isToday(selectedDate) && (
-                    <Badge variant='secondary' className='mt-1'>
-                      Today
-                    </Badge>
-                  )}
-                </CardHeader>
+                </div>
                 <Separator />
-                <CardContent className='pt-4'>
+                <div className='p-4'>
                   {selectedEvents.length === 0 ? (
-                    <div className='text-center py-8'>
-                      <CalendarDays className='h-10 w-10 mx-auto text-muted-foreground/40 mb-3' />
-                      <p className='text-sm text-muted-foreground'>No events on this day</p>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        className='mt-3'
-                        onClick={() => openAddDialog(selectedDate)}
-                      >
-                        <Plus className='h-3.5 w-3.5 mr-1.5' />
-                        Add Event
-                      </Button>
-                    </div>
+                    <EmptyState
+                      icon={CalendarDays}
+                      title='No events on this day'
+                      description='Click + to add a new event'
+                      action={
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => openAddDialog(selectedDate)}
+                        >
+                          <Plus className='h-3.5 w-3.5 mr-1' />
+                          Add Event
+                        </Button>
+                      }
+                      className='py-8'
+                    />
                   ) : (
                     <ScrollArea className='max-h-[400px] scrollbar-thin'>
                       <motion.div
@@ -424,48 +423,48 @@ export default function CalendarView() {
                             <motion.div
                               key={event.id}
                               variants={fadeUp}
-                              className='group relative p-3 rounded-lg border border-border hover:border-primary/30 transition-colors'
+                              className='group relative p-3 rounded-lg border border-border hover:border-primary/25 transition-colors'
                             >
-                              <div className='flex items-start gap-3'>
+                              <div className='flex items-start gap-2.5'>
                                 <div
-                                  className='mt-0.5 h-8 w-8 rounded-md flex items-center justify-center flex-shrink-0'
-                                  style={{ backgroundColor: `${typeConfig.color}15` }}
+                                  className='mt-0.5 h-7 w-7 rounded-md flex items-center justify-center shrink-0'
+                                  style={{ backgroundColor: `${typeConfig.color}12` }}
                                 >
                                   <Icon
-                                    className='h-4 w-4'
+                                    className='h-3.5 w-3.5'
                                     style={{ color: typeConfig.color }}
                                   />
                                 </div>
                                 <div className='flex-1 min-w-0'>
-                                  <p className='text-sm font-medium leading-tight truncate'>
+                                  <p className='text-xs font-medium leading-tight truncate'>
                                     {event.title}
                                   </p>
-                                  <Badge
-                                    variant='secondary'
-                                    className='mt-1.5 text-[10px]'
-                                    style={{
-                                      backgroundColor: `${typeConfig.color}15`,
-                                      color: typeConfig.color,
-                                      borderColor: `${typeConfig.color}30`,
-                                    }}
-                                  >
-                                    {typeConfig.label}
-                                  </Badge>
+                                  <div className='flex items-center gap-1.5 mt-1'>
+                                    <span
+                                      className='text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded'
+                                      style={{
+                                        backgroundColor: `${typeConfig.color}12`,
+                                        color: typeConfig.color,
+                                      }}
+                                    >
+                                      {typeConfig.label}
+                                    </span>
+                                  </div>
                                   {subjectName && (
                                     <div className='flex items-center gap-1.5 mt-1.5'>
                                       {subjectColor && (
                                         <span
-                                          className='h-2 w-2 rounded-full flex-shrink-0'
+                                          className='status-dot'
                                           style={{ backgroundColor: subjectColor }}
                                         />
                                       )}
-                                      <span className='text-xs text-muted-foreground truncate'>
+                                      <span className='text-[11px] text-muted-foreground truncate'>
                                         {subjectName}
                                       </span>
                                     </div>
                                   )}
                                   {event.description && (
-                                    <p className='text-xs text-muted-foreground mt-1 line-clamp-2'>
+                                    <p className='text-[11px] text-muted-foreground mt-1 line-clamp-2'>
                                       {event.description}
                                     </p>
                                   )}
@@ -474,13 +473,13 @@ export default function CalendarView() {
                                   <Button
                                     variant='ghost'
                                     size='icon'
-                                    className='h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500'
+                                    className='h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500'
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleDeleteEvent(event.id);
                                     }}
                                   >
-                                    <Trash2 className='h-3.5 w-3.5' />
+                                    <Trash2 className='h-3 w-3' />
                                   </Button>
                                 )}
                               </div>
@@ -490,8 +489,8 @@ export default function CalendarView() {
                       </motion.div>
                     </ScrollArea>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -504,43 +503,40 @@ export default function CalendarView() {
             <DialogTitle>Add Event</DialogTitle>
           </DialogHeader>
           <div className='space-y-4 py-2'>
-            <div className='space-y-2'>
-              <Label htmlFor='event-title'>Title</Label>
+            <div className='space-y-1.5'>
+              <span className='section-label'>Title</span>
               <Input
-                id='event-title'
                 placeholder='Event title'
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddEvent()}
               />
             </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='event-date'>Date</Label>
+            <div className='grid grid-cols-2 gap-3'>
+              <div className='space-y-1.5'>
+                <span className='section-label'>Date</span>
                 <Input
-                  id='event-date'
                   type='date'
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
                 />
               </div>
-              <div className='space-y-2'>
-                <Label htmlFor='event-enddate'>End Date (optional)</Label>
+              <div className='space-y-1.5'>
+                <span className='section-label'>End Date (optional)</span>
                 <Input
-                  id='event-enddate'
                   type='date'
                   value={formEndDate}
                   onChange={(e) => setFormEndDate(e.target.value)}
                 />
               </div>
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='event-type'>Type</Label>
+            <div className='space-y-1.5'>
+              <span className='section-label'>Type</span>
               <Select
                 value={formType}
                 onValueChange={(v) => setFormType(v as CalendarEvent['type'])}
               >
-                <SelectTrigger id='event-type'>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -548,7 +544,7 @@ export default function CalendarView() {
                     <SelectItem key={key} value={key}>
                       <div className='flex items-center gap-2'>
                         <span
-                          className='h-2.5 w-2.5 rounded-full'
+                          className='status-dot'
                           style={{ backgroundColor: cfg.color }}
                         />
                         {cfg.label}
@@ -558,10 +554,10 @@ export default function CalendarView() {
                 </SelectContent>
               </Select>
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='event-subject'>Subject (optional)</Label>
+            <div className='space-y-1.5'>
+              <span className='section-label'>Subject (optional)</span>
               <Select value={formSubject} onValueChange={setFormSubject}>
-                <SelectTrigger id='event-subject'>
+                <SelectTrigger>
                   <SelectValue placeholder='No subject' />
                 </SelectTrigger>
                 <SelectContent>
@@ -572,7 +568,7 @@ export default function CalendarView() {
                       <SelectItem key={s.id} value={s.id}>
                         <div className='flex items-center gap-2'>
                           <span
-                            className='h-2.5 w-2.5 rounded-full'
+                            className='status-dot'
                             style={{ backgroundColor: s.color }}
                           />
                           {s.name}
@@ -582,10 +578,9 @@ export default function CalendarView() {
                 </SelectContent>
               </Select>
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='event-desc'>Description (optional)</Label>
+            <div className='space-y-1.5'>
+              <span className='section-label'>Description (optional)</span>
               <Textarea
-                id='event-desc'
                 placeholder='Add notes...'
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}

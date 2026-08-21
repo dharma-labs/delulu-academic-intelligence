@@ -14,11 +14,9 @@ import {
 
 import { useStore } from '@/lib/store';
 
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -37,9 +35,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
+import {
+  PageHeader,
+  SectionHeader,
+  EmptyState,
+} from '@/components/shared';
 
-// ─── Constants ─────────────────────────────────────────────────────
+// --- Constants ---
 const MOTIVATIONAL_MESSAGES = [
   'Stay focused...',
   'You are making progress...',
@@ -51,12 +53,12 @@ const MOTIVATIONAL_MESSAGES = [
   'Focus is a superpower...',
 ];
 
-const TIMER_RADIUS = 140;
+const TIMER_RADIUS = 130;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 
 type Phase = 'setup' | 'active' | 'completion';
 
-// ─── Helpers ───────────────────────────────────────────────────────
+// --- Helpers ---
 function formatElapsed(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
@@ -77,7 +79,7 @@ function todayDateStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-// ─── Component ─────────────────────────────────────────────────────
+// --- Component ---
 export default function FocusView() {
   const {
     subjects,
@@ -106,7 +108,7 @@ export default function FocusView() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
 
-  // ─── Derived data ────────────────────────────────────────────────
+  // --- Derived data ---
   const activeSubjects = useMemo(
     () => subjects.filter((s) => !s.archived),
     [subjects]
@@ -141,7 +143,12 @@ export default function FocusView() {
       .sort((a, b) => b.id.localeCompare(a.id));
   }, [studySessions]);
 
-  // ─── Timer logic ─────────────────────────────────────────────────
+  const todayTotalMinutes = useMemo(
+    () => Math.round(todaySessions.reduce((acc, s) => acc + s.duration, 0) / 60),
+    [todaySessions]
+  );
+
+  // --- Timer logic ---
   useEffect(() => {
     if (focusActive && !isPaused) {
       intervalRef.current = setInterval(() => {
@@ -170,7 +177,7 @@ export default function FocusView() {
     : 0;
   const strokeDashoffset = TIMER_CIRCUMFERENCE * (1 - progress);
 
-  // ─── Actions ─────────────────────────────────────────────────────
+  // --- Actions ---
   const handleStart = useCallback(() => {
     if (!selectedSubjectId) return;
     const topicName = selectedTopic?.name;
@@ -208,7 +215,6 @@ export default function FocusView() {
       type: 'focus',
       notes: completionNotes || undefined,
     });
-    // Reset to setup
     setPhase('setup');
     setSelectedSubjectId('');
     setSelectedTopicId('');
@@ -229,61 +235,37 @@ export default function FocusView() {
     setIsPaused(false);
   }, []);
 
-  // ─── Render ──────────────────────────────────────────────────────
+  // --- Render ---
   return (
     <div className='relative min-h-full'>
-      {/* Subtle background animation when active */}
-      <AnimatePresence>
-        {focusActive && (
-          <motion.div
-            className='pointer-events-none fixed inset-0 z-0'
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5' />
-            <motion.div
-              className='absolute top-1/2 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full'
-              style={{
-                background: 'radial-gradient(circle, var(--color-primary) 0%, transparent 70%)',
-              }}
-              animate={{
-                scale: [1, 1.05, 1],
-                opacity: [0.03, 0.06, 0.03],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className='content-area px-4 sm:px-6 py-6'>
 
-      <div className='relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6'>
-        {/* ── Setup Phase ────────────────────────────────────── */}
+        {/* --- Setup Phase --- */}
         <AnimatePresence mode='wait'>
           {phase === 'setup' && !focusActive && (
             <motion.div
               key='setup'
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25 }}
               className='flex flex-col items-center gap-8'
             >
-              <div className='text-center'>
-                <h1 className='text-3xl font-bold tracking-tight'>Focus Session</h1>
-                <p className='mt-2 text-muted-foreground'>
-                  Set up your study session and get into deep work mode.
-                </p>
-              </div>
+              <PageHeader
+                title='Focus Session'
+                subtitle='Set up your study session and get into deep work mode.'
+                badge={
+                  todaySessions.length > 0 ? (
+                    <span className='section-label'>{todaySessions.length} sessions today</span>
+                  ) : undefined
+                }
+                className='!mb-0 w-full max-w-md'
+              />
 
-              <Card className='w-full max-w-md p-6'>
-                <div className='space-y-5'>
+              <div className='w-full max-w-md'>
+                <div className='metric-card p-5 space-y-5'>
                   <div className='space-y-2'>
-                    <Label htmlFor='subject-select'>Subject</Label>
+                    <Label className='section-label' htmlFor='subject-select'>Subject</Label>
                     <Select
                       value={selectedSubjectId}
                       onValueChange={(v) => {
@@ -299,7 +281,7 @@ export default function FocusView() {
                           <SelectItem key={s.id} value={s.id}>
                             <span className='flex items-center gap-2'>
                               <span
-                                className='h-2.5 w-2.5 rounded-full'
+                                className='status-dot'
                                 style={{ backgroundColor: s.color }}
                               />
                               {s.name}
@@ -317,7 +299,7 @@ export default function FocusView() {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                     >
-                      <Label htmlFor='topic-select'>Topic (optional)</Label>
+                      <Label className='section-label' htmlFor='topic-select'>Topic (optional)</Label>
                       <Select
                         value={selectedTopicId}
                         onValueChange={setSelectedTopicId}
@@ -337,9 +319,9 @@ export default function FocusView() {
                   )}
 
                   <div className='space-y-2'>
-                    <Label htmlFor='goal-input'>
-                      Session Goal{' '}
-                      <span className='text-muted-foreground'>(optional)</span>
+                    <Label className='section-label' htmlFor='goal-input'>
+                      Session Goal
+                      <span className='font-normal normal-case tracking-normal text-muted-foreground/60 ml-1'>(optional)</span>
                     </Label>
                     <div className='relative'>
                       <Input
@@ -352,7 +334,7 @@ export default function FocusView() {
                         onChange={(e) => setGoalMinutes(e.target.value)}
                         className='pr-16'
                       />
-                      <span className='absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground'>
+                      <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground'>
                         minutes
                       </span>
                     </div>
@@ -364,65 +346,141 @@ export default function FocusView() {
                     disabled={!selectedSubjectId}
                     onClick={handleStart}
                   >
-                    <Play className='mr-2 h-5 w-5' />
+                    <Play className='mr-2 h-4 w-4' />
                     Start Focus
                   </Button>
                 </div>
-              </Card>
+              </div>
+
+              {/* --- Recent Sessions --- */}
+              {todaySessions.length > 0 && (
+                <div className='w-full max-w-md mt-2'>
+                  <SectionHeader
+                    title="Today's Sessions"
+                    subtitle={`${todayTotalMinutes}m total study time`}
+                  />
+                  <div className='space-y-2'>
+                    {todaySessions.map((session) => {
+                      const subj = subjects.find((s) => s.id === session.subjectId);
+                      return (
+                        <div
+                          key={session.id}
+                          className='card-interactive flex items-center gap-3 p-3'
+                        >
+                          <div
+                            className='h-8 w-8 shrink-0 rounded-md flex items-center justify-center'
+                            style={{ backgroundColor: subj ? `${subj.color}12` : undefined }}
+                          >
+                            <BookOpen
+                              className='h-4 w-4'
+                              style={{ color: subj?.color || 'var(--muted-foreground)' }}
+                            />
+                          </div>
+                          <div className='min-w-0 flex-1'>
+                            <p className='text-sm font-medium truncate'>
+                              {subj?.name || 'Unknown'}
+                              {session.topicName && (
+                                <span className='text-muted-foreground font-normal'>
+                                  {' '}/ {session.topicName}
+                                </span>
+                              )}
+                            </p>
+                            {session.notes && (
+                              <p className='text-[11px] text-muted-foreground truncate'>
+                                {session.notes}
+                              </p>
+                            )}
+                          </div>
+                          <span className='text-sm font-semibold tabular-nums text-muted-foreground shrink-0'>
+                            {formatDuration(session.duration)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {todaySessions.length === 0 && (
+                <EmptyState
+                  icon={Clock}
+                  title='No sessions today'
+                  description='Start your first focus session to begin tracking study time.'
+                />
+              )}
             </motion.div>
           )}
 
-          {/* ── Active Timer Phase ────────────────────────────── */}
+          {/* --- Active Timer Phase --- */}
           {phase === 'active' && focusActive && (
             <motion.div
               key='active'
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className='flex flex-col items-center gap-8'
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className='flex flex-col items-center gap-6'
             >
               {/* Subject & Topic */}
               <div className='text-center'>
-                <Badge variant='secondary' className='mb-2'>
-                  <BookOpen className='mr-1.5 h-3 w-3' />
-                  {selectedSubject?.name || 'Unknown Subject'}
-                </Badge>
+                <div className='flex items-center justify-center gap-2 mb-1'>
+                  {selectedSubject && (
+                    <span
+                      className='status-dot'
+                      style={{ backgroundColor: selectedSubject.color }}
+                    />
+                  )}
+                  <span className='text-sm font-medium'>
+                    {selectedSubject?.name || 'Unknown Subject'}
+                  </span>
+                </div>
                 {selectedTopic && (
-                  <p className='text-sm text-muted-foreground'>{selectedTopic.name}</p>
+                  <p className='text-xs text-muted-foreground'>{selectedTopic.name}</p>
                 )}
               </div>
 
               {/* Timer Ring */}
               <div className='relative flex items-center justify-center'>
                 <svg
-                  width={TIMER_RADIUS * 2 + 20}
-                  height={TIMER_RADIUS * 2 + 20}
+                  width={TIMER_RADIUS * 2 + 24}
+                  height={TIMER_RADIUS * 2 + 24}
                   className='transform -rotate-90'
                 >
                   {/* Background track */}
                   <circle
-                    cx={TIMER_RADIUS + 10}
-                    cy={TIMER_RADIUS + 10}
+                    cx={TIMER_RADIUS + 12}
+                    cy={TIMER_RADIUS + 12}
                     r={TIMER_RADIUS}
                     fill='none'
-                    stroke='var(--color-muted)'
-                    strokeWidth='6'
-                    opacity='0.3'
+                    stroke='var(--border)'
+                    strokeWidth='3'
                   />
                   {/* Progress arc */}
                   {goalSeconds > 0 && (
                     <motion.circle
-                      cx={TIMER_RADIUS + 10}
-                      cy={TIMER_RADIUS + 10}
+                      cx={TIMER_RADIUS + 12}
+                      cy={TIMER_RADIUS + 12}
                       r={TIMER_RADIUS}
                       fill='none'
                       stroke='var(--color-primary)'
-                      strokeWidth='6'
+                      strokeWidth='3'
                       strokeLinecap='round'
                       strokeDasharray={TIMER_CIRCUMFERENCE}
                       strokeDashoffset={strokeDashoffset}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
+                    />
+                  )}
+                  {/* No-goal: subtle inner ring */}
+                  {goalSeconds === 0 && (
+                    <circle
+                      cx={TIMER_RADIUS + 12}
+                      cy={TIMER_RADIUS + 12}
+                      r={TIMER_RADIUS - 8}
+                      fill='none'
+                      stroke='var(--border)'
+                      strokeWidth='1'
+                      strokeDasharray='4 8'
+                      opacity='0.5'
                     />
                   )}
                 </svg>
@@ -431,99 +489,73 @@ export default function FocusView() {
                 <div className='absolute flex flex-col items-center'>
                   <motion.span
                     key={focusElapsed}
-                    className='text-6xl font-bold tabular-nums tracking-tight'
-                    initial={{ scale: 1.02 }}
+                    className='metric-value tabular-nums'
+                    initial={{ scale: 1.01 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.1 }}
                   >
                     {formatElapsed(focusElapsed)}
                   </motion.span>
                   {goalSeconds > 0 && (
-                    <span className='mt-1 text-sm text-muted-foreground'>
+                    <span className='text-xs text-muted-foreground mt-1'>
                       of {formatDuration(goalSeconds)}
                     </span>
                   )}
+                  {isPaused && (
+                    <span className='text-[10px] font-medium text-amber-500 uppercase tracking-wider mt-2'>
+                      Paused
+                    </span>
+                  )}
                 </div>
-
-                {/* Pulsing outer glow */}
-                {!isPaused && (
-                  <motion.div
-                    className='absolute h-full w-full rounded-full'
-                    style={{
-                      border: '2px solid var(--color-primary)',
-                    }}
-                    animate={{
-                      scale: [1, 1.03, 1],
-                      opacity: [0.2, 0.05, 0.2],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                  />
-                )}
               </div>
 
               {/* Motivational text */}
-              <motion.p
-                key={messageIndex}
-                className='text-sm italic text-muted-foreground'
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.4 }}
-              >
-                {MOTIVATIONAL_MESSAGES[messageIndex]}
-              </motion.p>
-
-              {/* Controls */}
-              <div className='flex items-center gap-4'>
-                <Button
-                  variant='outline'
-                  size='lg'
-                  className='h-14 w-14 rounded-full'
-                  onClick={handlePauseResume}
-                  aria-label={isPaused ? 'Resume' : 'Pause'}
-                >
-                  {isPaused ? (
-                    <Play className='h-6 w-6' />
-                  ) : (
-                    <Pause className='h-6 w-6' />
-                  )}
-                </Button>
-
-                <Button
-                  variant='destructive'
-                  size='lg'
-                  className='h-14 w-14 rounded-full'
-                  onClick={handleStopClick}
-                  aria-label='Stop'
-                >
-                  <Square className='h-6 w-6' />
-                </Button>
-              </div>
-
-              {isPaused && (
+              {!isPaused && (
                 <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  key={messageIndex}
                   className='text-xs text-muted-foreground'
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.35 }}
                 >
-                  Paused — timer is not running
+                  {MOTIVATIONAL_MESSAGES[messageIndex]}
                 </motion.p>
               )}
+
+              {/* Controls */}
+              <div className='flex items-center gap-3'>
+                <button
+                  onClick={handlePauseResume}
+                  aria-label={isPaused ? 'Resume' : 'Pause'}
+                  className='h-12 w-12 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
+                >
+                  {isPaused ? (
+                    <Play className='h-5 w-5 text-foreground' />
+                  ) : (
+                    <Pause className='h-5 w-5 text-foreground' />
+                  )}
+                </button>
+
+                <button
+                  onClick={handleStopClick}
+                  aria-label='Stop'
+                  className='h-12 w-12 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
+                >
+                  <Square className='h-4 w-4 text-red-500' />
+                </button>
+              </div>
             </motion.div>
           )}
 
-          {/* ── Completion Phase ──────────────────────────────── */}
+          {/* --- Completion Phase --- */}
           {phase === 'completion' && (
             <motion.div
               key='completion'
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25 }}
               className='flex flex-col items-center gap-8'
             >
               <div className='text-center'>
@@ -531,125 +563,87 @@ export default function FocusView() {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
-                  className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10'
+                  className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
                 >
-                  <CheckCircle2 className='h-8 w-8 text-green-500' />
+                  <CheckCircle2 className='h-7 w-7 text-emerald-500' />
                 </motion.div>
-                <h1 className='text-3xl font-bold tracking-tight'>Session Complete</h1>
-                <p className='mt-2 text-muted-foreground'>
+                <h1 className='text-xl font-semibold tracking-tight text-foreground'>Session Complete</h1>
+                <p className='text-sm text-muted-foreground mt-1'>
                   Great work! Here is a summary of your session.
                 </p>
               </div>
 
-              <Card className='w-full max-w-md p-6'>
-                <div className='space-y-4'>
-                  <div className='flex items-center justify-between'>
-                    <span className='text-sm text-muted-foreground'>Duration</span>
-                    <span className='text-lg font-semibold tabular-nums'>
+              <div className='w-full max-w-md'>
+                <div className='metric-card p-5 space-y-4'>
+                  {/* Duration highlight */}
+                  <div className='text-center py-3'>
+                    <span className='metric-value tabular-nums'>
                       {formatDuration(completionDuration)}
                     </span>
+                    <p className='metric-context'>Session Duration</p>
                   </div>
-                  <Separator />
-                  <div className='flex items-center justify-between'>
-                    <span className='text-sm text-muted-foreground'>Subject</span>
-                    <span className='font-medium'>{selectedSubject?.name || 'Unknown'}</span>
-                  </div>
-                  {completionTopicName && (
-                    <>
-                      <Separator />
-                      <div className='flex items-center justify-between'>
-                        <span className='text-sm text-muted-foreground'>Topic</span>
-                        <span className='font-medium'>{completionTopicName}</span>
+
+                  {/* Subject & Topic */}
+                  <div className='space-y-2 border-t border-border pt-3'>
+                    <div className='flex items-center justify-between'>
+                      <span className='metric-label'>Subject</span>
+                      <div className='flex items-center gap-1.5'>
+                        {selectedSubject && (
+                          <span
+                            className='status-dot'
+                            style={{ backgroundColor: selectedSubject.color }}
+                          />
+                        )}
+                        <span className='text-sm font-medium'>
+                          {selectedSubject?.name || 'Unknown'}
+                        </span>
                       </div>
-                    </>
-                  )}
-                  <Separator />
-                  <div className='space-y-2'>
-                    <Label htmlFor='completion-notes'>What did you accomplish?</Label>
+                    </div>
+                    {completionTopicName && (
+                      <div className='flex items-center justify-between'>
+                        <span className='metric-label'>Topic</span>
+                        <span className='text-sm font-medium'>{completionTopicName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  <div className='space-y-2 border-t border-border pt-3'>
+                    <Label className='section-label' htmlFor='completion-notes'>
+                      What did you accomplish?
+                    </Label>
                     <Textarea
                       id='completion-notes'
                       placeholder='E.g., Completed chapter 3 exercises, reviewed linked list operations...'
                       value={completionNotes}
                       onChange={(e) => setCompletionNotes(e.target.value)}
                       rows={3}
+                      className='resize-none'
                     />
                   </div>
+
                   <Button className='w-full' onClick={handleSaveCompletion}>
                     <CheckCircle2 className='mr-2 h-4 w-4' />
                     Save Session
                   </Button>
                 </div>
-              </Card>
+              </div>
 
               <Button
                 variant='ghost'
+                size='sm'
                 onClick={handleAnotherSession}
+                className='text-muted-foreground'
               >
-                <RotateCcw className='mr-2 h-4 w-4' />
+                <RotateCcw className='mr-2 h-3.5 w-3.5' />
                 Start Another Session
               </Button>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* ── Recent Sessions (always visible) ────────────────── */}
-        {todaySessions.length > 0 && phase === 'setup' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className='mt-12'
-          >
-            <h2 className='mb-4 flex items-center gap-2 text-lg font-semibold'>
-              <Clock className='h-5 w-5 text-muted-foreground' />
-              Today&apos;s Sessions
-              <Badge variant='secondary' className='ml-1'>
-                {todaySessions.length}
-              </Badge>
-            </h2>
-            <div className='space-y-2'>
-              {todaySessions.map((session) => {
-                const subj = subjects.find((s) => s.id === session.subjectId);
-                return (
-                  <Card key={session.id} className='flex items-center gap-4 p-4'>
-                    <div
-                      className='h-10 w-10 shrink-0 rounded-lg flex items-center justify-center'
-                      style={{ backgroundColor: subj ? `${subj.color}15` : 'var(--muted)' }}
-                    >
-                      <BookOpen
-                        className='h-5 w-5'
-                        style={{ color: subj?.color || 'var(--muted-foreground)' }}
-                      />
-                    </div>
-                    <div className='min-w-0 flex-1'>
-                      <p className='truncate text-sm font-medium'>
-                        {subj?.name || 'Unknown'}
-                        {session.topicName && (
-                          <span className='text-muted-foreground'>
-                            {' '}/ {session.topicName}
-                          </span>
-                        )}
-                      </p>
-                      {session.notes && (
-                        <p className='truncate text-xs text-muted-foreground'>
-                          {session.notes}
-                        </p>
-                      )}
-                    </div>
-                    <div className='shrink-0 text-right'>
-                      <span className='text-sm font-semibold tabular-nums'>
-                        {formatDuration(session.duration)}
-                      </span>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
       </div>
 
-      {/* ── Stop Confirmation Dialog ────────────────────────── */}
+      {/* --- Stop Confirmation Dialog --- */}
       <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
