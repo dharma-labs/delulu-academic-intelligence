@@ -1,0 +1,2002 @@
+     1→     1→Absolutely. I checked the current Delulu repository and the current Rondesignlab site before structuring this. The repo currently has the full academic feature set—subjects, syllabus, study, SM-2 revision, attendance, marks/SGPA/CGPA, assignments, exams/PYQs, ER, notes, analytics, calendar, timetable, todos, settings, AI tutor, exports and reports—and remains a single-file, offline-first PWA with local storage. ([GitHub][1]) Rondesignlab's own positioning emphasizes product architecture, logical structure, product design, concept design, and polished SaaS/enterprise interfaces, which is the philosophy I'm applying here rather than copying their visual work. ([Rondesignlab][2])
+     2→     2→
+     3→     3→Here is the **master prompt** I'd give to Claude Code / Gemini CLI / Manus / another coding agent.
+     4→     4→
+     5→     5→# DELULU 4.0
+     6→     6→
+     7→     7→## Academic Operating System — Complete Product Redesign & Engineering Upgrade
+     8→     8→
+     9→     9→You are not simply redesigning a website.
+    10→    10→
+    11→    11→You are rebuilding **Delulu 4.0**, a professional academic operating system for university students.
+    12→    12→
+    13→    13→Act simultaneously as:
+    14→    14→
+    15→    15→* Senior SaaS Product Designer
+    16→    16→* Senior UX Architect
+    17→    17→* Senior Frontend Engineer
+    18→    18→* Mobile UX Engineer
+    19→    19→* PWA Engineer
+    20→    20→* Design Systems Engineer
+    21→    21→* Accessibility Specialist
+    22→    22→* Information Architect
+    23→    23→* Data Visualization Designer
+    24→    24→* QA Engineer
+    25→    25→* Product Strategist
+    26→    26→
+    27→    27→Your job is to transform the existing Delulu application into a **premium, production-quality academic SaaS/PWA experience** while preserving the existing offline-first philosophy and all existing academic functionality.
+    28→    28→
+    29→    29→---
+    30→    30→
+    31→    31→# 0. SOURCE OF TRUTH
+    32→    32→
+    33→    33→Existing repository:
+    34→    34→
+    35→    35→[https://github.com/dharma-labs/delulu](https://github.com/dharma-labs/delulu)
+    36→    36→
+    37→    37→The user has also provided an existing Delulu APK for inspection.
+    38→    38→
+    39→    39→Before changing anything:
+    40→    40→
+    41→    41→1. Inspect the repository.
+    42→    42→2. Inspect the existing `index.html`.
+    43→    43→3. Inspect all JavaScript/state-management logic.
+    44→    44→4. Inspect CSS/design tokens.
+    45→    45→5. Inspect PWA configuration.
+    46→    46→6. Inspect Android/Desktop wrappers.
+    47→    47→7. Inspect the uploaded APK if accessible.
+    48→    48→8. Map every existing route.
+    49→    49→9. Map every existing feature.
+    50→    50→10. Map every localStorage key/schema.
+    51→    51→11. Map migrations.
+    52→    52→12. Identify existing reusable functions.
+    53→    53→13. Identify broken interactions.
+    54→    54→14. Identify UI/state mismatches.
+    55→    55→15. Identify mobile-only problems.
+    56→    56→16. Identify desktop-only problems.
+    57→    57→
+    58→    58→DO NOT immediately rewrite the application.
+    59→    59→
+    60→    60→First understand it.
+    61→    61→
+    62→    62→---
+    63→    63→
+    64→    64→# 1. PRODUCT VISION
+    65→    65→
+    66→    66→Delulu should become:
+    67→    67→
+    68→    68→> **An Academic Operating System for serious students.**
+    69→    69→
+    70→    70→The brand can remain playful because of the name "Delulu".
+    71→    71→
+    72→    72→The product itself must feel:
+    73→    73→
+    74→    74→* intelligent
+    75→    75→* calm
+    76→    76→* premium
+    77→    77→* technical
+    78→    78→* trustworthy
+    79→    79→* highly organized
+    80→    80→* slightly playful
+    81→    81→* extremely usable
+    82→    82→
+    83→    83→Think:
+    84→    84→
+    85→    85→> **Fun brand. Serious product.**
+    86→    86→
+    87→    87→Delulu should not feel like:
+    88→    88→
+    89→    89→* a generic student planner
+    90→    90→* a Notion clone
+    91→    91→* a spreadsheet
+    92→    92→* a generic admin dashboard
+    93→    93→* a school ERP
+    94→    94→* a developer dashboard
+    95→    95→* a template marketplace
+    96→    96→
+    97→    97→---
+    98→    98→
+    99→    99→# 2. CORE PRODUCT IDEA
+   100→   100→
+   101→   101→The central design concept is:
+   102→   102→
+   103→   103→# ACADEMIC SIGNAL
+   104→   104→
+   105→   105→Delulu should not merely show information.
+   106→   106→
+   107→   107→It should interpret academic information and surface useful signals.
+   108→   108→
+   109→   109→Examples:
+   110→   110→
+   111→   111→GREEN
+   112→   112→Healthy
+   113→   113→
+   114→   114→BLUE
+   115→   115→Improving
+   116→   116→
+   117→   117→YELLOW
+   118→   118→Needs attention
+   119→   119→
+   120→   120→RED
+   121→   121→Critical
+   122→   122→
+   123→   123→PURPLE
+   124→   124→Upcoming
+   125→   125→
+   126→   126→GRAY
+   127→   127→No data
+   128→   128→
+   129→   129→The user should quickly understand:
+   130→   130→
+   131→   131→> What is happening?
+   132→   132→
+   133→   133→> What needs attention?
+   134→   134→
+   135→   135→> What should I do next?
+   136→   136→
+   137→   137→---
+   138→   138→
+   139→   139→# 3. DESIGN INSPIRATION
+   140→   140→
+   141→   141→Study the product architecture and UX principles used by high-quality SaaS/product design studios such as Rondesignlab.
+   142→   142→
+   143→   143→Reference:
+   144→   144→
+   145→   145→[https://rondesignlab.com/](https://rondesignlab.com/)
+   146→   146→
+   147→   147→Use the following principles:
+   148→   148→
+   149→   149→* strong product architecture
+   150→   150→* logical information hierarchy
+   151→   151→* modular layouts
+   152→   152→* clear workflows
+   153→   153→* strong visual hierarchy
+   154→   154→* purposeful interaction design
+   155→   155→* polished SaaS components
+   156→   156→* contextual actions
+   157→   157→* excellent mobile UX
+   158→   158→* meaningful data visualization
+   159→   159→* reduction of unnecessary complexity
+   160→   160→
+   161→   161→IMPORTANT:
+   162→   162→
+   163→   163→DO NOT COPY Rondesignlab.
+   164→   164→
+   165→   165→DO NOT copy:
+   166→   166→
+   167→   167→* layouts
+   168→   168→* screens
+   169→   169→* branding
+   170→   170→* illustrations
+   171→   171→* proprietary components
+   172→   172→* exact colors
+   173→   173→* exact spacing systems
+   174→   174→* exact visual compositions
+   175→   175→
+   176→   176→Take only the design philosophy.
+   177→   177→
+   178→   178→Delulu must have its own identity.
+   179→   179→
+   180→   180→---
+   181→   181→
+   182→   182→# 4. DESIGN PERSONALITY
+   183→   183→
+   184→   184→Delulu 4.0 should feel like:
+   185→   185→
+   186→   186→### Linear × modern academic software × premium analytics
+   187→   187→
+   188→   188→but must remain original.
+   189→   189→
+   190→   190→Visual keywords:
+   191→   191→
+   192→   192→* clean
+   193→   193→* editorial
+   194→   194→* intelligent
+   195→   195→* spacious
+   196→   196→* precise
+   197→   197→* premium
+   198→   198→* subtle
+   199→   199→* data-driven
+   200→   200→* calm
+   201→   201→
+   202→   202→Avoid:
+   203→   203→
+   204→   204→* excessive glassmorphism
+   205→   205→* excessive gradients
+   206→   206→* excessive shadows
+   207→   207→* excessive rounded cards
+   208→   208→* childish UI
+   209→   209→* emoji-heavy interfaces
+   210→   210→* noisy dashboards
+   211→   211→* giant decorative illustrations
+   212→   212→
+   213→   213→---
+   214→   214→
+   215→   215→# 5. DARK + LIGHT MODE
+   216→   216→
+   217→   217→Delulu MUST support:
+   218→   218→
+   219→   219→## LIGHT MODE
+   220→   220→
+   221→   221→and
+   222→   222→
+   223→   223→## DARK MODE
+   224→   224→
+   225→   225→Both modes must be first-class designs.
+   226→   226→
+   227→   227→Do NOT simply invert colors.
+   228→   228→
+   229→   229→Each mode needs its own carefully tuned design tokens.
+   230→   230→
+   231→   231→---
+   232→   232→
+   233→   233→# 6. LIGHT MODE
+   234→   234→
+   235→   235→Default light palette:
+   236→   236→
+   237→   237→Background:
+   238→   238→
+   239→   239→#F7F8FC
+   240→   240→
+   241→   241→Primary surface:
+   242→   242→
+   243→   243→#FFFFFF
+   244→   244→
+   245→   245→Secondary surface:
+   246→   246→
+   247→   247→#F2F4F8
+   248→   248→
+   249→   249→Border:
+   250→   250→
+   251→   251→#E5E7EF
+   252→   252→
+   253→   253→Primary text:
+   254→   254→
+   255→   255→#171923
+   256→   256→
+   257→   257→Secondary text:
+   258→   258→
+   259→   259→#626979
+   260→   260→
+   261→   261→Primary accent:
+   262→   262→
+   263→   263→#635BFF
+   264→   264→
+   265→   265→Success:
+   266→   266→
+   267→   267→#16A36A
+   268→   268→
+   269→   269→Warning:
+   270→   270→
+   271→   271→#D99200
+   272→   272→
+   273→   273→Danger:
+   274→   274→
+   275→   275→#E5484D
+   276→   276→
+   277→   277→Info:
+   278→   278→
+   279→   279→#3478F6
+   280→   280→
+   281→   281→Light mode should feel:
+   282→   282→
+   283→   283→* premium
+   284→   284→* airy
+   285→   285→* clean
+   286→   286→* professional
+   287→   287→* calm
+   288→   288→
+   289→   289→Use very subtle shadows.
+   290→   290→
+   291→   291→Never create harsh floating-card overload.
+   292→   292→
+   293→   293→---
+   294→   294→
+   295→   295→# 7. DARK MODE
+   296→   296→
+   297→   297→Background:
+   298→   298→
+   299→   299→#08090B
+   300→   300→
+   301→   301→Primary surface:
+   302→   302→
+   303→   303→#101216
+   304→   304→
+   305→   305→Secondary surface:
+   306→   306→
+   307→   307→#151820
+   308→   308→
+   309→   309→Border:
+   310→   310→
+   311→   311→rgba(255,255,255,0.08)
+   312→   312→
+   313→   313→Primary text:
+   314→   314→
+   315→   315→#F5F7FA
+   316→   316→
+   317→   317→Secondary text:
+   318→   318→
+   319→   319→#9298A6
+   320→   320→
+   321→   321→Primary accent:
+   322→   322→
+   323→   323→#8174FF
+   324→   324→
+   325→   325→Success:
+   326→   326→
+   327→   327→#35D39A
+   328→   328→
+   329→   329→Warning:
+   330→   330→
+   331→   331→#F3B94B
+   332→   332→
+   333→   333→Danger:
+   334→   334→
+   335→   335→#FF626B
+   336→   336→
+   337→   337→Info:
+   338→   338→
+   339→   339→#5D9CFF
+   340→   340→
+   341→   341→Dark mode should feel:
+   342→   342→
+   343→   343→* cinematic
+   344→   344→* technical
+   345→   345→* premium
+   346→   346→* calm
+   347→   347→
+   348→   348→Do not turn every surface into black glass.
+   349→   349→
+   350→   350→---
+   351→   351→
+   352→   352→# 8. DESIGN TOKENS
+   353→   353→
+   354→   354→Create centralized CSS variables/design tokens.
+   355→   355→
+   356→   356→Include:
+   357→   357→
+   358→   358→* colors
+   359→   359→* typography
+   360→   360→* spacing
+   361→   361→* radius
+   362→   362→* shadows
+   363→   363→* borders
+   364→   364→* transitions
+   365→   365→* breakpoints
+   366→   366→* z-index
+   367→   367→* component states
+   368→   368→
+   369→   369→Example:
+   370→   370→
+   371→   371→--color-bg
+   372→   372→--color-surface
+   373→   373→--color-surface-elevated
+   374→   374→--color-text
+   375→   375→--color-text-muted
+   376→   376→--color-border
+   377→   377→--color-primary
+   378→   378→--color-success
+   379→   379→--color-warning
+   380→   380→--color-danger
+   381→   381→
+   382→   382→All components must use tokens.
+   383→   383→
+   384→   384→Never scatter raw colors throughout the application.
+   385→   385→
+   386→   386→---
+   387→   387→
+   388→   388→# 9. TYPOGRAPHY
+   389→   389→
+   390→   390→Use:
+   391→   391→
+   392→   392→Inter
+   393→   393→or
+   394→   394→Geist
+   395→   395→or
+   396→   396→Manrope
+   397→   397→
+   398→   398→Do not mix multiple unrelated fonts.
+   399→   399→
+   400→   400→Suggested scale:
+   401→   401→
+   402→   402→Display:
+   403→   403→32px / 700
+   404→   404→
+   405→   405→Page title:
+   406→   406→24px / 650
+   407→   407→
+   408→   408→Section:
+   409→   409→16px / 600
+   410→   410→
+   411→   411→Body:
+   412→   412→14px / 450
+   413→   413→
+   414→   414→Small:
+   415→   415→13px / 450
+   416→   416→
+   417→   417→Metadata:
+   418→   418→12px / 500
+   419→   419→
+   420→   420→Numbers:
+   421→   421→
+   422→   422→Use stronger weight and tabular numerals where useful.
+   423→   423→
+   424→   424→Typography must create hierarchy.
+   425→   425→
+   426→   426→Do not use color everywhere to establish hierarchy.
+   427→   427→
+   428→   428→---
+   429→   429→
+   430→   430→# 10. ICON SYSTEM
+   431→   431→
+   432→   432→Remove unnecessary emoji-based navigation icons.
+   433→   433→
+   434→   434→Use one consistent outline icon system.
+   435→   435→
+   436→   436→Lucide-style icons are preferred.
+   437→   437→
+   438→   438→Requirements:
+   439→   439→
+   440→   440→* consistent stroke width
+   441→   441→* consistent optical sizing
+   442→   442→* semantic meaning
+   443→   443→* accessible labels
+   444→   444→* no decorative icon overload
+   445→   445→
+   446→   446→Emojis may still appear in optional user content or playful empty states, but NOT as the primary navigation icon system.
+   447→   447→
+   448→   448→---
+   449→   449→
+   450→   450→# 11. APPLICATION ARCHITECTURE
+   451→   451→
+   452→   452→Preserve offline-first architecture.
+   453→   453→
+   454→   454→The application should continue to work:
+   455→   455→
+   456→   456→* offline
+   457→   457→* as a PWA
+   458→   458→* as Android
+   459→   459→* as desktop
+   460→   460→* on static hosting
+   461→   461→
+   462→   462→Do not introduce a backend unless absolutely necessary.
+   463→   463→
+   464→   464→Do not introduce accounts just for UI.
+   465→   465→
+   466→   466→Do not upload student academic data.
+   467→   467→
+   468→   468→Preserve privacy-first behavior.
+   469→   469→
+   470→   470→---
+   471→   471→
+   472→   472→# 12. DATA PRESERVATION
+   473→   473→
+   474→   474→This is CRITICAL.
+   475→   475→
+   476→   476→Do not destroy existing user data.
+   477→   477→
+   478→   478→Before modifying data structures:
+   479→   479→
+   480→   480→1. identify current schema
+   481→   481→2. identify migration versions
+   482→   482→3. create migration if necessary
+   483→   483→4. test migration
+   484→   484→5. verify old data
+   485→   485→6. verify new data
+   486→   486→7. verify export/import
+   487→   487→
+   488→   488→Never silently reset localStorage.
+   489→   489→
+   490→   490→Never overwrite official academic results with projections.
+   491→   491→
+   492→   492→Maintain separation between:
+   493→   493→
+   494→   494→OFFICIAL
+   495→   495→
+   496→   496→and
+   497→   497→
+   498→   498→PROJECTED / WHAT-IF
+   499→   499→
+   500→   500→values.
+   501→   501→
+   502→   502→---
+   503→   503→
+   504→   504→# 13. GLOBAL APPLICATION SHELL
+   505→   505→
+   506→   506→Desktop:
+   507→   507→
+   508→   508→Left sidebar.
+   509→   509→
+   510→   510→Main content.
+   511→   511→
+   512→   512→Optional contextual right panel where useful.
+   513→   513→
+   514→   514→Sidebar:
+   515→   515→
+   516→   516→DELULU
+   517→   517→
+   518→   518→OVERVIEW
+   519→   519→
+   520→   520→Dashboard
+   521→   521→
+   522→   522→ACADEMICS
+   523→   523→
+   524→   524→Subjects
+   525→   525→Syllabus
+   526→   526→Marks & CA
+   527→   527→Attendance
+   528→   528→Exams
+   529→   529→
+   530→   530→STUDY
+   531→   531→
+   532→   532→Focus
+   533→   533→Revision
+   534→   534→Notes
+   535→   535→
+   536→   536→PLANNING
+   537→   537→
+   538→   538→Calendar
+   539→   539→Timetable
+   540→   540→Tasks
+   541→   541→
+   542→   542→INSIGHTS
+   543→   543→
+   544→   544→Analytics
+   545→   545→ER Command Center
+   546→   546→
+   547→   547→Bottom:
+   548→   548→
+   549→   549→Search / Command
+   550→   550→
+   551→   551→Settings
+   552→   552→
+   553→   553→Profile
+   554→   554→
+   555→   555→---
+   556→   556→
+   557→   557→# 14. MOBILE NAVIGATION
+   558→   558→
+   559→   559→Mobile must be designed independently.
+   560→   560→
+   561→   561→Bottom navigation:
+   562→   562→
+   563→   563→Home
+   564→   564→Study
+   565→   565→Academics
+   566→   566→Plan
+   567→   567→More
+   568→   568→
+   569→   569→The navigation must:
+   570→   570→
+   571→   571→* remain reachable
+   572→   572→* have 44–48px touch targets
+   573→   573→* show active state clearly
+   574→   574→* avoid accidental taps
+   575→   575→* work with Android gesture navigation
+   576→   576→
+   577→   577→"More" must contain logically grouped secondary features.
+   578→   578→
+   579→   579→---
+   580→   580→
+   581→   581→# 15. COMMAND CENTER
+   582→   582→
+   583→   583→Implement:
+   584→   584→
+   585→   585→Ctrl/Cmd + K
+   586→   586→
+   587→   587→Search.
+   588→   588→
+   589→   589→Search:
+   590→   590→
+   591→   591→* subjects
+   592→   592→* syllabus topics
+   593→   593→* notes
+   594→   594→* tasks
+   595→   595→* exams
+   596→   596→* assignments
+   597→   597→* timetable
+   598→   598→* assessments
+   599→   599→
+   600→   600→Also support commands:
+   601→   601→
+   602→   602→"Add task"
+   603→   603→
+   604→   604→"Add assessment"
+   605→   605→
+   606→   606→"Start focus"
+   607→   607→
+   608→   608→"Open marks"
+   609→   609→
+   610→   610→"Generate report"
+   611→   611→
+   612→   612→"Go to attendance"
+   613→   613→
+   614→   614→The command interface should feel like a premium SaaS command palette.
+   615→   615→
+   616→   616→---
+   617→   617→
+   618→   618→# 16. DASHBOARD
+   619→   619→
+   620→   620→Dashboard is the most important screen.
+   621→   621→
+   622→   622→Top:
+   623→   623→
+   624→   624→Good evening, Dharma. 👋
+   625→   625→
+   626→   626→Thursday, 21 August 2026
+   627→   627→
+   628→   628→Semester 5
+   629→   629→
+   630→   630→Then:
+   631→   631→
+   632→   632→# SEMESTER HEALTH
+   633→   633→
+   634→   634→Large score:
+   635→   635→
+   636→   636→78 / 100
+   637→   637→
+   638→   638→Status:
+   639→   639→
+   640→   640→GOOD
+   641→   641→
+   642→   642→Supporting metrics:
+   643→   643→
+   644→   644→CGPA
+   645→   645→8.4
+   646→   646→
+   647→   647→Attendance
+   648→   648→86%
+   649→   649→
+   650→   650→Syllabus
+   651→   651→64%
+   652→   652→
+   653→   653→Study time
+   654→   654→11h 40m
+   655→   655→
+   656→   656→Show trends:
+   657→   657→
+   658→   658→+0.2
+   659→   659→
+   660→   660→+4%
+   661→   661→
+   662→   662→+7%
+   663→   663→
+   664→   664→+23%
+   665→   665→
+   666→   666→Do not use fake numbers.
+   667→   667→
+   668→   668→All values must come from real application state.
+   669→   669→
+   670→   670→---
+   671→   671→
+   672→   672→# 17. TODAY'S FOCUS
+   673→   673→
+   674→   674→This is one of the most important product features.
+   675→   675→
+   676→   676→Instead of showing random information, surface actionable recommendations.
+   677→   677→
+   678→   678→Example:
+   679→   679→
+   680→   680→TODAY'S FOCUS
+   681→   681→
+   682→   682→01
+   683→   683→Finish DBMS Unit 3
+   684→   684→45 min
+   685→   685→High impact
+   686→   686→
+   687→   687→START
+   688→   688→
+   689→   689→02
+   690→   690→Computer Networks CA Test
+   691→   691→Tomorrow
+   692→   692→25 marks
+   693→   693→
+   694→   694→PREPARE
+   695→   695→
+   696→   696→03
+   697→   697→Operating Systems
+   698→   698→Attendance at 72%
+   699→   699→
+   700→   700→VIEW
+   701→   701→
+   702→   702→Recommendations should be generated from actual user data.
+   703→   703→
+   704→   704→---
+   705→   705→
+   706→   706→# 18. ACADEMIC PULSE
+   707→   707→
+   708→   708→Show:
+   709→   709→
+   710→   710→Syllabus
+   711→   711→Attendance
+   712→   712→Study
+   713→   713→Revision
+   714→   714→CA Performance
+   715→   715→
+   716→   716→Each metric should include:
+   717→   717→
+   718→   718→* current value
+   719→   719→* trend
+   720→   720→* status
+   721→   721→* optional target
+   722→   722→
+   723→   723→Use clean horizontal indicators or compact charts.
+   724→   724→
+   725→   725→Do not create charts simply because charts look attractive.
+   726→   726→
+   727→   727→Every chart must communicate something.
+   728→   728→
+   729→   729→---
+   730→   730→
+   731→   731→# 19. QUICK ACTIONS
+   732→   732→
+   733→   733→Dashboard:
+   734→   734→
+   735→   735→START FOCUS
+   736→   736→
+   737→   737→ADD ASSESSMENT
+   738→   738→
+   739→   739→MARK ATTENDANCE
+   740→   740→
+   741→   741→ADD TASK
+   742→   742→
+   743→   743→GENERATE REPORT
+   744→   744→
+   745→   745→Actions must work.
+   746→   746→
+   747→   747→No decorative buttons.
+   748→   748→
+   749→   749→---
+   750→   750→
+   751→   751→# 20. SUBJECTS
+   752→   752→
+   753→   753→Subjects page should support:
+   754→   754→
+   755→   755→* create subject
+   756→   756→* edit subject
+   757→   757→* delete subject
+   758→   758→* archive subject
+   759→   759→* credits
+   760→   760→* grade
+   761→   761→* attendance
+   762→   762→* syllabus progress
+   763→   763→* next assessment
+   764→   764→* notes
+   765→   765→* revision
+   766→   766→* marks
+   767→   767→
+   768→   768→Subject cards should feel like compact SaaS records.
+   769→   769→
+   770→   770→Example:
+   771→   771→
+   772→   772→DATABASE MANAGEMENT SYSTEMS
+   773→   773→
+   774→   774→BCS401 · 4 Credits
+   775→   775→
+   776→   776→Grade:
+   777→   777→A
+   778→   778→
+   779→   779→Attendance:
+   780→   780→86%
+   781→   781→
+   782→   782→Syllabus:
+   783→   783→71%
+   784→   784→
+   785→   785→Next:
+   786→   786→CA Test — 24 Aug
+   787→   787→
+   788→   788→---
+   789→   789→
+   790→   790→# 21. SUBJECT WORKSPACE
+   791→   791→
+   792→   792→Each subject opens a unified workspace.
+   793→   793→
+   794→   794→Header:
+   795→   795→
+   796→   796→Database Management Systems
+   797→   797→
+   798→   798→Healthy
+   799→   799→
+   800→   800→Tabs:
+   801→   801→
+   802→   802→Overview
+   803→   803→Syllabus
+   804→   804→Marks
+   805→   805→Attendance
+   806→   806→Revision
+   807→   807→Notes
+   808→   808→Exams
+   809→   809→
+   810→   810→Overview:
+   811→   811→
+   812→   812→Grade
+   813→   813→Attendance
+   814→   814→Syllabus
+   815→   815→CA Performance
+   816→   816→Next assessment
+   817→   817→Recent activity
+   818→   818→Recommended next action
+   819→   819→
+   820→   820→This reduces unnecessary navigation.
+   821→   821→
+   822→   822→---
+   823→   823→
+   824→   824→# 22. SYLLABUS
+   825→   825→
+   826→   826→Support:
+   827→   827→
+   828→   828→Subject
+   829→   829→
+   830→   830→Units
+   831→   831→
+   832→   832→Topics
+   833→   833→
+   834→   834→Completion
+   835→   835→
+   836→   836→Example:
+   837→   837→
+   838→   838→UNIT 1
+   839→   839→100%
+   840→   840→
+   841→   841→UNIT 2
+   842→   842→80%
+   843→   843→
+   844→   844→UNIT 3
+   845→   845→60%
+   846→   846→
+   847→   847→UNIT 4
+   848→   848→40%
+   849→   849→
+   850→   850→UNIT 5
+   851→   851→20%
+   852→   852→
+   853→   853→UNIT 6
+   854→   854→0%
+   855→   855→
+   856→   856→Allow:
+   857→   857→
+   858→   858→* mark complete
+   859→   859→* mark incomplete
+   860→   860→* topic editing
+   861→   861→* unit editing
+   862→   862→* progress calculation
+   863→   863→
+   864→   864→Do not create giant checkbox walls.
+   865→   865→
+   866→   866→Use progressive disclosure.
+   867→   867→
+   868→   868→---
+   869→   869→
+   870→   870→# 23. MARKS & CA — MAJOR REWORK
+   871→   871→
+   872→   872→This is a priority.
+   873→   873→
+   874→   874→Current Delulu has a state/UI mismatch around Marks/CA.
+   875→   875→
+   876→   876→The implementation must NOT rely on a DOM element such as:
+   877→   877→
+   878→   878→#mkSub
+   879→   879→
+   880→   880→as an accidental source of application state.
+   881→   881→
+   882→   882→Create one authoritative state:
+   883→   883→
+   884→   884→selectedMarksSubjectId
+   885→   885→
+   886→   886→When subject changes:
+   887→   887→
+   888→   888→1. update selectedMarksSubjectId
+   889→   889→2. rerender marks summary
+   890→   890→3. rerender assessment list
+   891→   891→4. rerender target simulator
+   892→   892→5. rerender projections
+   893→   893→
+   894→   894→Never allow the UI and state to drift apart.
+   895→   895→
+   896→   896→---
+   897→   897→
+   898→   898→# 24. MARKS SCREEN
+   899→   899→
+   900→   900→Header:
+   901→   901→
+   902→   902→MARKS & CA
+   903→   903→
+   904→   904→Subject:
+   905→   905→
+   906→   906→[ Computer Networks ]
+   907→   907→
+   908→   908→Performance:
+   909→   909→
+   910→   910→48 / 60
+   911→   911→
+   912→   912→80%
+   913→   913→
+   914→   914→Target:
+   915→   915→
+   916→   916→A
+   917→   917→
+   918→   918→Projected:
+   919→   919→
+   920→   920→A-
+   921→   921→
+   922→   922→Tabs:
+   923→   923→
+   924→   924→Performance
+   925→   925→Assessments
+   926→   926→Target
+   927→   927→Trends
+   928→   928→
+   929→   929→---
+   930→   930→
+   931→   931→# 25. ASSESSMENT LIST
+   932→   932→
+   933→   933→Show:
+   934→   934→
+   935→   935→CA Test 1
+   936→   936→18 / 25
+   937→   937→72%
+   938→   938→
+   939→   939→CA Test 2
+   940→   940→21 / 25
+   941→   941→84%
+   942→   942→
+   943→   943→Assignment
+   944→   944→9 / 10
+   945→   945→90%
+   946→   946→
+   947→   947→Total
+   948→   948→48 / 60
+   949→   949→80%
+   950→   950→
+   951→   951→Actions:
+   952→   952→
+   953→   953→Edit
+   954→   954→
+   955→   955→Delete
+   956→   956→
+   957→   957→Duplicate if useful
+   958→   958→
+   959→   959→---
+   960→   960→
+   961→   961→# 26. ADD ASSESSMENT
+   962→   962→
+   963→   963→Primary button:
+   964→   964→
+   965→   965→* Add Assessment
+   966→   966→
+   967→   967→Form:
+   968→   968→
+   969→   969→Assessment Name
+   970→   970→
+   971→   971→Category
+   972→   972→
+   973→   973→CA Test
+   974→   974→Assignment
+   975→   975→Quiz
+   976→   976→Practical
+   977→   977→Other
+   978→   978→
+   979→   979→Maximum Marks
+   980→   980→
+   981→   981→Obtained Marks
+   982→   982→
+   983→   983→Date
+   984→   984→
+   985→   985→Notes
+   986→   986→
+   987→   987→Validation:
+   988→   988→
+   989→   989→obtained >= 0
+   990→   990→
+   991→   991→maximum > 0
+   992→   992→
+   993→   993→obtained <= maximum
+   994→   994→
+   995→   995→Show errors inline.
+   996→   996→
+   997→   997→Never allow impossible values.
+   998→   998→
+   999→   999→---
+  1000→  1000→
+  1001→  1001→# 27. INLINE EDITING
+  1002→  1002→
+  1003→  1003→Users should be able to quickly edit:
+  1004→  1004→
+  1005→  1005→marks
+  1006→  1006→maximum
+  1007→  1007→assessment name
+  1008→  1008→date
+  1009→  1009→category
+  1010→  1010→
+  1011→  1011→Click value:
+  1012→  1012→
+  1013→  1013→18
+  1014→  1014→
+  1015→  1015→becomes:
+  1016→  1016→
+  1017→  1017→[18]
+  1018→  1018→
+  1019→  1019→Save.
+  1020→  1020→
+  1021→  1021→Do not require a large modal for every tiny change.
+  1022→  1022→
+  1023→  1023→---
+  1024→  1024→
+  1025→  1025→# 28. TARGET SIMULATOR
+  1026→  1026→
+  1027→  1027→Target:
+  1028→  1028→
+  1029→  1029→A
+  1030→  1030→
+  1031→  1031→Current:
+  1032→  1032→
+  1033→  1033→48 / 60
+  1034→  1034→
+  1035→  1035→Required end-sem:
+  1036→  1036→
+  1037→  1037→54 / 75
+  1038→  1038→
+  1039→  1039→Show:
+  1040→  1040→
+  1041→  1041→"You need approximately 72% in the end-sem exam to reach your target."
+  1042→  1042→
+  1043→  1043→If impossible:
+  1044→  1044→
+  1045→  1045→"Target currently unreachable."
+  1046→  1046→
+  1047→  1047→Explain mathematically why.
+  1048→  1048→
+  1049→  1049→Never fabricate projections.
+  1050→  1050→
+  1051→  1051→---
+  1052→  1052→
+  1053→  1053→# 29. SGPA / CGPA
+  1054→  1054→
+  1055→  1055→Maintain existing academic calculations.
+  1056→  1056→
+  1057→  1057→Support:
+  1058→  1058→
+  1059→  1059→* SGPA
+  1060→  1060→* CGPA
+  1061→  1061→* official CGPA
+  1062→  1062→* projected CGPA
+  1063→  1063→* what-if scenarios
+  1064→  1064→* grade simulation
+  1065→  1065→
+  1066→  1066→Official values must never be overwritten.
+  1067→  1067→
+  1068→  1068→Clearly label:
+  1069→  1069→
+  1070→  1070→OFFICIAL
+  1071→  1071→
+  1072→  1072→PROJECTED
+  1073→  1073→
+  1074→  1074→WHAT-IF
+  1075→  1075→
+  1076→  1076→---
+  1077→  1077→
+  1078→  1078→# 30. ATTENDANCE
+  1079→  1079→
+  1080→  1080→Each subject:
+  1081→  1081→
+  1082→  1082→86%
+  1083→  1083→
+  1084→  1084→SAFE
+  1085→  1085→
+  1086→  1086→You can miss:
+  1087→  1087→
+  1088→  1088→2 classes
+  1089→  1089→
+  1090→  1090→Statuses:
+  1091→  1091→
+  1092→  1092→SAFE
+  1093→  1093→
+  1094→  1094→WATCH
+  1095→  1095→
+  1096→  1096→RISK
+  1097→  1097→
+  1098→  1098→Include:
+  1099→  1099→
+  1100→  1100→* present
+  1101→  1101→* absent
+  1102→  1102→* total classes
+  1103→  1103→* attendance percentage
+  1104→  1104→* required classes
+  1105→  1105→* safe absences
+  1106→  1106→* attendance projection
+  1107→  1107→
+  1108→  1108→The user should understand the consequence immediately.
+  1109→  1109→
+  1110→  1110→---
+  1111→  1111→
+  1112→  1112→# 31. TIMETABLE
+  1113→  1113→
+  1114→  1114→Maintain:
+  1115→  1115→
+  1116→  1116→weekly timetable
+  1117→  1117→
+  1118→  1118→daily classes
+  1119→  1119→
+  1120→  1120→subject colors
+  1121→  1121→
+  1122→  1122→clash detection
+  1123→  1123→
+  1124→  1124→live "now" line
+  1125→  1125→
+  1126→  1126→next-class tracker
+  1127→  1127→
+  1128→  1128→Make it mobile-friendly.
+  1129→  1129→
+  1130→  1130→Mobile:
+  1131→  1131→
+  1132→  1132→Today-focused vertical schedule.
+  1133→  1133→
+  1134→  1134→Desktop:
+  1135→  1135→
+  1136→  1136→weekly grid.
+  1137→  1137→
+  1138→  1138→---
+  1139→  1139→
+  1140→  1140→# 32. CALENDAR
+  1141→  1141→
+  1142→  1142→Support:
+  1143→  1143→
+  1144→  1144→* classes
+  1145→  1145→* exams
+  1146→  1146→* assignments
+  1147→  1147→* deadlines
+  1148→  1148→* tasks
+  1149→  1149→* custom events
+  1150→  1150→
+  1151→  1151→Color coding must work in both light and dark themes.
+  1152→  1152→
+  1153→  1153→Do not rely on color alone.
+  1154→  1154→
+  1155→  1155→---
+  1156→  1156→
+  1157→  1157→# 33. ASSIGNMENTS
+  1158→  1158→
+  1159→  1159→Each assignment:
+  1160→  1160→
+  1161→  1161→Title
+  1162→  1162→
+  1163→  1163→Subject
+  1164→  1164→
+  1165→  1165→Deadline
+  1166→  1166→
+  1167→  1167→Priority
+  1168→  1168→
+  1169→  1169→Status
+  1170→  1170→
+  1171→  1171→Description
+  1172→  1172→
+  1173→  1173→Show statuses:
+  1174→  1174→
+  1175→  1175→Upcoming
+  1176→  1176→
+  1177→  1177→Due Soon
+  1178→  1178→
+  1179→  1179→Overdue
+  1180→  1180→
+  1181→  1181→Completed
+  1182→  1182→
+  1183→  1183→Dashboard should surface important deadlines.
+  1184→  1184→
+  1185→  1185→---
+  1186→  1186→
+  1187→  1187→# 34. EXAMS
+  1188→  1188→
+  1189→  1189→Exam screen:
+  1190→  1190→
+  1191→  1191→Exam name
+  1192→  1192→
+  1193→  1193→Subject
+  1194→  1194→
+  1195→  1195→Date
+  1196→  1196→
+  1197→  1197→Days remaining
+  1198→  1198→
+  1199→  1199→Preparation %
+  1200→  1200→
+  1201→  1201→Syllabus %
+  1202→  1202→
+  1203→  1203→PYQ accuracy
+  1204→  1204→
+  1205→  1205→Priority
+  1206→  1206→
+  1207→  1207→Primary action:
+  1208→  1208→
+  1209→  1209→Prepare Now
+  1210→  1210→
+  1211→  1211→Also support:
+  1212→  1212→
+  1213→  1213→PYQ bank
+  1214→  1214→
+  1215→  1215→attempt tracking
+  1216→  1216→
+  1217→  1217→scores
+  1218→  1218→
+  1219→  1219→accuracy
+  1220→  1220→
+  1221→  1221→---
+  1222→  1222→
+  1223→  1223→# 35. REVISION / SM-2
+  1224→  1224→
+  1225→  1225→Maintain the existing SM-2 spaced repetition functionality.
+  1226→  1226→
+  1227→  1227→Show:
+  1228→  1228→
+  1229→  1229→Due today
+  1230→  1230→
+  1231→  1231→12 topics
+  1232→  1232→
+  1233→  1233→High:
+  1234→  1234→4
+  1235→  1235→
+  1236→  1236→Medium:
+  1237→  1237→5
+  1238→  1238→
+  1239→  1239→Low:
+  1240→  1240→3
+  1241→  1241→
+  1242→  1242→Each topic:
+  1243→  1243→
+  1244→  1244→Last reviewed
+  1245→  1245→
+  1246→  1246→Mastery
+  1247→  1247→
+  1248→  1248→Next review
+  1249→  1249→
+  1250→  1250→Make algorithmic information secondary.
+  1251→  1251→
+  1252→  1252→The student should understand:
+  1253→  1253→
+  1254→  1254→"What should I revise now?"
+  1255→  1255→
+  1256→  1256→---
+  1257→  1257→
+  1258→  1258→# 36. STUDY / FOCUS
+  1259→  1259→
+  1260→  1260→Create a premium focus experience.
+  1261→  1261→
+  1262→  1262→Show:
+  1263→  1263→
+  1264→  1264→Subject
+  1265→  1265→
+  1266→  1266→Topic
+  1267→  1267→
+  1268→  1268→Timer
+  1269→  1269→
+  1270→  1270→Session goal
+  1271→  1271→
+  1272→  1272→Start
+  1273→  1273→
+  1274→  1274→Pause
+  1275→  1275→
+  1276→  1276→Complete
+  1277→  1277→
+  1278→  1278→After completion:
+  1279→  1279→
+  1280→  1280→"What did you accomplish?"
+  1281→  1281→
+  1282→  1282→Store:
+  1283→  1283→
+  1284→  1284→duration
+  1285→  1285→
+  1286→  1286→subject
+  1287→  1287→
+  1288→  1288→topic
+  1289→  1289→
+  1290→  1290→date
+  1291→  1291→
+  1292→  1292→session metadata
+  1293→  1293→
+  1294→  1294→Use this data in Analytics.
+  1295→  1295→
+  1296→  1296→---
+  1297→  1297→
+  1298→  1298→# 37. NOTES
+  1299→  1299→
+  1300→  1300→Maintain searchable notes.
+  1301→  1301→
+  1302→  1302→Support:
+  1303→  1303→
+  1304→  1304→* search
+  1305→  1305→* create
+  1306→  1306→* edit
+  1307→  1307→* delete
+  1308→  1308→* subject association
+  1309→  1309→* topic association
+  1310→  1310→
+  1311→  1311→Make notes readable.
+  1312→  1312→
+  1313→  1313→Do not make the notes editor unnecessarily complex.
+  1314→  1314→
+  1315→  1315→---
+  1316→  1316→
+  1317→  1317→# 38. TODO
+  1318→  1318→
+  1319→  1319→Maintain:
+  1320→  1320→
+  1321→  1321→Today
+  1322→  1322→
+  1323→  1323→Overdue
+  1324→  1324→
+  1325→  1325→Upcoming
+  1326→  1326→
+  1327→  1327→Someday
+  1328→  1328→
+  1329→  1329→Done
+  1330→  1330→
+  1331→  1331→Each task:
+  1332→  1332→
+  1333→  1333→Title
+  1334→  1334→
+  1335→  1335→Priority
+  1336→  1336→
+  1337→  1337→Subject
+  1338→  1338→
+  1339→  1339→Due date
+  1340→  1340→
+  1341→  1341→Status
+  1342→  1342→
+  1343→  1343→Allow:
+  1344→  1344→
+  1345→  1345→* complete
+  1346→  1346→* edit
+  1347→  1347→* delete
+  1348→  1348→* reorder if supported
+  1349→  1349→
+  1350→  1350→Dashboard should show relevant tasks.
+  1351→  1351→
+  1352→  1352→---
+  1353→  1353→
+  1354→  1354→# 39. ER COMMAND CENTER
+  1355→  1355→
+  1356→  1356→Maintain the existing ER functionality.
+  1357→  1357→
+  1358→  1358→Show:
+  1359→  1359→
+  1360→  1360→backlog papers
+  1361→  1361→
+  1362→  1362→priority
+  1363→  1363→
+  1364→  1364→deadline
+  1365→  1365→
+  1366→  1366→status
+  1367→  1367→
+  1368→  1368→subject
+  1369→  1369→
+  1370→  1370→risk
+  1371→  1371→
+  1372→  1372→Use an action-oriented layout.
+  1373→  1373→
+  1374→  1374→Example:
+  1375→  1375→
+  1376→  1376→CRITICAL
+  1377→  1377→
+  1378→  1378→3 papers pending
+  1379→  1379→
+  1380→  1380→HIGH
+  1381→  1381→
+  1382→  1382→5 papers
+  1383→  1383→
+  1384→  1384→NORMAL
+  1385→  1385→
+  1386→  1386→8 papers
+  1387→  1387→
+  1388→  1388→Primary action:
+  1389→  1389→
+  1390→  1390→Start ER session
+  1391→  1391→
+  1392→  1392→---
+  1393→  1393→
+  1394→  1394→# 40. ANALYTICS
+  1395→  1395→
+  1396→  1396→Analytics should include:
+  1397→  1397→
+  1398→  1398→Study heatmap
+  1399→  1399→
+  1400→  1400→7-day activity
+  1401→  1401→
+  1402→  1402→Study distribution
+  1403→  1403→
+  1404→  1404→Weekly review
+  1405→  1405→
+  1406→  1406→Attendance trends
+  1407→  1407→
+  1408→  1408→Syllabus trends
+  1409→  1409→
+  1410→  1410→Assessment trends
+  1411→  1411→
+  1412→  1412→Revision consistency
+  1413→  1413→
+  1414→  1414→CGPA trends where sufficient data exists
+  1415→  1415→
+  1416→  1416→Add interpretation.
+  1417→  1417→
+  1418→  1418→Examples:
+  1419→  1419→
+  1420→  1420→"You studied 23% more this week."
+  1421→  1421→
+  1422→  1422→"Attendance declined by 4%."
+  1423→  1423→
+  1424→  1424→"CA performance improved across your last 3 assessments."
+  1425→  1425→
+  1426→  1426→Only show claims supported by actual data.
+  1427→  1427→
+  1428→  1428→---
+  1429→  1429→
+  1430→  1430→# 41. REPORT SYSTEM — MOBILE FIX
+  1431→  1431→
+  1432→  1432→The existing report flow relies too heavily on:
+  1433→  1433→
+  1434→  1434→window.print()
+  1435→  1435→
+  1436→  1436→This must be redesigned.
+  1437→  1437→
+  1438→  1438→New flow:
+  1439→  1439→
+  1440→  1440→GENERATE REPORT
+  1441→  1441→
+  1442→  1442→↓
+  1443→  1443→
+  1444→  1444→REPORT PREVIEW
+  1445→  1445→
+  1446→  1446→↓
+  1447→  1447→
+  1448→  1448→DOWNLOAD PDF
+  1449→  1449→
+  1450→  1450→SHARE
+  1451→  1451→
+  1452→  1452→PRINT
+  1453→  1453→
+  1454→  1454→On mobile:
+  1455→  1455→
+  1456→  1456→* report must render correctly
+  1457→  1457→* preview must work
+  1458→  1458→* download must work
+  1459→  1459→* share must work where supported
+  1460→  1460→* print should remain an optional action
+  1461→  1461→
+  1462→  1462→Never leave the user dependent on a broken Android WebView print dialog.
+  1463→  1463→
+  1464→  1464→If native PDF generation is unavailable:
+  1465→  1465→
+  1466→  1466→implement the most reliable compatible PWA/browser solution.
+  1467→  1467→
+  1468→  1468→Do not claim success if PDF generation failed.
+  1469→  1469→
+  1470→  1470→---
+  1471→  1471→
+  1472→  1472→# 42. REPORT DESIGN
+  1473→  1473→
+  1474→  1474→Report should look professional enough to send to:
+  1475→  1475→
+  1476→  1476→* professor
+  1477→  1477→* mentor
+  1478→  1478→* parent
+  1479→  1479→* academic advisor
+  1480→  1480→* personal archive
+  1481→  1481→
+  1482→  1482→Include:
+  1483→  1483→
+  1484→  1484→Student profile
+  1485→  1485→
+  1486→  1486→Semester
+  1487→  1487→
+  1488→  1488→CGPA
+  1489→  1489→
+  1490→  1490→Attendance
+  1491→  1491→
+  1492→  1492→Subjects
+  1493→  1493→
+  1494→  1494→Grades
+  1495→  1495→
+  1496→  1496→Syllabus
+  1497→  1497→
+  1498→  1498→Marks
+  1499→  1499→
+  1500→  1500→Assignments
+  1501→  1501→
+  1502→  1502→Exams
+  1503→  1503→
+  1504→  1504→Study statistics
+  1505→  1505→
+  1506→  1506→Revision statistics
+  1507→  1507→
+  1508→  1508→Academic health
+  1509→  1509→
+  1510→  1510→Generated date
+  1511→  1511→
+  1512→  1512→Use a professional printable layout.
+  1513→  1513→
+  1514→  1514→---
+  1515→  1515→
+  1516→  1516→# 43. AI TUTOR
+  1517→  1517→
+  1518→  1518→Preserve the existing AI Tutor functionality.
+  1519→  1519→
+  1520→  1520→AI should remain optional.
+  1521→  1521→
+  1522→  1522→Do not make the app dependent on AI.
+  1523→  1523→
+  1524→  1524→Show clear states:
+  1525→  1525→
+  1526→  1526→AI unavailable
+  1527→  1527→
+  1528→  1528→Offline
+  1529→  1529→
+  1530→  1530→Connected
+  1531→  1531→
+  1532→  1532→Error
+  1533→  1533→
+  1534→  1534→Do not expose API keys in frontend code.
+  1535→  1535→
+  1536→  1536→If proxy configuration exists, preserve it.
+  1537→  1537→
+  1538→  1538→---
+  1539→  1539→
+  1540→  1540→# 44. SETTINGS
+  1541→  1541→
+  1542→  1542→Settings should contain:
+  1543→  1543→
+  1544→  1544→Profile
+  1545→  1545→
+  1546→  1546→Academic information
+  1547→  1547→
+  1548→  1548→Targets
+  1549→  1549→
+  1550→  1550→Goals
+  1551→  1551→
+  1552→  1552→Theme
+  1553→  1553→
+  1554→  1554→Appearance
+  1555→  1555→
+  1556→  1556→Data
+  1557→  1557→
+  1558→  1558→Export JSON
+  1559→  1559→
+  1560→  1560→Import JSON
+  1561→  1561→
+  1562→  1562→CSV export
+  1563→  1563→
+  1564→  1564→Report
+  1565→  1565→
+  1566→  1566→AI Tutor
+  1567→  1567→
+  1568→  1568→Notifications if implemented
+  1569→  1569→
+  1570→  1570→Backup
+  1571→  1571→
+  1572→  1572→About
+  1573→  1573→
+  1574→  1574→Version
+  1575→  1575→
+  1576→  1576→What's New
+  1577→  1577→
+  1578→  1578→Reset local data
+  1579→  1579→
+  1580→  1580→Reset must require confirmation.
+  1581→  1581→
+  1582→  1582→---
+  1583→  1583→
+  1584→  1584→# 45. THEME SYSTEM
+  1585→  1585→
+  1586→  1586→Provide:
+  1587→  1587→
+  1588→  1588→Light
+  1589→  1589→
+  1590→  1590→Dark
+  1591→  1591→
+  1592→  1592→System
+  1593→  1593→
+  1594→  1594→The user's selection must persist.
+  1595→  1595→
+  1596→  1596→Theme switching must be smooth but subtle.
+  1597→  1597→
+  1598→  1598→Do not flash the wrong theme on page load.
+  1599→  1599→
+  1600→  1600→Prevent theme flicker.
+  1601→  1601→
+  1602→  1602→Respect:
+  1603→  1603→
+  1604→  1604→prefers-color-scheme
+  1605→  1605→
+  1606→  1606→---
+  1607→  1607→
+  1608→  1608→# 46. MOBILE UI
+  1609→  1609→
+  1610→  1610→Design specifically for:
+  1611→  1611→
+  1612→  1612→320px
+  1613→  1613→
+  1614→  1614→360px
+  1615→  1615→
+  1616→  1616→375px
+  1617→  1617→
+  1618→  1618→390px
+  1619→  1619→
+  1620→  1620→414px
+  1621→  1621→
+  1622→  1622→430px
+  1623→  1623→
+  1624→  1624→No content clipping.
+  1625→  1625→
+  1626→  1626→No tiny controls.
+  1627→  1627→
+  1628→  1628→No accidental horizontal overflow.
+  1629→  1629→
+  1630→  1630→Minimum touch target:
+  1631→  1631→
+  1632→  1632→44px
+  1633→  1633→
+  1634→  1634→Prefer:
+  1635→  1635→
+  1636→  1636→48px
+  1637→  1637→
+  1638→  1638→Use:
+  1639→  1639→
+  1640→  1640→bottom sheets
+  1641→  1641→
+  1642→  1642→sticky actions
+  1643→  1643→
+  1644→  1644→mobile-friendly forms
+  1645→  1645→
+  1646→  1646→large touch targets
+  1647→  1647→
+  1648→  1648→comfortable spacing
+  1649→  1649→
+  1650→  1650→---
+  1651→  1651→
+  1652→  1652→# 47. DESKTOP UI
+  1653→  1653→
+  1654→  1654→Support:
+  1655→  1655→
+  1656→  1656→1024px
+  1657→  1657→
+  1658→  1658→1280px
+  1659→  1659→
+  1660→  1660→1440px
+  1661→  1661→
+  1662→  1662→1600px+
+  1663→  1663→
+  1664→  1664→Use:
+  1665→  1665→
+  1666→  1666→sidebar
+  1667→  1667→
+  1668→  1668→multi-column dashboard
+  1669→  1669→
+  1670→  1670→dense but readable information layout
+  1671→  1671→
+  1672→  1672→contextual panels
+  1673→  1673→
+  1674→  1674→Do not simply stretch mobile components across desktop.
+  1675→  1675→
+  1676→  1676→---
+  1677→  1677→
+  1678→  1678→# 48. TABLE RESPONSIVENESS
+  1679→  1679→
+  1680→  1680→Tables should become:
+  1681→  1681→
+  1682→  1682→cards
+  1683→  1683→
+  1684→  1684→stacked rows
+  1685→  1685→
+  1686→  1686→or horizontally scrollable only when absolutely necessary.
+  1687→  1687→
+  1688→  1688→Never allow the entire page to horizontally overflow because of one table.
+  1689→  1689→
+  1690→  1690→---
+  1691→  1691→
+  1692→  1692→# 49. FORMS
+  1693→  1693→
+  1694→  1694→All forms need:
+  1695→  1695→
+  1696→  1696→* visible labels
+  1697→  1697→* proper input types
+  1698→  1698→* validation
+  1699→  1699→* helpful errors
+  1700→  1700→* keyboard support
+  1701→  1701→* mobile-friendly controls
+  1702→  1702→
+  1703→  1703→Avoid:
+  1704→  1704→
+  1705→  1705→placeholder-only labels
+  1706→  1706→
+  1707→  1707→tiny inputs
+  1708→  1708→
+  1709→  1709→giant unnecessary modals
+  1710→  1710→
+  1711→  1711→---
+  1712→  1712→
+  1713→  1713→# 50. MODALS / SHEETS
+  1714→  1714→
+  1715→  1715→Desktop:
+  1716→  1716→
+  1717→  1717→modal
+  1718→  1718→
+  1719→  1719→Mobile:
+  1720→  1720→
+  1721→  1721→bottom sheet where appropriate.
+  1722→  1722→
+  1723→  1723→Allow:
+  1724→  1724→
+  1725→  1725→Escape
+  1726→  1726→
+  1727→  1727→backdrop click where safe
+  1728→  1728→
+  1729→  1729→close button
+  1730→  1730→
+  1731→  1731→keyboard navigation
+  1732→  1732→
+  1733→  1733→Focus trapping.
+  1734→  1734→
+  1735→  1735→---
+  1736→  1736→
+  1737→  1737→# 51. TOAST SYSTEM
+  1738→  1738→
+  1739→  1739→Create a consistent toast system.
+  1740→  1740→
+  1741→  1741→Success:
+  1742→  1742→
+  1743→  1743→Assessment added.
+  1744→  1744→
+  1745→  1745→Error:
+  1746→  1746→
+  1747→  1747→Unable to save assessment.
+  1748→  1748→
+  1749→  1749→Info:
+  1750→  1750→
+  1751→  1751→Report ready.
+  1752→  1752→
+  1753→  1753→Warning:
+  1754→  1754→
+  1755→  1755→Your attendance is approaching the risk threshold.
+  1756→  1756→
+  1757→  1757→Never use JavaScript alert() for normal UI interactions.
+  1758→  1758→
+  1759→  1759→---
+  1760→  1760→
+  1761→  1761→# 52. EMPTY STATES
+  1762→  1762→
+  1763→  1763→Never display:
+  1764→  1764→
+  1765→  1765→"No data."
+  1766→  1766→
+  1767→  1767→Instead:
+  1768→  1768→
+  1769→  1769→"No assessments yet."
+  1770→  1770→
+  1771→  1771→"Add your first CA, assignment, or quiz to start tracking your performance."
+  1772→  1772→
+  1773→  1773→CTA:
+  1774→  1774→
+  1775→  1775→* Add assessment
+  1776→  1776→
+  1777→  1777→Every feature needs a useful empty state.
+  1778→  1778→
+  1779→  1779→---
+  1780→  1780→
+  1781→  1781→# 53. LOADING STATES
+  1782→  1782→
+  1783→  1783→Use:
+  1784→  1784→
+  1785→  1785→skeletons
+  1786→  1786→
+  1787→  1787→progress indicators
+  1788→  1788→
+  1789→  1789→subtle loading states
+  1790→  1790→
+  1791→  1791→Never freeze the interface without explanation.
+  1792→  1792→
+  1793→  1793→---
+  1794→  1794→
+  1795→  1795→# 54. ERROR STATES
+  1796→  1796→
+  1797→  1797→Every error must explain:
+  1798→  1798→
+  1799→  1799→What happened?
+  1800→  1800→
+  1801→  1801→Why?
+  1802→  1802→
+  1803→  1803→What can the user do?
+  1804→  1804→
+  1805→  1805→Example:
+  1806→  1806→
+  1807→  1807→"Unable to generate the report.
+  1808→  1808→
+  1809→  1809→The report renderer failed on this device.
+  1810→  1810→
+  1811→  1811→Try Download PDF instead."
+  1812→  1812→
+  1813→  1813→Buttons:
+  1814→  1814→
+  1815→  1815→Retry
+  1816→  1816→
+  1817→  1817→Download
+  1818→  1818→
+  1819→  1819→Close
+  1820→  1820→
+  1821→  1821→---
+  1822→  1822→
+  1823→  1823→# 55. ACCESSIBILITY
+  1824→  1824→
+  1825→  1825→Target:
+  1826→  1826→
+  1827→  1827→WCAG AA.
+  1828→  1828→
+  1829→  1829→Implement:
+  1830→  1830→
+  1831→  1831→* semantic HTML
+  1832→  1832→* keyboard navigation
+  1833→  1833→* visible focus states
+  1834→  1834→* accessible labels
+  1835→  1835→* proper contrast
+  1836→  1836→* screen-reader support
+  1837→  1837→* reduced motion support
+  1838→  1838→* 44px+ touch targets
+  1839→  1839→* no color-only information
+  1840→  1840→
+  1841→  1841→Support:
+  1842→  1842→
+  1843→  1843→prefers-reduced-motion
+  1844→  1844→
+  1845→  1845→---
+  1846→  1846→
+  1847→  1847→# 56. ANIMATIONS
+  1848→  1848→
+  1849→  1849→Animations should communicate state.
+  1850→  1850→
+  1851→  1851→Use:
+  1852→  1852→
+  1853→  1853→* subtle page transitions
+  1854→  1854→* button feedback
+  1855→  1855→* progress animation
+  1856→  1856→* modal animation
+  1857→  1857→* toast animation
+  1858→  1858→* chart reveal
+  1859→  1859→
+  1860→  1860→Avoid:
+  1861→  1861→
+  1862→  1862→* excessive bouncing
+  1863→  1863→* flashy gradients
+  1864→  1864→* unnecessary parallax
+  1865→  1865→* long transitions
+  1866→  1866→
+  1867→  1867→Animation duration:
+  1868→  1868→
+  1869→  1869→generally 120–250ms.
+  1870→  1870→
+  1871→  1871→---
+  1872→  1872→
+  1873→  1873→# 57. PERFORMANCE
+  1874→  1874→
+  1875→  1875→Delulu must remain lightweight.
+  1876→  1876→
+  1877→  1877→Avoid unnecessary dependencies.
+  1878→  1878→
+  1879→  1879→Avoid huge libraries.
+  1880→  1880→
+  1881→  1881→Avoid unnecessary re-rendering.
+  1882→  1882→
+  1883→  1883→Use CSS where possible.
+  1884→  1884→
+  1885→  1885→Keep startup fast.
+  1886→  1886→
+  1887→  1887→Maintain offline operation.
+  1888→  1888→
+  1889→  1889→Do not sacrifice the app's simplicity just to make it look sophisticated.
+  1890→  1890→
+  1891→  1891→---
+  1892→  1892→
+  1893→  1893→# 58. PWA
+  1894→  1894→
+  1895→  1895→Preserve:
+  1896→  1896→
+  1897→  1897→service worker
+  1898→  1898→
+  1899→  1899→manifest
+  1900→  1900→
+  1901→  1901→offline caching
+  1902→  1902→
+  1903→  1903→installability
+  1904→  1904→
+  1905→  1905→app icons
+  1906→  1906→
+  1907→  1907→theme colors
+  1908→  1908→
+  1909→  1909→standalone mode
+  1910→  1910→
+  1911→  1911→Ensure:
+  1912→  1912→
+  1913→  1913→* offline page works
+  1914→  1914→* updates work
+  1915→  1915→* cache invalidation works
+  1916→  1916→* old assets do not persist incorrectly
+  1917→  1917→
+  1918→  1918→---
+  1919→  1919→
+  1920→  1920→# 59. ANDROID
+  1921→  1921→
+  1922→  1922→The Android build must be treated as a first-class platform.
+  1923→  1923→
+  1924→  1924→Test:
+  1925→  1925→
+  1926→  1926→* navigation
+  1927→  1927→* keyboard
+  1928→  1928→* bottom sheets
+  1929→  1929→* dialogs
+  1930→  1930→* file downloads
+  1931→  1931→* share
+  1932→  1932→* PDF
+  1933→  1933→* print fallback
+  1934→  1934→* back button
+  1935→  1935→* orientation
+  1936→  1936→* status bar
+  1937→  1937→* safe areas
+  1938→  1938→
+  1939→  1939→Never assume desktop browser behavior works on Android.
+  1940→  1940→
+  1941→  1941→---
+  1942→  1942→
+  1943→  1943→# 60. ELECTRON / DESKTOP
+  1944→  1944→
+  1945→  1945→Maintain compatibility with the existing desktop build.
+  1946→  1946→
+  1947→  1947→Test:
+  1948→  1948→
+  1949→  1949→* sidebar
+  1950→  1950→* window resize
+  1951→  1951→* keyboard shortcuts
+  1952→  1952→* file export
+  1953→  1953→* report generation
+  1954→  1954→* theme
+  1955→  1955→* navigation
+  1956→  1956→
+  1957→  1957→---
+  1958→  1958→
+  1959→  1959→# 61. GLOBAL SEARCH
+  1960→  1960→
+  1961→  1961→Search must be fast.
+  1962→  1962→
+  1963→  1963→Support fuzzy matching if practical.
+  1964→  1964→
+  1965→  1965→Example:
+  1966→  1966→
+  1967→  1967→"dbms"
+  1968→  1968→
+  1969→  1969→returns:
+  1970→  1970→
+  1971→  1971→Database Management Systems
+  1972→  1972→
+  1973→  1973→DBMS Unit 3
+  1974→  1974→
+  1975→  1975→DBMS CA
+  1976→  1976→
+  1977→  1977→DBMS notes
+  1978→  1978→
+  1979→  1979→DBMS exam
+  1980→  1980→
+  1981→  1981→---
+  1982→  1982→
+  1983→  1983→# 62. DATA EXPORT
+  1984→  1984→
+  1985→  1985→Maintain:
+  1986→  1986→
+  1987→  1987→JSON export
+  1988→  1988→
+  1989→  1989→JSON import
+  1990→  1990→
+  1991→  1991→CSV export
+  1992→  1992→
+  1993→  1993→Ensure exports contain all relevant user data.
+  1994→  1994→
+  1995→  1995→Never silently omit fields.
+  1996→  1996→
+  1997→  1997→Validate imports before replacing local data.
+  1998→  1998→
+  1999→  1999→Provide:
+  2000→  2000→
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]

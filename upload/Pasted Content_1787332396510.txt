@@ -1,0 +1,3301 @@
+Absolutely. I checked the current Delulu repository and the current Rondesignlab site before structuring this. The repo currently has the full academic feature set—subjects, syllabus, study, SM-2 revision, attendance, marks/SGPA/CGPA, assignments, exams/PYQs, ER, notes, analytics, calendar, timetable, todos, settings, AI tutor, exports and reports—and remains a single-file, offline-first PWA with local storage. ([GitHub][1]) Rondesignlab's own positioning emphasizes product architecture, logical structure, product design, concept design, and polished SaaS/enterprise interfaces, which is the philosophy I'm applying here rather than copying their visual work. ([Rondesignlab][2])
+
+Here is the **master prompt** I'd give to Claude Code / Gemini CLI / Manus / another coding agent.
+
+# DELULU 4.0
+
+## Academic Operating System — Complete Product Redesign & Engineering Upgrade
+
+You are not simply redesigning a website.
+
+You are rebuilding **Delulu 4.0**, a professional academic operating system for university students.
+
+Act simultaneously as:
+
+* Senior SaaS Product Designer
+* Senior UX Architect
+* Senior Frontend Engineer
+* Mobile UX Engineer
+* PWA Engineer
+* Design Systems Engineer
+* Accessibility Specialist
+* Information Architect
+* Data Visualization Designer
+* QA Engineer
+* Product Strategist
+
+Your job is to transform the existing Delulu application into a **premium, production-quality academic SaaS/PWA experience** while preserving the existing offline-first philosophy and all existing academic functionality.
+
+---
+
+# 0. SOURCE OF TRUTH
+
+Existing repository:
+
+[https://github.com/dharma-labs/delulu](https://github.com/dharma-labs/delulu)
+
+The user has also provided an existing Delulu APK for inspection.
+
+Before changing anything:
+
+1. Inspect the repository.
+2. Inspect the existing `index.html`.
+3. Inspect all JavaScript/state-management logic.
+4. Inspect CSS/design tokens.
+5. Inspect PWA configuration.
+6. Inspect Android/Desktop wrappers.
+7. Inspect the uploaded APK if accessible.
+8. Map every existing route.
+9. Map every existing feature.
+10. Map every localStorage key/schema.
+11. Map migrations.
+12. Identify existing reusable functions.
+13. Identify broken interactions.
+14. Identify UI/state mismatches.
+15. Identify mobile-only problems.
+16. Identify desktop-only problems.
+
+DO NOT immediately rewrite the application.
+
+First understand it.
+
+---
+
+# 1. PRODUCT VISION
+
+Delulu should become:
+
+> **An Academic Operating System for serious students.**
+
+The brand can remain playful because of the name "Delulu".
+
+The product itself must feel:
+
+* intelligent
+* calm
+* premium
+* technical
+* trustworthy
+* highly organized
+* slightly playful
+* extremely usable
+
+Think:
+
+> **Fun brand. Serious product.**
+
+Delulu should not feel like:
+
+* a generic student planner
+* a Notion clone
+* a spreadsheet
+* a generic admin dashboard
+* a school ERP
+* a developer dashboard
+* a template marketplace
+
+---
+
+# 2. CORE PRODUCT IDEA
+
+The central design concept is:
+
+# ACADEMIC SIGNAL
+
+Delulu should not merely show information.
+
+It should interpret academic information and surface useful signals.
+
+Examples:
+
+GREEN
+Healthy
+
+BLUE
+Improving
+
+YELLOW
+Needs attention
+
+RED
+Critical
+
+PURPLE
+Upcoming
+
+GRAY
+No data
+
+The user should quickly understand:
+
+> What is happening?
+
+> What needs attention?
+
+> What should I do next?
+
+---
+
+# 3. DESIGN INSPIRATION
+
+Study the product architecture and UX principles used by high-quality SaaS/product design studios such as Rondesignlab.
+
+Reference:
+
+[https://rondesignlab.com/](https://rondesignlab.com/)
+
+Use the following principles:
+
+* strong product architecture
+* logical information hierarchy
+* modular layouts
+* clear workflows
+* strong visual hierarchy
+* purposeful interaction design
+* polished SaaS components
+* contextual actions
+* excellent mobile UX
+* meaningful data visualization
+* reduction of unnecessary complexity
+
+IMPORTANT:
+
+DO NOT COPY Rondesignlab.
+
+DO NOT copy:
+
+* layouts
+* screens
+* branding
+* illustrations
+* proprietary components
+* exact colors
+* exact spacing systems
+* exact visual compositions
+
+Take only the design philosophy.
+
+Delulu must have its own identity.
+
+---
+
+# 4. DESIGN PERSONALITY
+
+Delulu 4.0 should feel like:
+
+### Linear × modern academic software × premium analytics
+
+but must remain original.
+
+Visual keywords:
+
+* clean
+* editorial
+* intelligent
+* spacious
+* precise
+* premium
+* subtle
+* data-driven
+* calm
+
+Avoid:
+
+* excessive glassmorphism
+* excessive gradients
+* excessive shadows
+* excessive rounded cards
+* childish UI
+* emoji-heavy interfaces
+* noisy dashboards
+* giant decorative illustrations
+
+---
+
+# 5. DARK + LIGHT MODE
+
+Delulu MUST support:
+
+## LIGHT MODE
+
+and
+
+## DARK MODE
+
+Both modes must be first-class designs.
+
+Do NOT simply invert colors.
+
+Each mode needs its own carefully tuned design tokens.
+
+---
+
+# 6. LIGHT MODE
+
+Default light palette:
+
+Background:
+
+#F7F8FC
+
+Primary surface:
+
+#FFFFFF
+
+Secondary surface:
+
+#F2F4F8
+
+Border:
+
+#E5E7EF
+
+Primary text:
+
+#171923
+
+Secondary text:
+
+#626979
+
+Primary accent:
+
+#635BFF
+
+Success:
+
+#16A36A
+
+Warning:
+
+#D99200
+
+Danger:
+
+#E5484D
+
+Info:
+
+#3478F6
+
+Light mode should feel:
+
+* premium
+* airy
+* clean
+* professional
+* calm
+
+Use very subtle shadows.
+
+Never create harsh floating-card overload.
+
+---
+
+# 7. DARK MODE
+
+Background:
+
+#08090B
+
+Primary surface:
+
+#101216
+
+Secondary surface:
+
+#151820
+
+Border:
+
+rgba(255,255,255,0.08)
+
+Primary text:
+
+#F5F7FA
+
+Secondary text:
+
+#9298A6
+
+Primary accent:
+
+#8174FF
+
+Success:
+
+#35D39A
+
+Warning:
+
+#F3B94B
+
+Danger:
+
+#FF626B
+
+Info:
+
+#5D9CFF
+
+Dark mode should feel:
+
+* cinematic
+* technical
+* premium
+* calm
+
+Do not turn every surface into black glass.
+
+---
+
+# 8. DESIGN TOKENS
+
+Create centralized CSS variables/design tokens.
+
+Include:
+
+* colors
+* typography
+* spacing
+* radius
+* shadows
+* borders
+* transitions
+* breakpoints
+* z-index
+* component states
+
+Example:
+
+--color-bg
+--color-surface
+--color-surface-elevated
+--color-text
+--color-text-muted
+--color-border
+--color-primary
+--color-success
+--color-warning
+--color-danger
+
+All components must use tokens.
+
+Never scatter raw colors throughout the application.
+
+---
+
+# 9. TYPOGRAPHY
+
+Use:
+
+Inter
+or
+Geist
+or
+Manrope
+
+Do not mix multiple unrelated fonts.
+
+Suggested scale:
+
+Display:
+32px / 700
+
+Page title:
+24px / 650
+
+Section:
+16px / 600
+
+Body:
+14px / 450
+
+Small:
+13px / 450
+
+Metadata:
+12px / 500
+
+Numbers:
+
+Use stronger weight and tabular numerals where useful.
+
+Typography must create hierarchy.
+
+Do not use color everywhere to establish hierarchy.
+
+---
+
+# 10. ICON SYSTEM
+
+Remove unnecessary emoji-based navigation icons.
+
+Use one consistent outline icon system.
+
+Lucide-style icons are preferred.
+
+Requirements:
+
+* consistent stroke width
+* consistent optical sizing
+* semantic meaning
+* accessible labels
+* no decorative icon overload
+
+Emojis may still appear in optional user content or playful empty states, but NOT as the primary navigation icon system.
+
+---
+
+# 11. APPLICATION ARCHITECTURE
+
+Preserve offline-first architecture.
+
+The application should continue to work:
+
+* offline
+* as a PWA
+* as Android
+* as desktop
+* on static hosting
+
+Do not introduce a backend unless absolutely necessary.
+
+Do not introduce accounts just for UI.
+
+Do not upload student academic data.
+
+Preserve privacy-first behavior.
+
+---
+
+# 12. DATA PRESERVATION
+
+This is CRITICAL.
+
+Do not destroy existing user data.
+
+Before modifying data structures:
+
+1. identify current schema
+2. identify migration versions
+3. create migration if necessary
+4. test migration
+5. verify old data
+6. verify new data
+7. verify export/import
+
+Never silently reset localStorage.
+
+Never overwrite official academic results with projections.
+
+Maintain separation between:
+
+OFFICIAL
+
+and
+
+PROJECTED / WHAT-IF
+
+values.
+
+---
+
+# 13. GLOBAL APPLICATION SHELL
+
+Desktop:
+
+Left sidebar.
+
+Main content.
+
+Optional contextual right panel where useful.
+
+Sidebar:
+
+DELULU
+
+OVERVIEW
+
+Dashboard
+
+ACADEMICS
+
+Subjects
+Syllabus
+Marks & CA
+Attendance
+Exams
+
+STUDY
+
+Focus
+Revision
+Notes
+
+PLANNING
+
+Calendar
+Timetable
+Tasks
+
+INSIGHTS
+
+Analytics
+ER Command Center
+
+Bottom:
+
+Search / Command
+
+Settings
+
+Profile
+
+---
+
+# 14. MOBILE NAVIGATION
+
+Mobile must be designed independently.
+
+Bottom navigation:
+
+Home
+Study
+Academics
+Plan
+More
+
+The navigation must:
+
+* remain reachable
+* have 44–48px touch targets
+* show active state clearly
+* avoid accidental taps
+* work with Android gesture navigation
+
+"More" must contain logically grouped secondary features.
+
+---
+
+# 15. COMMAND CENTER
+
+Implement:
+
+Ctrl/Cmd + K
+
+Search.
+
+Search:
+
+* subjects
+* syllabus topics
+* notes
+* tasks
+* exams
+* assignments
+* timetable
+* assessments
+
+Also support commands:
+
+"Add task"
+
+"Add assessment"
+
+"Start focus"
+
+"Open marks"
+
+"Generate report"
+
+"Go to attendance"
+
+The command interface should feel like a premium SaaS command palette.
+
+---
+
+# 16. DASHBOARD
+
+Dashboard is the most important screen.
+
+Top:
+
+Good evening, Dharma. 👋
+
+Thursday, 21 August 2026
+
+Semester 5
+
+Then:
+
+# SEMESTER HEALTH
+
+Large score:
+
+78 / 100
+
+Status:
+
+GOOD
+
+Supporting metrics:
+
+CGPA
+8.4
+
+Attendance
+86%
+
+Syllabus
+64%
+
+Study time
+11h 40m
+
+Show trends:
+
++0.2
+
++4%
+
++7%
+
++23%
+
+Do not use fake numbers.
+
+All values must come from real application state.
+
+---
+
+# 17. TODAY'S FOCUS
+
+This is one of the most important product features.
+
+Instead of showing random information, surface actionable recommendations.
+
+Example:
+
+TODAY'S FOCUS
+
+01
+Finish DBMS Unit 3
+45 min
+High impact
+
+START
+
+02
+Computer Networks CA Test
+Tomorrow
+25 marks
+
+PREPARE
+
+03
+Operating Systems
+Attendance at 72%
+
+VIEW
+
+Recommendations should be generated from actual user data.
+
+---
+
+# 18. ACADEMIC PULSE
+
+Show:
+
+Syllabus
+Attendance
+Study
+Revision
+CA Performance
+
+Each metric should include:
+
+* current value
+* trend
+* status
+* optional target
+
+Use clean horizontal indicators or compact charts.
+
+Do not create charts simply because charts look attractive.
+
+Every chart must communicate something.
+
+---
+
+# 19. QUICK ACTIONS
+
+Dashboard:
+
+START FOCUS
+
+ADD ASSESSMENT
+
+MARK ATTENDANCE
+
+ADD TASK
+
+GENERATE REPORT
+
+Actions must work.
+
+No decorative buttons.
+
+---
+
+# 20. SUBJECTS
+
+Subjects page should support:
+
+* create subject
+* edit subject
+* delete subject
+* archive subject
+* credits
+* grade
+* attendance
+* syllabus progress
+* next assessment
+* notes
+* revision
+* marks
+
+Subject cards should feel like compact SaaS records.
+
+Example:
+
+DATABASE MANAGEMENT SYSTEMS
+
+BCS401 · 4 Credits
+
+Grade:
+A
+
+Attendance:
+86%
+
+Syllabus:
+71%
+
+Next:
+CA Test — 24 Aug
+
+---
+
+# 21. SUBJECT WORKSPACE
+
+Each subject opens a unified workspace.
+
+Header:
+
+Database Management Systems
+
+Healthy
+
+Tabs:
+
+Overview
+Syllabus
+Marks
+Attendance
+Revision
+Notes
+Exams
+
+Overview:
+
+Grade
+Attendance
+Syllabus
+CA Performance
+Next assessment
+Recent activity
+Recommended next action
+
+This reduces unnecessary navigation.
+
+---
+
+# 22. SYLLABUS
+
+Support:
+
+Subject
+
+Units
+
+Topics
+
+Completion
+
+Example:
+
+UNIT 1
+100%
+
+UNIT 2
+80%
+
+UNIT 3
+60%
+
+UNIT 4
+40%
+
+UNIT 5
+20%
+
+UNIT 6
+0%
+
+Allow:
+
+* mark complete
+* mark incomplete
+* topic editing
+* unit editing
+* progress calculation
+
+Do not create giant checkbox walls.
+
+Use progressive disclosure.
+
+---
+
+# 23. MARKS & CA — MAJOR REWORK
+
+This is a priority.
+
+Current Delulu has a state/UI mismatch around Marks/CA.
+
+The implementation must NOT rely on a DOM element such as:
+
+#mkSub
+
+as an accidental source of application state.
+
+Create one authoritative state:
+
+selectedMarksSubjectId
+
+When subject changes:
+
+1. update selectedMarksSubjectId
+2. rerender marks summary
+3. rerender assessment list
+4. rerender target simulator
+5. rerender projections
+
+Never allow the UI and state to drift apart.
+
+---
+
+# 24. MARKS SCREEN
+
+Header:
+
+MARKS & CA
+
+Subject:
+
+[ Computer Networks ]
+
+Performance:
+
+48 / 60
+
+80%
+
+Target:
+
+A
+
+Projected:
+
+A-
+
+Tabs:
+
+Performance
+Assessments
+Target
+Trends
+
+---
+
+# 25. ASSESSMENT LIST
+
+Show:
+
+CA Test 1
+18 / 25
+72%
+
+CA Test 2
+21 / 25
+84%
+
+Assignment
+9 / 10
+90%
+
+Total
+48 / 60
+80%
+
+Actions:
+
+Edit
+
+Delete
+
+Duplicate if useful
+
+---
+
+# 26. ADD ASSESSMENT
+
+Primary button:
+
+* Add Assessment
+
+Form:
+
+Assessment Name
+
+Category
+
+CA Test
+Assignment
+Quiz
+Practical
+Other
+
+Maximum Marks
+
+Obtained Marks
+
+Date
+
+Notes
+
+Validation:
+
+obtained >= 0
+
+maximum > 0
+
+obtained <= maximum
+
+Show errors inline.
+
+Never allow impossible values.
+
+---
+
+# 27. INLINE EDITING
+
+Users should be able to quickly edit:
+
+marks
+maximum
+assessment name
+date
+category
+
+Click value:
+
+18
+
+becomes:
+
+[18]
+
+Save.
+
+Do not require a large modal for every tiny change.
+
+---
+
+# 28. TARGET SIMULATOR
+
+Target:
+
+A
+
+Current:
+
+48 / 60
+
+Required end-sem:
+
+54 / 75
+
+Show:
+
+"You need approximately 72% in the end-sem exam to reach your target."
+
+If impossible:
+
+"Target currently unreachable."
+
+Explain mathematically why.
+
+Never fabricate projections.
+
+---
+
+# 29. SGPA / CGPA
+
+Maintain existing academic calculations.
+
+Support:
+
+* SGPA
+* CGPA
+* official CGPA
+* projected CGPA
+* what-if scenarios
+* grade simulation
+
+Official values must never be overwritten.
+
+Clearly label:
+
+OFFICIAL
+
+PROJECTED
+
+WHAT-IF
+
+---
+
+# 30. ATTENDANCE
+
+Each subject:
+
+86%
+
+SAFE
+
+You can miss:
+
+2 classes
+
+Statuses:
+
+SAFE
+
+WATCH
+
+RISK
+
+Include:
+
+* present
+* absent
+* total classes
+* attendance percentage
+* required classes
+* safe absences
+* attendance projection
+
+The user should understand the consequence immediately.
+
+---
+
+# 31. TIMETABLE
+
+Maintain:
+
+weekly timetable
+
+daily classes
+
+subject colors
+
+clash detection
+
+live "now" line
+
+next-class tracker
+
+Make it mobile-friendly.
+
+Mobile:
+
+Today-focused vertical schedule.
+
+Desktop:
+
+weekly grid.
+
+---
+
+# 32. CALENDAR
+
+Support:
+
+* classes
+* exams
+* assignments
+* deadlines
+* tasks
+* custom events
+
+Color coding must work in both light and dark themes.
+
+Do not rely on color alone.
+
+---
+
+# 33. ASSIGNMENTS
+
+Each assignment:
+
+Title
+
+Subject
+
+Deadline
+
+Priority
+
+Status
+
+Description
+
+Show statuses:
+
+Upcoming
+
+Due Soon
+
+Overdue
+
+Completed
+
+Dashboard should surface important deadlines.
+
+---
+
+# 34. EXAMS
+
+Exam screen:
+
+Exam name
+
+Subject
+
+Date
+
+Days remaining
+
+Preparation %
+
+Syllabus %
+
+PYQ accuracy
+
+Priority
+
+Primary action:
+
+Prepare Now
+
+Also support:
+
+PYQ bank
+
+attempt tracking
+
+scores
+
+accuracy
+
+---
+
+# 35. REVISION / SM-2
+
+Maintain the existing SM-2 spaced repetition functionality.
+
+Show:
+
+Due today
+
+12 topics
+
+High:
+4
+
+Medium:
+5
+
+Low:
+3
+
+Each topic:
+
+Last reviewed
+
+Mastery
+
+Next review
+
+Make algorithmic information secondary.
+
+The student should understand:
+
+"What should I revise now?"
+
+---
+
+# 36. STUDY / FOCUS
+
+Create a premium focus experience.
+
+Show:
+
+Subject
+
+Topic
+
+Timer
+
+Session goal
+
+Start
+
+Pause
+
+Complete
+
+After completion:
+
+"What did you accomplish?"
+
+Store:
+
+duration
+
+subject
+
+topic
+
+date
+
+session metadata
+
+Use this data in Analytics.
+
+---
+
+# 37. NOTES
+
+Maintain searchable notes.
+
+Support:
+
+* search
+* create
+* edit
+* delete
+* subject association
+* topic association
+
+Make notes readable.
+
+Do not make the notes editor unnecessarily complex.
+
+---
+
+# 38. TODO
+
+Maintain:
+
+Today
+
+Overdue
+
+Upcoming
+
+Someday
+
+Done
+
+Each task:
+
+Title
+
+Priority
+
+Subject
+
+Due date
+
+Status
+
+Allow:
+
+* complete
+* edit
+* delete
+* reorder if supported
+
+Dashboard should show relevant tasks.
+
+---
+
+# 39. ER COMMAND CENTER
+
+Maintain the existing ER functionality.
+
+Show:
+
+backlog papers
+
+priority
+
+deadline
+
+status
+
+subject
+
+risk
+
+Use an action-oriented layout.
+
+Example:
+
+CRITICAL
+
+3 papers pending
+
+HIGH
+
+5 papers
+
+NORMAL
+
+8 papers
+
+Primary action:
+
+Start ER session
+
+---
+
+# 40. ANALYTICS
+
+Analytics should include:
+
+Study heatmap
+
+7-day activity
+
+Study distribution
+
+Weekly review
+
+Attendance trends
+
+Syllabus trends
+
+Assessment trends
+
+Revision consistency
+
+CGPA trends where sufficient data exists
+
+Add interpretation.
+
+Examples:
+
+"You studied 23% more this week."
+
+"Attendance declined by 4%."
+
+"CA performance improved across your last 3 assessments."
+
+Only show claims supported by actual data.
+
+---
+
+# 41. REPORT SYSTEM — MOBILE FIX
+
+The existing report flow relies too heavily on:
+
+window.print()
+
+This must be redesigned.
+
+New flow:
+
+GENERATE REPORT
+
+↓
+
+REPORT PREVIEW
+
+↓
+
+DOWNLOAD PDF
+
+SHARE
+
+PRINT
+
+On mobile:
+
+* report must render correctly
+* preview must work
+* download must work
+* share must work where supported
+* print should remain an optional action
+
+Never leave the user dependent on a broken Android WebView print dialog.
+
+If native PDF generation is unavailable:
+
+implement the most reliable compatible PWA/browser solution.
+
+Do not claim success if PDF generation failed.
+
+---
+
+# 42. REPORT DESIGN
+
+Report should look professional enough to send to:
+
+* professor
+* mentor
+* parent
+* academic advisor
+* personal archive
+
+Include:
+
+Student profile
+
+Semester
+
+CGPA
+
+Attendance
+
+Subjects
+
+Grades
+
+Syllabus
+
+Marks
+
+Assignments
+
+Exams
+
+Study statistics
+
+Revision statistics
+
+Academic health
+
+Generated date
+
+Use a professional printable layout.
+
+---
+
+# 43. AI TUTOR
+
+Preserve the existing AI Tutor functionality.
+
+AI should remain optional.
+
+Do not make the app dependent on AI.
+
+Show clear states:
+
+AI unavailable
+
+Offline
+
+Connected
+
+Error
+
+Do not expose API keys in frontend code.
+
+If proxy configuration exists, preserve it.
+
+---
+
+# 44. SETTINGS
+
+Settings should contain:
+
+Profile
+
+Academic information
+
+Targets
+
+Goals
+
+Theme
+
+Appearance
+
+Data
+
+Export JSON
+
+Import JSON
+
+CSV export
+
+Report
+
+AI Tutor
+
+Notifications if implemented
+
+Backup
+
+About
+
+Version
+
+What's New
+
+Reset local data
+
+Reset must require confirmation.
+
+---
+
+# 45. THEME SYSTEM
+
+Provide:
+
+Light
+
+Dark
+
+System
+
+The user's selection must persist.
+
+Theme switching must be smooth but subtle.
+
+Do not flash the wrong theme on page load.
+
+Prevent theme flicker.
+
+Respect:
+
+prefers-color-scheme
+
+---
+
+# 46. MOBILE UI
+
+Design specifically for:
+
+320px
+
+360px
+
+375px
+
+390px
+
+414px
+
+430px
+
+No content clipping.
+
+No tiny controls.
+
+No accidental horizontal overflow.
+
+Minimum touch target:
+
+44px
+
+Prefer:
+
+48px
+
+Use:
+
+bottom sheets
+
+sticky actions
+
+mobile-friendly forms
+
+large touch targets
+
+comfortable spacing
+
+---
+
+# 47. DESKTOP UI
+
+Support:
+
+1024px
+
+1280px
+
+1440px
+
+1600px+
+
+Use:
+
+sidebar
+
+multi-column dashboard
+
+dense but readable information layout
+
+contextual panels
+
+Do not simply stretch mobile components across desktop.
+
+---
+
+# 48. TABLE RESPONSIVENESS
+
+Tables should become:
+
+cards
+
+stacked rows
+
+or horizontally scrollable only when absolutely necessary.
+
+Never allow the entire page to horizontally overflow because of one table.
+
+---
+
+# 49. FORMS
+
+All forms need:
+
+* visible labels
+* proper input types
+* validation
+* helpful errors
+* keyboard support
+* mobile-friendly controls
+
+Avoid:
+
+placeholder-only labels
+
+tiny inputs
+
+giant unnecessary modals
+
+---
+
+# 50. MODALS / SHEETS
+
+Desktop:
+
+modal
+
+Mobile:
+
+bottom sheet where appropriate.
+
+Allow:
+
+Escape
+
+backdrop click where safe
+
+close button
+
+keyboard navigation
+
+Focus trapping.
+
+---
+
+# 51. TOAST SYSTEM
+
+Create a consistent toast system.
+
+Success:
+
+Assessment added.
+
+Error:
+
+Unable to save assessment.
+
+Info:
+
+Report ready.
+
+Warning:
+
+Your attendance is approaching the risk threshold.
+
+Never use JavaScript alert() for normal UI interactions.
+
+---
+
+# 52. EMPTY STATES
+
+Never display:
+
+"No data."
+
+Instead:
+
+"No assessments yet."
+
+"Add your first CA, assignment, or quiz to start tracking your performance."
+
+CTA:
+
+* Add assessment
+
+Every feature needs a useful empty state.
+
+---
+
+# 53. LOADING STATES
+
+Use:
+
+skeletons
+
+progress indicators
+
+subtle loading states
+
+Never freeze the interface without explanation.
+
+---
+
+# 54. ERROR STATES
+
+Every error must explain:
+
+What happened?
+
+Why?
+
+What can the user do?
+
+Example:
+
+"Unable to generate the report.
+
+The report renderer failed on this device.
+
+Try Download PDF instead."
+
+Buttons:
+
+Retry
+
+Download
+
+Close
+
+---
+
+# 55. ACCESSIBILITY
+
+Target:
+
+WCAG AA.
+
+Implement:
+
+* semantic HTML
+* keyboard navigation
+* visible focus states
+* accessible labels
+* proper contrast
+* screen-reader support
+* reduced motion support
+* 44px+ touch targets
+* no color-only information
+
+Support:
+
+prefers-reduced-motion
+
+---
+
+# 56. ANIMATIONS
+
+Animations should communicate state.
+
+Use:
+
+* subtle page transitions
+* button feedback
+* progress animation
+* modal animation
+* toast animation
+* chart reveal
+
+Avoid:
+
+* excessive bouncing
+* flashy gradients
+* unnecessary parallax
+* long transitions
+
+Animation duration:
+
+generally 120–250ms.
+
+---
+
+# 57. PERFORMANCE
+
+Delulu must remain lightweight.
+
+Avoid unnecessary dependencies.
+
+Avoid huge libraries.
+
+Avoid unnecessary re-rendering.
+
+Use CSS where possible.
+
+Keep startup fast.
+
+Maintain offline operation.
+
+Do not sacrifice the app's simplicity just to make it look sophisticated.
+
+---
+
+# 58. PWA
+
+Preserve:
+
+service worker
+
+manifest
+
+offline caching
+
+installability
+
+app icons
+
+theme colors
+
+standalone mode
+
+Ensure:
+
+* offline page works
+* updates work
+* cache invalidation works
+* old assets do not persist incorrectly
+
+---
+
+# 59. ANDROID
+
+The Android build must be treated as a first-class platform.
+
+Test:
+
+* navigation
+* keyboard
+* bottom sheets
+* dialogs
+* file downloads
+* share
+* PDF
+* print fallback
+* back button
+* orientation
+* status bar
+* safe areas
+
+Never assume desktop browser behavior works on Android.
+
+---
+
+# 60. ELECTRON / DESKTOP
+
+Maintain compatibility with the existing desktop build.
+
+Test:
+
+* sidebar
+* window resize
+* keyboard shortcuts
+* file export
+* report generation
+* theme
+* navigation
+
+---
+
+# 61. GLOBAL SEARCH
+
+Search must be fast.
+
+Support fuzzy matching if practical.
+
+Example:
+
+"dbms"
+
+returns:
+
+Database Management Systems
+
+DBMS Unit 3
+
+DBMS CA
+
+DBMS notes
+
+DBMS exam
+
+---
+
+# 62. DATA EXPORT
+
+Maintain:
+
+JSON export
+
+JSON import
+
+CSV export
+
+Ensure exports contain all relevant user data.
+
+Never silently omit fields.
+
+Validate imports before replacing local data.
+
+Provide:
+
+Export successful.
+
+Import successful.
+
+Import failed.
+
+---
+
+# 63. BACKUP
+
+Add a subtle backup status indicator.
+
+Example:
+
+Last backup:
+
+Today, 6:30 PM
+
+Data:
+
+Local only
+
+Provide:
+
+Export backup
+
+Import backup
+
+Do not upload anything automatically.
+
+---
+
+# 64. PRIVACY
+
+Make privacy understandable.
+
+Settings should clearly say:
+
+"Your academic data stays on this device."
+
+If AI Tutor makes an external request:
+
+tell the user clearly.
+
+Do not hide network behavior.
+
+---
+
+# 65. NOTIFICATIONS
+
+If notifications are implemented:
+
+support:
+
+assignment reminders
+
+exam reminders
+
+revision reminders
+
+attendance warnings
+
+study reminders
+
+Allow users to control notification categories.
+
+Never spam.
+
+---
+
+# 66. DASHBOARD INTELLIGENCE
+
+Dashboard recommendations should be based on actual data.
+
+Possible recommendation logic:
+
+If attendance < threshold:
+
+"Attendance needs attention."
+
+If exam < X days and syllabus < Y:
+
+"Prioritize exam preparation."
+
+If revision due:
+
+"12 topics are due today."
+
+If assignment deadline approaching:
+
+"Assignment due tomorrow."
+
+If study time declining:
+
+"Study activity dropped this week."
+
+Never fabricate recommendations.
+
+---
+
+# 67. ACADEMIC HEALTH SCORE
+
+Create a transparent health score.
+
+Possible inputs:
+
+Attendance
+
+Syllabus
+
+Assessment
+
+Study consistency
+
+Revision
+
+Upcoming deadlines
+
+Do not hide the calculation.
+
+Provide:
+
+"Why 78?"
+
+Opening it shows:
+
+Attendance +18
+
+Syllabus +15
+
+Study +16
+
+Assessment +17
+
+Revision +12
+
+Total 78
+
+This builds trust.
+
+---
+
+# 68. EMPTY-FIRST-RUN EXPERIENCE
+
+New users must not see a fake dashboard.
+
+First-run onboarding:
+
+Name
+
+College
+
+University
+
+Programme
+
+Semester
+
+Subjects
+
+Academic targets
+
+Goals
+
+Then:
+
+"Let's build your academic system."
+
+Show empty states that guide them.
+
+---
+
+# 69. ONBOARDING
+
+Keep onboarding short.
+
+Step 1:
+
+Profile
+
+Step 2:
+
+Semester
+
+Step 3:
+
+Subjects
+
+Step 4:
+
+Targets
+
+Step 5:
+
+Ready
+
+Do not create a 15-screen wizard.
+
+Allow Skip.
+
+---
+
+# 70. MICROCOPY
+
+Use concise language.
+
+Bad:
+
+"Please click the button below in order to initiate the creation process."
+
+Good:
+
+"Add assessment."
+
+Bad:
+
+"There is currently no information available."
+
+Good:
+
+"No assessments yet."
+
+The product should sound intelligent.
+
+---
+
+# 71. BRANDING
+
+Brand:
+
+DELULU
+
+Possible subtitle:
+
+Academic OS
+
+Use the brand consistently.
+
+Logo should be simple.
+
+Avoid generic graduation-cap clichés unless used very subtly.
+
+Create a recognizable Delulu visual signature.
+
+---
+
+# 72. UNIQUE DELULU ELEMENT
+
+Create a proprietary visual language around:
+
+ACADEMIC SIGNAL
+
+Use a consistent signal system throughout:
+
+Health
+
+Trend
+
+Risk
+
+Progress
+
+Momentum
+
+Status
+
+This becomes Delulu's signature.
+
+---
+
+# 73. MOBILE DASHBOARD
+
+Mobile should show:
+
+Greeting
+
+Semester health
+
+Today's focus
+
+Next class
+
+Upcoming deadline
+
+Quick action
+
+Academic pulse
+
+Use vertical rhythm.
+
+Avoid showing 10 dashboards at once.
+
+---
+
+# 74. DESKTOP DASHBOARD
+
+Desktop can use:
+
+3-column or 2-column layouts.
+
+Example:
+
+LEFT:
+
+Semester Health
+
+Today's Focus
+
+CENTER:
+
+Academic Pulse
+
+Upcoming
+
+RIGHT:
+
+Quick Actions
+
+Report
+
+Next class
+
+Do not create arbitrary grids.
+
+Every section needs a purpose.
+
+---
+
+# 75. SUBJECT DETAIL MOBILE
+
+Top:
+
+Subject
+
+Grade
+
+Attendance
+
+Syllabus
+
+Then tabs or segmented navigation.
+
+Use horizontal tab scrolling only where necessary.
+
+---
+
+# 76. MARKS MOBILE
+
+Mobile layout:
+
+Subject selector
+
+CA performance
+
+Assessment list
+
+Target
+
+Add assessment
+
+The Add Assessment button may be sticky at the bottom.
+
+---
+
+# 77. REPORT MOBILE
+
+Report screen:
+
+Preview
+
+Download PDF
+
+Share
+
+Print
+
+Use a sticky bottom action bar.
+
+---
+
+# 78. DATA VISUALIZATION
+
+Charts should be:
+
+simple
+
+clean
+
+accessible
+
+responsive
+
+meaningful
+
+Use:
+
+line charts
+
+bar charts
+
+progress rings
+
+heatmaps
+
+sparklines
+
+Only where useful.
+
+Avoid chart junk.
+
+---
+
+# 79. DESIGN SYSTEM COMPONENTS
+
+Create reusable components for:
+
+Button
+
+IconButton
+
+Input
+
+Select
+
+Textarea
+
+Checkbox
+
+Switch
+
+Tabs
+
+SegmentedControl
+
+Card
+
+Metric
+
+Badge
+
+Progress
+
+Chart
+
+Toast
+
+Modal
+
+BottomSheet
+
+Dropdown
+
+CommandPalette
+
+DatePicker
+
+EmptyState
+
+Skeleton
+
+Tooltip
+
+DataTable
+
+ListItem
+
+Navigation
+
+Header
+
+StatCard
+
+---
+
+# 80. BUTTON HIERARCHY
+
+Primary:
+
+strong accent
+
+Secondary:
+
+neutral surface
+
+Tertiary:
+
+text button
+
+Danger:
+
+red only when destructive
+
+Never make every button primary.
+
+---
+
+# 81. CARD SYSTEM
+
+Not every section should be a card.
+
+Use:
+
+cards
+
+sections
+
+dividers
+
+lists
+
+open layouts
+
+content blocks
+
+Create hierarchy through composition.
+
+---
+
+# 82. BORDER RADIUS
+
+Use a consistent scale.
+
+Small:
+
+8px
+
+Medium:
+
+12px
+
+Large:
+
+16px
+
+Do not make every element excessively rounded.
+
+---
+
+# 83. SHADOWS
+
+Light mode:
+
+subtle shadows only.
+
+Dark mode:
+
+mostly borders and contrast.
+
+Avoid floating everything.
+
+---
+
+# 84. SEARCH / COMMAND UX
+
+Keyboard:
+
+Ctrl/Cmd + K
+
+Mobile:
+
+Search button
+
+Results should be grouped.
+
+Example:
+
+SUBJECTS
+
+Database Management Systems
+
+SYLLABUS
+
+Normalization
+
+TASKS
+
+Finish DBMS Unit 3
+
+---
+
+# 85. QA — FUNCTIONAL TESTING
+
+Test every route.
+
+Dashboard
+
+Subjects
+
+Syllabus
+
+Study
+
+Revision
+
+Attendance
+
+Marks
+
+Assignments
+
+Exams
+
+ER
+
+Notes
+
+Analytics
+
+Calendar
+
+Timetable
+
+Todo
+
+Settings
+
+AI Tutor
+
+Report
+
+Search
+
+Export
+
+Import
+
+---
+
+# 86. MARKS TEST PLAN
+
+Test:
+
+Add assessment
+
+Edit assessment
+
+Delete assessment
+
+Switch subject
+
+Reload
+
+Persistence
+
+Invalid marks
+
+Maximum marks
+
+Negative marks
+
+Zero marks
+
+Multiple assessments
+
+Subject with no assessments
+
+Subject with many assessments
+
+Projection
+
+Target simulator
+
+---
+
+# 87. REPORT TEST PLAN
+
+Test:
+
+Generate report
+
+Preview
+
+Download
+
+Share
+
+Print
+
+Android
+
+iOS browser if applicable
+
+Desktop Chrome
+
+Desktop Edge
+
+PWA
+
+Electron
+
+Offline
+
+No-data state
+
+Large dataset
+
+---
+
+# 88. RESPONSIVE TESTING
+
+Test:
+
+320px
+
+360px
+
+375px
+
+390px
+
+414px
+
+430px
+
+768px
+
+1024px
+
+1280px
+
+1440px
+
+1920px
+
+Check:
+
+No overflow
+
+No clipping
+
+No hidden buttons
+
+No broken dialogs
+
+No unreadable charts
+
+No inaccessible controls
+
+---
+
+# 89. THEME TESTING
+
+Test every major screen in:
+
+Light
+
+Dark
+
+System
+
+Verify:
+
+contrast
+
+icons
+
+charts
+
+badges
+
+inputs
+
+modals
+
+navigation
+
+empty states
+
+errors
+
+reports
+
+---
+
+# 90. OFFLINE TESTING
+
+Disable internet.
+
+Test:
+
+startup
+
+navigation
+
+data entry
+
+marks
+
+attendance
+
+subjects
+
+tasks
+
+notes
+
+revision
+
+analytics
+
+export
+
+report
+
+PWA reload
+
+Everything possible should continue working.
+
+---
+
+# 91. DATA MIGRATION TEST
+
+Take a real existing Delulu data set.
+
+Upgrade to Delulu 4.
+
+Verify:
+
+subjects preserved
+
+marks preserved
+
+attendance preserved
+
+tasks preserved
+
+syllabus preserved
+
+notes preserved
+
+revision preserved
+
+timetable preserved
+
+official CGPA preserved
+
+settings preserved
+
+No duplicates.
+
+No data loss.
+
+---
+
+# 92. CODE QUALITY
+
+Do not create giant duplicated functions.
+
+Separate:
+
+state
+
+rendering
+
+business logic
+
+utilities
+
+calculations
+
+storage
+
+UI helpers
+
+Where possible.
+
+If keeping a single-file architecture:
+
+organize it into clearly labelled modules/sections.
+
+Do not blindly introduce a framework.
+
+Architecture must match the project's offline/static philosophy.
+
+---
+
+# 93. SECURITY
+
+Do not:
+
+* expose API keys
+* send local data unexpectedly
+* introduce unnecessary analytics
+* store secrets in localStorage
+* use unsafe HTML injection
+* trust imported data blindly
+
+Sanitize user-generated content where required.
+
+---
+
+# 94. NO FAKE FEATURES
+
+Do not create buttons for functionality that does not work.
+
+Every visible action must work.
+
+No:
+
+"Coming soon"
+
+unless intentionally designed.
+
+No fake AI.
+
+No fake analytics.
+
+No fake PDF download.
+
+No fake synchronization.
+
+---
+
+# 95. PRODUCT FEEL
+
+When the user opens Delulu, the reaction should be:
+
+"Whoa, this looks like a real product."
+
+Not:
+
+"This looks like an HTML student project."
+
+The interface should communicate maturity through:
+
+* spacing
+* typography
+* hierarchy
+* consistency
+* interaction quality
+* responsiveness
+* useful data visualization
+
+Not through excessive decoration.
+
+---
+
+# 96. IMPLEMENTATION STRATEGY
+
+Do this in phases.
+
+## PHASE 1 — AUDIT
+
+Inspect everything.
+
+Create:
+
+ARCHITECTURE_REPORT.md
+
+DOCUMENT:
+
+* routes
+* features
+* data model
+* migrations
+* components
+* bugs
+* UX issues
+* mobile issues
+* performance issues
+
+Do not modify functionality yet.
+
+---
+
+## PHASE 2 — DESIGN SYSTEM
+
+Implement:
+
+tokens
+
+theme
+
+typography
+
+icons
+
+buttons
+
+inputs
+
+cards
+
+navigation
+
+modals
+
+sheets
+
+toasts
+
+tabs
+
+progress
+
+badges
+
+charts
+
+---
+
+## PHASE 3 — APPLICATION SHELL
+
+Build:
+
+desktop sidebar
+
+mobile bottom navigation
+
+header
+
+command palette
+
+theme system
+
+responsive layout
+
+---
+
+## PHASE 4 — CORE DASHBOARD
+
+Implement:
+
+Semester Health
+
+Today's Focus
+
+Academic Pulse
+
+Quick Actions
+
+Upcoming
+
+Next Class
+
+---
+
+## PHASE 5 — ACADEMICS
+
+Implement/refine:
+
+Subjects
+
+Subject Workspace
+
+Syllabus
+
+Marks & CA
+
+Attendance
+
+Exams
+
+Assignments
+
+---
+
+## PHASE 6 — STUDY
+
+Implement/refine:
+
+Focus
+
+Revision
+
+Notes
+
+---
+
+## PHASE 7 — PLANNING
+
+Implement/refine:
+
+Calendar
+
+Timetable
+
+Todo
+
+---
+
+## PHASE 8 — INSIGHTS
+
+Implement/refine:
+
+Analytics
+
+Academic Health
+
+ER Command Center
+
+---
+
+## PHASE 9 — REPORT
+
+Implement:
+
+Report generation
+
+Preview
+
+PDF
+
+Download
+
+Share
+
+Print fallback
+
+Mobile compatibility
+
+---
+
+## PHASE 10 — POLISH
+
+Fix:
+
+spacing
+
+typography
+
+animations
+
+empty states
+
+errors
+
+loading
+
+accessibility
+
+responsive behavior
+
+---
+
+# 97. BEFORE/AFTER RULE
+
+Do not optimize only for visual screenshots.
+
+Every redesign must improve:
+
+UX
+
+speed
+
+clarity
+
+accessibility
+
+mobile usability
+
+functionality
+
+maintainability
+
+---
+
+# 98. IMPORTANT EXISTING BUGS
+
+Treat these as P0 issues.
+
+## BUG 1 — MARKS / CA
+
+Users cannot reliably update Marks and CA.
+
+Investigate the current state architecture.
+
+Do not patch the symptom.
+
+Fix the root cause.
+
+Ensure:
+
+add
+
+edit
+
+delete
+
+subject switching
+
+persistence
+
+projection
+
+all work.
+
+---
+
+## BUG 2 — PRINT REPORT MOBILE
+
+Print Report does not work reliably on mobile.
+
+Replace the print-first flow with:
+
+Generate
+
+Preview
+
+Download PDF
+
+Share
+
+Print
+
+Ensure Android compatibility.
+
+---
+
+# 99. QUALITY GATE
+
+Before declaring Delulu 4.0 complete:
+
+Ask:
+
+Does it look professional?
+
+Does it feel like SaaS?
+
+Does light mode look intentionally designed?
+
+Does dark mode look intentionally designed?
+
+Does mobile feel native?
+
+Can a student understand academic health within 5 seconds?
+
+Can they find their next action within 5 seconds?
+
+Can they add a CA in under 10 seconds?
+
+Can they update marks in under 10 seconds?
+
+Can they generate a report on Android?
+
+Can they download/share it?
+
+Does offline mode work?
+
+Does old data survive migration?
+
+Are there any dead buttons?
+
+Are there any fake numbers?
+
+Are there any layout overflows?
+
+Are there any inaccessible controls?
+
+Are there any broken states?
+
+If YES to any negative answer:
+
+FIX IT BEFORE FINISHING.
+
+---
+
+# 100. FINAL PRINCIPLE
+
+Do not build:
+
+"Delulu with a new skin."
+
+Build:
+
+# DELULU 4.0
+
+## A serious academic operating system with a playful identity.
+
+The product should feel like something a university student could use every day for three years.
+
+It must be:
+
+Fast.
+
+Offline.
+
+Private.
+
+Beautiful.
+
+Useful.
+
+Reliable.
+
+Responsive.
+
+Professional.
+
+Distinctive.
+
+And most importantly:
+
+# It should help the student decide what to do next.
+
+Do not stop after making the UI look good.
+
+Make the entire product experience better.
+
+[1]: https://github.com/dharma-labs/delulu "GitHub - dharma-labs/delulu: Delulu — open-source academic tracker (timetable, subjects, syllabus, revision, attendance, marks, to-dos, analytics). Offline-first PWA + Electron desktop + Android APK. · GitHub"
+[2]: https://rondesignlab.com/ "Award-Winning UX/UI & Product Design | Rondesignlab"
