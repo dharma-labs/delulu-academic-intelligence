@@ -634,3 +634,136 @@ button:focus-visible {
 .timer-completion-pulse {
   animation: timer-completion-pulse 0.5s ease-in-out;
 }
+
+/* ── Progress bar entrance animation ── */
+@keyframes progress-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.progress-animate > div {
+  transform-origin: left;
+  animation: progress-fill 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Card hover lift (enhanced) ── */
+.card-hover-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -6px rgba(0,0,0,0.04), 0 0 0 1px rgba(var(--primary-rgb), 0.06);
+}
+.dark .card-hover-lift:hover {
+  box-shadow: 0 8px 25px -5px rgba(0,0,0,0.4), 0 4px 10px -6px rgba(0,0,0,0.3), 0 0 0 1px rgba(var(--primary-rgb), 0.08);
+}
+
+/* ── Metric card accent top border ── */
+.metric-card-accent-top {
+  @apply relative overflow-hidden;
+}
+.metric-card-accent-top::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--delulu-purple));
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+.metric-card-accent-top:hover::before {
+  opacity: 1;
+}
+
+/* ── Label contrast improvement ── */
+.metric-label {
+  color: #64748B !important;
+}
+.dark .metric-label {
+  color: #94A3B8 !important;
+}
+.metric-context {
+  color: #64748B !important;
+}
+.dark .metric-context {
+  color: #94A3B8 !important;
+}
+
+/* ── Subtle scale press on mobile ── */
+@media (max-width: 767px) {
+  .card-interactive:active {
+    transform: scale(0.98);
+  }
+  .metric-card:active {
+    transform: scale(0.99);
+  }
+}
+
+/* ── Streak celebration glow ── */
+@keyframes streak-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(249, 115, 22, 0.15); }
+}
+.streak-glow {
+  animation: streak-glow 3s ease-in-out infinite;
+}
+.dark .streak-glow {
+  animation: streak-glow 3s ease-in-out infinite;
+}
+
+/* ── Number count-up shimmer ── */
+@keyframes count-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.count-shimmer {
+  background: linear-gradient(90deg, var(--foreground) 40%, var(--primary) 50%, var(--foreground) 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: count-shimmer 2s ease-in-out 1;
+}
+
+/* ── Smooth theme transition for cards and surfaces ── */
+.metric-card, .card-interactive, [data-slot="card"] {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* ── FAB content bottom padding ── */
+@media (max-width: 767px) {
+  .fab-content-pad {
+    padding-bottom: 88px;
+  }
+}
+
+/* ── Desktop metric card hover lift ── */
+@media (min-width: 768px) {
+  .metric-card {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .metric-card:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* ── Empty state chart placeholder ── */
+.chart-empty-cell {
+  @apply bg-secondary/50 rounded-sm;
+  min-height: 4px;
+}
+
+/* ── Sidebar nav item transition ── */
+.sidebar-nav-item {
+  transition: all 0.15s ease;
+}
+
+/* ── Button ripple effect ── */
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.4; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+/* ── Smooth scrollbar for main content ── */
+main {
+  scroll-behavior: smooth;
+}

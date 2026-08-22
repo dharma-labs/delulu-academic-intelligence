@@ -55,6 +55,7 @@ import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
 import { Onboarding } from '@/components/onboarding';
+import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { ToastProvider } from '@/components/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -705,15 +706,16 @@ function DesktopTopBar() {
 
 // ─── Mobile FAB ──────────────────────────────────────────────────
 
-const FAB_ACTIONS: { label: string; icon: LucideIcon; view: ViewId; color: string }[] = [
+const FAB_ACTIONS: ({ label: string; icon: LucideIcon; view?: ViewId; color: string; customAction?: string })[] = [
+  { label: 'Quick Note', icon: StickyNote, color: 'bg-amber-500 dark:bg-amber-400', customAction: 'quick-note' },
   { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
   { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
-  { label: 'New Note', icon: StickyNote, view: 'notes', color: 'bg-emerald-500 dark:bg-emerald-400' },
   { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
 ];
 
 function MobileFAB() {
   const [open, setOpen] = useState(false);
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
   const navigate = useStore((s) => s.navigate);
   const currentView = useStore((s) => s.currentView);
   const fabRef = useRef<HTMLDivElement>(null);
@@ -749,9 +751,13 @@ function MobileFAB() {
     };
   }, [open]);
 
-  const handleAction = (view: ViewId) => {
+  const handleAction = (action: typeof FAB_ACTIONS[number]) => {
     setOpen(false);
-    navigate(view);
+    if (action.customAction === 'quick-note') {
+      setQuickNoteOpen(true);
+    } else if (action.view) {
+      navigate(action.view);
+    }
   };
 
   return (
@@ -789,7 +795,7 @@ function MobileFAB() {
                     {action.label}
                   </span>
                   <button
-                    onClick={() => handleAction(action.view)}
+                    onClick={() => handleAction(action)}
                     className={cn(
                       'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
                       action.color,
@@ -817,6 +823,8 @@ function MobileFAB() {
       >
         <Plus className="size-5" />
       </motion.button>
+
+      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
     </div>
   );
 }
@@ -836,10 +844,23 @@ export function AppShell() {
   }, [setCommandOpen]);
 
   useEffect(() => {
+    const NUMBER_KEY_VIEWS: Record<string, ViewId> = {
+      '1': 'dashboard',
+      '2': 'subjects',
+      '3': 'marks',
+      '4': 'attendance',
+      '5': 'exams',
+      '6': 'focus',
+      '7': 'revision',
+      '8': 'notes',
+      '9': 'tasks',
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't capture when typing in inputs
       const tag = (e.target as HTMLElement)?.tagName;
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+      const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -849,9 +870,28 @@ export function AppShell() {
         e.preventDefault();
         setTheme(theme === 'dark' ? 'light' : 'dark');
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        useStore.getState().navigate('settings');
+      }
       if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
         e.preventDefault();
         setShortcutsOpen((prev) => !prev);
+      }
+      // Number keys 1-9 for view navigation (no modifiers, not in input)
+      if (!isInput && !hasModifier && !e.shiftKey && NUMBER_KEY_VIEWS[e.key]) {
+        e.preventDefault();
+        useStore.getState().navigate(NUMBER_KEY_VIEWS[e.key]);
+      }
+      // D key for theme toggle (no modifiers, not in input)
+      if (!isInput && !hasModifier && e.key === 'd') {
+        e.preventDefault();
+        setTheme(theme === 'dark' ? 'light' : 'dark');
+      }
+      // N key for context-sensitive new action (no modifiers, not in input)
+      if (!isInput && !hasModifier && e.key === 'n') {
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
       }
     };
     document.addEventListener('keydown', handleKeyDown);

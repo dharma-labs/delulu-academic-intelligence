@@ -13,6 +13,7 @@ import {
   Award,
   BookOpen,
   Trash2,
+  Download,
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
@@ -55,6 +56,7 @@ import {
   CompactProgress,
   SectionHeader,
 } from '@/components/shared';
+import { exportMarksCSV } from '@/lib/csv-export';
 import type { Assessment } from '@/lib/types';
 
 // -- Animation helpers ------------------------------------------------
@@ -184,10 +186,22 @@ export default function MarksView() {
         title='Marks & CA'
         subtitle='Track your academic performance'
         actions={
-          <Button onClick={openAddDialog} className='w-full sm:w-auto'>
-            <Plus className='h-4 w-4 mr-2' />
-            Add Assessment
-          </Button>
+          <div className='flex items-center gap-2 w-full sm:w-auto'>
+            <Button
+              variant='outline'
+              size='sm'
+              className='text-xs'
+              onClick={() => exportMarksCSV(assessments, subjects)}
+              disabled={assessments.length === 0}
+            >
+              <Download className='h-3.5 w-3.5 mr-1.5' />
+              Export CSV
+            </Button>
+            <Button onClick={openAddDialog} className='flex-1 sm:flex-none'>
+              <Plus className='h-4 w-4 mr-2' />
+              Add Assessment
+            </Button>
+          </div>
         }
       />
 

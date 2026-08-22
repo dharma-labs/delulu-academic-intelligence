@@ -1,0 +1,1188 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+     4→     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→     5→import {
+     6→     6→  Play,
+     7→     7→  Pause,
+     8→     8→  Square,
+     9→     9→  Clock,
+    10→    10→  CheckCircle2,
+    11→    11→  RotateCcw,
+    12→    12→  BookOpen,
+    13→    13→  Flame,
+    14→    14→} from 'lucide-react';
+    15→    15→
+    16→    16→import { useStore, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+    17→    17→import { useToast } from '@/components/toast';
+    18→    18→import { cn } from '@/lib/utils';
+    19→    19→
+    20→    20→import { Button } from '@/components/ui/button';
+    21→    21→import { Input } from '@/components/ui/input';
+    22→    22→import { Label } from '@/components/ui/label';
+    23→    23→import { Textarea } from '@/components/ui/textarea';
+    24→    24→import {
+    25→    25→  Select,
+    26→    26→  SelectContent,
+    27→    27→  SelectItem,
+    28→    28→  SelectTrigger,
+    29→    29→  SelectValue,
+    30→    30→} from '@/components/ui/select';
+    31→    31→import {
+    32→    32→  AlertDialog,
+    33→    33→  AlertDialogAction,
+    34→    34→  AlertDialogCancel,
+    35→    35→  AlertDialogContent,
+    36→    36→  AlertDialogDescription,
+    37→    37→  AlertDialogFooter,
+    38→    38→  AlertDialogHeader,
+    39→    39→  AlertDialogTitle,
+    40→    40→} from '@/components/ui/alert-dialog';
+    41→    41→import {
+    42→    42→  PageHeader,
+    43→    43→  SectionHeader,
+    44→    44→  EmptyState,
+    45→    45→} from '@/components/shared';
+    46→    46→
+    47→    47→// --- Constants ---
+    48→    48→const MOTIVATIONAL_MESSAGES = [
+    49→    49→  'Stay focused...',
+    50→    50→  'You are making progress...',
+    51→    51→  'Deep work leads to mastery...',
+    52→    52→  'One step at a time...',
+    53→    53→  'Your future self will thank you...',
+    54→    54→  'Consistency beats intensity...',
+    55→    55→  'Keep going, you have got this...',
+    56→    56→  'Focus is a superpower...',
+    57→    57→];
+    58→    58→
+    59→    59→const TIMER_RADIUS = 130;
+    60→    60→const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
+    61→    61→
+    62→    62→const MOBILE_TIMER_RADIUS = 130;
+    63→    63→const MOBILE_TIMER_CIRCUMFERENCE = 2 * Math.PI * MOBILE_TIMER_RADIUS;
+    64→    64→
+    65→    65→type Phase = 'setup' | 'active' | 'completion';
+    66→    66→
+    67→    67→// --- Helpers ---
+    68→    68→function formatElapsed(totalSeconds: number): string {
+    69→    69→  const m = Math.floor(totalSeconds / 60);
+    70→    70→  const s = totalSeconds % 60;
+    71→    71→  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    72→    72→}
+    73→    73→
+    74→    74→function formatDuration(totalSeconds: number): string {
+    75→    75→  if (totalSeconds < 60) return `${totalSeconds}s`;
+    76→    76→  const m = Math.floor(totalSeconds / 60);
+    77→    77→  const s = totalSeconds % 60;
+    78→    78→  if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    79→    79→  const h = Math.floor(m / 60);
+    80→    80→  const rm = m % 60;
+    81→    81→  return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
+    82→    82→}
+    83→    83→
+    84→    84→function todayDateStr(): string {
+    85→    85→  return new Date().toISOString().split('T')[0];
+    86→    86→}
+    87→    87→
+    88→    88→// --- Component ---
+    89→    89→export default function FocusView() {
+    90→    90→  const {
+    91→    91→    subjects,
+    92→    92→    syllabusUnits,
+    93→    93→    studySessions,
+    94→    94→    focusActive,
+    95→    95→    focusSubjectId,
+    96→    96→    focusElapsed,
+    97→    97→    startFocus,
+    98→    98→    stopFocus,
+    99→    99→    addStudySession,
+   100→   100→  } = useStore();
+   101→   101→
+   102→   102→  // Local state
+   103→   103→  const [phase, setPhase] = useState<Phase>(() => (focusActive ? 'active' : 'setup'));
+   104→   104→  const [selectedSubjectId, setSelectedSubjectId] = useState(focusSubjectId || '');
+   105→   105→  const [selectedTopicId, setSelectedTopicId] = useState('');
+   106→   106→  const [goalMinutes, setGoalMinutes] = useState('');
+   107→   107→  const [isPaused, setIsPaused] = useState(false);
+   108→   108→  const [completionNotes, setCompletionNotes] = useState('');
+   109→   109→  const [completionDuration, setCompletionDuration] = useState(0);
+   110→   110→  const [completionTopicName, setCompletionTopicName] = useState('');
+   111→   111→  const [showStopDialog, setShowStopDialog] = useState(false);
+   112→   112→  const [messageIndex, setMessageIndex] = useState(0);
+   113→   113→
+   114→   114→  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   115→   115→  const elapsedRef = useRef(0);
+   116→   116→  const phaseRef = useRef(phase);
+   117→   117→  useEffect(() => { phaseRef.current = phase; }, [phase]);
+   118→   118→
+   119→   119→  const [completedNaturally, setCompletedNaturally] = useState(false);
+   120→   120→  const [timerPulse, setTimerPulse] = useState(false);
+   121→   121→  const completionToastShownRef = useRef(false);
+   122→   122→  const naturalCompletionTriggeredRef = useRef(false);
+   123→   123→
+   124→   124→  const { toast } = useToast();
+   125→   125→
+   126→   126→  // --- Derived data ---
+   127→   127→  const activeSubjects = useMemo(
+   128→   128→    () => subjects.filter((s) => !s.archived),
+   129→   129→    [subjects]
+   130→   130→  );
+   131→   131→
+   132→   132→  const topicsForSubject = useMemo(() => {
+   133→   133→    if (!selectedSubjectId) return [];
+   134→   134→    const units = syllabusUnits.filter((u) => u.subjectId === selectedSubjectId);
+   135→   135→    return units
+   136→   136→      .sort((a, b) => a.order - b.order)
+   137→   137→      .flatMap((u) =>
+   138→   138→        u.topics
+   139→   139→          .sort((a, b) => a.order - b.order)
+   140→   140→          .map((t) => ({ id: t.id, name: t.name }))
+   141→   141→      );
+   142→   142→  }, [selectedSubjectId, syllabusUnits]);
+   143→   143→
+   144→   144→  const selectedSubject = useMemo(
+   145→   145→    () => subjects.find((s) => s.id === selectedSubjectId),
+   146→   146→    [subjects, selectedSubjectId]
+   147→   147→  );
+   148→   148→
+   149→   149→  const selectedTopic = useMemo(
+   150→   150→    () => topicsForSubject.find((t) => t.id === selectedTopicId),
+   151→   151→    [topicsForSubject, selectedTopicId]
+   152→   152→  );
+   153→   153→
+   154→   154→  const todaySessions = useMemo(() => {
+   155→   155→    const today = todayDateStr();
+   156→   156→    return studySessions
+   157→   157→      .filter((s) => s.date === today)
+   158→   158→      .sort((a, b) => b.id.localeCompare(a.id));
+   159→   159→  }, [studySessions]);
+   160→   160→
+   161→   161→  const todayTotalMinutes = useMemo(
+   162→   162→    () => Math.round(todaySessions.reduce((acc, s) => acc + s.duration, 0) / 60),
+   163→   163→    [todaySessions]
+   164→   164→  );
+   165→   165→
+   166→   166→  const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   167→   167→  const studyTimeTodaySeconds = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   168→   168→  const studyTimeTodayFormatted = useMemo(() => formatDuration(studyTimeTodaySeconds), [studyTimeTodaySeconds]);
+   169→   169→
+   170→   170→  // --- Timer logic ---
+   171→   171→  useEffect(() => {
+   172→   172→    if (focusActive && !isPaused) {
+   173→   173→      intervalRef.current = setInterval(() => {
+   174→   174→        elapsedRef.current += 1;
+   175→   175→        useStore.setState({ focusElapsed: elapsedRef.current });
+   176→   176→
+   177→   177→        // Check for goal completion
+   178→   178→        const goalSecs = goalMinutes ? parseInt(goalMinutes) * 60 : 0;
+   179→   179→        if (goalSecs > 0 && elapsedRef.current >= goalSecs && !naturalCompletionTriggeredRef.current) {
+   180→   180→          naturalCompletionTriggeredRef.current = true;
+   181→   181→          if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+   182→   182→          const finalDuration = elapsedRef.current;
+   183→   183→          const topicName = selectedTopic?.name || '';
+   184→   184→          // Defer UI state updates to next tick
+   185→   185→          setTimeout(() => {
+   186→   186→            setTimerPulse(true);
+   187→   187→            setTimeout(() => {
+   188→   188→              if (phaseRef.current !== 'active') return;
+   189→   189→              stopFocus();
+   190→   190→              setCompletionDuration(finalDuration);
+   191→   191→              setCompletionTopicName(topicName);
+   192→   192→              setCompletionNotes('');
+   193→   193→              setCompletedNaturally(true);
+   194→   194→              setPhase('completion');
+   195→   195→              setTimerPulse(false);
+   196→   196→            }, 500);
+   197→   197→          }, 0);
+   198→   198→        }
+   199→   199→      }, 1000);
+   200→   200→    }
+   201→   201→    return () => {
+   202→   202→      if (intervalRef.current) clearInterval(intervalRef.current);
+   203→   203→    };
+   204→   204→  }, [focusActive, isPaused, goalMinutes, stopFocus, selectedTopic]);
+   205→   205→
+   206→   206→  // Motivational message cycling
+   207→   207→  useEffect(() => {
+   208→   208→    if (!focusActive) return;
+   209→   209→    const interval = setInterval(() => {
+   210→   210→      setMessageIndex((i) => (i + 1) % MOTIVATIONAL_MESSAGES.length);
+   211→   211→    }, 4000);
+   212→   212→    return () => clearInterval(interval);
+   213→   213→  }, [focusActive]);
+   214→   214→
+   215→   215→  // Progress ring calculation
+   216→   216→  const goalSeconds = goalMinutes ? parseInt(goalMinutes) * 60 : 0;
+   217→   217→  const progress = goalSeconds > 0
+   218→   218→    ? Math.min(focusElapsed / goalSeconds, 1)
+   219→   219→    : 0;
+   220→   220→  const strokeDashoffset = TIMER_CIRCUMFERENCE * (1 - progress);
+   221→   221→  const mobileStrokeDashoffset = MOBILE_TIMER_CIRCUMFERENCE * (1 - progress);
+   222→   222→
+   223→   223→  // Toast notification on completion
+   224→   224→  useEffect(() => {
+   225→   225→    if (phase !== 'completion' || completionToastShownRef.current) return;
+   226→   226→    completionToastShownRef.current = true;
+   227→   227→
+   228→   228→    if (completedNaturally) {
+   229→   229→      const parts = [selectedSubject?.name, completionTopicName].filter(Boolean);
+   230→   230→      toast({
+   231→   231→        variant: 'success',
+   232→   232→        title: 'Focus session complete!',
+   233→   233→        description: parts.length > 0
+   234→   234→          ? `${parts.join(' · ')} · ${formatDuration(completionDuration)}`
+   235→   235→          : formatDuration(completionDuration),
+   236→   236→      });
+   237→   237→    } else {
+   238→   238→      const goalMins = goalMinutes ? parseInt(goalMinutes) : 0;
+   239→   239→      toast({
+   240→   240→        variant: 'default',
+   241→   241→        title: 'Session ended early',
+   242→   242→        description: goalMins > 0
+   243→   243→          ? `Studied ${formatDuration(completionDuration)} of ${goalMins}m goal`
+   244→   244→          : `Studied for ${formatDuration(completionDuration)}`,
+   245→   245→      });
+   246→   246→    }
+   247→   247→  }, [phase, completedNaturally, selectedSubject, completionTopicName, completionDuration, goalMinutes, toast]);
+   248→   248→
+   249→   249→  // --- Actions ---
+   250→   250→  const handleStart = useCallback(() => {
+   251→   251→    if (!selectedSubjectId) return;
+   252→   252→    const topicName = selectedTopic?.name;
+   253→   253→    startFocus(selectedSubjectId, selectedTopicId || undefined, topicName);
+   254→   254→    elapsedRef.current = 0;
+   255→   255→    setIsPaused(false);
+   256→   256→    setPhase('active');
+   257→   257→    setCompletedNaturally(false);
+   258→   258→    setTimerPulse(false);
+   259→   259→    completionToastShownRef.current = false;
+   260→   260→    naturalCompletionTriggeredRef.current = false;
+   261→   261→  }, [selectedSubjectId, selectedTopicId, selectedTopic, startFocus]);
+   262→   262→
+   263→   263→  const handlePauseResume = useCallback(() => {
+   264→   264→    setIsPaused((p) => !p);
+   265→   265→  }, []);
+   266→   266→
+   267→   267→  const handleStopClick = useCallback(() => {
+   268→   268→    setShowStopDialog(true);
+   269→   269→  }, []);
+   270→   270→
+   271→   271→  const handleConfirmStop = useCallback(() => {
+   272→   272→    setShowStopDialog(false);
+   273→   273→    if (naturalCompletionTriggeredRef.current) return;
+   274→   274→    const duration = elapsedRef.current;
+   275→   275→    stopFocus();
+   276→   276→    setCompletionDuration(duration);
+   277→   277→    setCompletionTopicName(selectedTopic?.name || '');
+   278→   278→    setCompletionNotes('');
+   279→   279→    setCompletedNaturally(false);
+   280→   280→    setPhase('completion');
+   281→   281→  }, [stopFocus, selectedTopic]);
+   282→   282→
+   283→   283→  const handleSaveCompletion = useCallback(() => {
+   284→   284→    addStudySession({
+   285→   285→      subjectId: selectedSubjectId,
+   286→   286→      topicId: selectedTopicId || undefined,
+   287→   287→      topicName: selectedTopic?.name,
+   288→   288→      duration: completionDuration,
+   289→   289→      date: todayDateStr(),
+   290→   290→      type: 'focus',
+   291→   291→      notes: completionNotes || undefined,
+   292→   292→    });
+   293→   293→    setCompletedNaturally(false);
+   294→   294→    completionToastShownRef.current = false;
+   295→   295→    naturalCompletionTriggeredRef.current = false;
+   296→   296→    setPhase('setup');
+   297→   297→    setSelectedSubjectId('');
+   298→   298→    setSelectedTopicId('');
+   299→   299→    setGoalMinutes('');
+   300→   300→    setCompletionNotes('');
+   301→   301→    setIsPaused(false);
+   302→   302→  }, [
+   303→   303→    selectedSubjectId, selectedTopicId, selectedTopic,
+   304→   304→    completionDuration, completionNotes, addStudySession,
+   305→   305→  ]);
+   306→   306→
+   307→   307→  const handleAnotherSession = useCallback(() => {
+   308→   308→    setCompletedNaturally(false);
+   309→   309→    completionToastShownRef.current = false;
+   310→   310→    naturalCompletionTriggeredRef.current = false;
+   311→   311→    setPhase('setup');
+   312→   312→    setSelectedSubjectId('');
+   313→   313→    setSelectedTopicId('');
+   314→   314→    setGoalMinutes('');
+   315→   315→    setCompletionNotes('');
+   316→   316→    setIsPaused(false);
+   317→   317→  }, []);
+   318→   318→
+   319→   319→  // Keyboard shortcuts during active phase
+   320→   320→  useEffect(() => {
+   321→   321→    if (phase !== 'active') return;
+   322→   322→    const handleKeyDown = (e: KeyboardEvent) => {
+   323→   323→      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+   324→   324→      if (e.code === 'Space') {
+   325→   325→        e.preventDefault();
+   326→   326→        handlePauseResume();
+   327→   327→      }
+   328→   328→      if (e.code === 'Escape') {
+   329→   329→        e.preventDefault();
+   330→   330→        handleStopClick();
+   331→   331→      }
+   332→   332→    };
+   333→   333→    window.addEventListener('keydown', handleKeyDown);
+   334→   334→    return () => window.removeEventListener('keydown', handleKeyDown);
+   335→   335→  }, [phase, handlePauseResume, handleStopClick]);
+   336→   336→
+   337→   337→  // --- Render ---
+   338→   338→  return (
+   339→   339→    <div className='relative min-h-full'>
+   340→   340→      {/* ═══════════════════════════════════════════════════════════════
+   341→   341→          MOBILE LAYOUT
+   342→   342→          ═══════════════════════════════════════════════════════════════ */}
+   343→   343→      <div className='md:hidden'>
+   344→   344→        <AnimatePresence mode='wait'>
+   345→   345→          {/* --- Mobile: Setup Phase --- */}
+   346→   346→          {phase === 'setup' && !focusActive && (
+   347→   347→            <motion.div
+   348→   348→              key='mobile-setup'
+   349→   349→              initial={{ opacity: 0, y: 8 }}
+   350→   350→              animate={{ opacity: 1, y: 0 }}
+   351→   351→              exit={{ opacity: 0, y: -8 }}
+   352→   352→              transition={{ duration: 0.2 }}
+   353→   353→              className='flex flex-col gap-4'
+   354→   354→            >
+   355→   355→              {/* Compact inline session start */}
+   356→   356→              <div className='flex flex-wrap gap-2 items-end'>
+   357→   357→                <div className='flex-1 min-w-[120px]'>
+   358→   358→                  <span className='section-label text-[10px]'>Subject</span>
+   359→   359→                  <Select
+   360→   360→                    value={selectedSubjectId}
+   361→   361→                    onValueChange={(v) => {
+   362→   362→                      setSelectedSubjectId(v);
+   363→   363→                      setSelectedTopicId('');
+   364→   364→                    }}
+   365→   365→                  >
+   366→   366→                    <SelectTrigger className='h-8 text-xs'>
+   367→   367→                      <SelectValue placeholder='Subject' />
+   368→   368→                    </SelectTrigger>
+   369→   369→                    <SelectContent>
+   370→   370→                      {activeSubjects.map((s) => (
+   371→   371→                        <SelectItem key={s.id} value={s.id}>
+   372→   372→                          <span className='flex items-center gap-1.5'>
+   373→   373→                            <span className='status-dot' style={{ backgroundColor: s.color }} />
+   374→   374→                            {s.name}
+   375→   375→                          </span>
+   376→   376→                        </SelectItem>
+   377→   377→                      ))}
+   378→   378→                    </SelectContent>
+   379→   379→                  </Select>
+   380→   380→                </div>
+   381→   381→                {selectedSubjectId && topicsForSubject.length > 0 && (
+   382→   382→                  <div className='flex-1 min-w-[100px]'>
+   383→   383→                    <span className='section-label text-[10px]'>Topic</span>
+   384→   384→                    <Select value={selectedTopicId} onValueChange={setSelectedTopicId}>
+   385→   385→                      <SelectTrigger className='h-8 text-xs'>
+   386→   386→                        <SelectValue placeholder='Topic' />
+   387→   387→                      </SelectTrigger>
+   388→   388→                      <SelectContent>
+   389→   389→                        {topicsForSubject.map((t) => (
+   390→   390→                          <SelectItem key={t.id} value={t.id}>
+   391→   391→                            {t.name}
+   392→   392→                          </SelectItem>
+   393→   393→                        ))}
+   394→   394→                      </SelectContent>
+   395→   395→                    </Select>
+   396→   396→                  </div>
+   397→   397→                )}
+   398→   398→                <div className='w-[60px]'>
+   399→   399→                  <span className='section-label text-[10px]'>Min</span>
+   400→   400→                  <Input
+   401→   401→                    type='number'
+   402→   402→                    min='1'
+   403→   403→                    max='480'
+   404→   404→                    placeholder='25'
+   405→   405→                    value={goalMinutes}
+   406→   406→                    onChange={(e) => setGoalMinutes(e.target.value)}
+   407→   407→                    className='h-8 text-xs'
+   408→   408→                  />
+   409→   409→                </div>
+   410→   410→                <Button
+   411→   411→                  size='sm'
+   412→   412→                  disabled={!selectedSubjectId}
+   413→   413→                  onClick={handleStart}
+   414→   414→                  className='h-8 px-3'
+   415→   415→                >
+   416→   416→                  <Play className='mr-1 h-3 w-3' />
+   417→   417→                  Start
+   418→   418→                </Button>
+   419→   419→              </div>
+   420→   420→
+   421→   421→              {/* Today's Sessions — compact horizontal strip */}
+   422→   422→              {todaySessions.length > 0 && (
+   423→   423→                <div>
+   424→   424→                  <div className='flex items-center justify-between mb-2'>
+   425→   425→                    <span className='section-label'>Today</span>
+   426→   426→                    <span className='text-[10px] text-muted-foreground tabular-nums'>{todayTotalMinutes}m</span>
+   427→   427→                  </div>
+   428→   428→                  <div className='flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none snap-x snap-mandatory'>
+   429→   429→                    {todaySessions.slice(0, 6).map((session) => {
+   430→   430→                      const subj = subjects.find((s) => s.id === session.subjectId);
+   431→   431→                      return (
+   432→   432→                        <motion.div
+   433→   433→                          key={session.id}
+   434→   434→                          initial={{ opacity: 0, scale: 0.95 }}
+   435→   435→                          animate={{ opacity: 1, scale: 1 }}
+   436→   436→                          className='metric-card flex-shrink-0 w-[120px] snap-start p-2.5'
+   437→   437→                        >
+   438→   438→                          <div className='flex items-center gap-1.5 mb-1.5'>
+   439→   439→                            <span
+   440→   440→                              className='status-dot'
+   441→   441→                              style={{ backgroundColor: subj?.color || 'var(--muted-foreground)' }}
+   442→   442→                            />
+   443→   443→                            <span className='text-[11px] font-medium truncate'>
+   444→   444→                              {subj?.name || 'Unknown'}
+   445→   445→                            </span>
+   446→   446→                          </div>
+   447→   447→                          <span className='text-sm font-semibold tabular-nums'>
+   448→   448→                            {formatDuration(session.duration)}
+   449→   449→                          </span>
+   450→   450→                        </motion.div>
+   451→   451→                      );
+   452→   452→                    })}
+   453→   453→                  </div>
+   454→   454→                </div>
+   455→   455→              )}
+   456→   456→
+   457→   457→              {todaySessions.length === 0 && (
+   458→   458→                <EmptyState
+   459→   459→                  icon={Clock}
+   460→   460→                  title='No sessions today'
+   461→   461→                  description='Tap Start above to begin your first focus session.'
+   462→   462→                />
+   463→   463→              )}
+   464→   464→            </motion.div>
+   465→   465→          )}
+   466→   466→
+   467→   467→          {/* --- Mobile: Active Timer Phase --- */}
+   468→   468→          {phase === 'active' && focusActive && (
+   469→   469→            <motion.div
+   470→   470→              key='mobile-active'
+   471→   471→              initial={{ opacity: 0, scale: 0.97 }}
+   472→   472→              animate={{ opacity: 1, scale: 1 }}
+   473→   473→              exit={{ opacity: 0, scale: 0.97 }}
+   474→   474→              transition={{ duration: 0.3, ease: 'easeOut' }}
+   475→   475→              className='flex flex-col items-center gap-4'
+   476→   476→            >
+   477→   477→              {/* Timer digits centered */}
+   478→   478→              <div className='text-center'>
+   479→   479→                <motion.span
+   480→   480→                  key={focusElapsed}
+   481→   481→                  className={cn(
+   482→   482→                    'text-5xl font-bold tracking-tighter leading-none tabular-nums',
+   483→   483→                    !isPaused && 'animate-timer-pulse'
+   484→   484→                  )}
+   485→   485→                  initial={{ scale: 1.01 }}
+   486→   486→                  animate={{ scale: 1 }}
+   487→   487→                  transition={{ duration: 0.1 }}
+   488→   488→                >
+   489→   489→                  {formatElapsed(focusElapsed)}
+   490→   490→                </motion.span>
+   491→   491→                {/* Status badge + session count */}
+   492→   492→                <div className='flex items-center justify-center gap-2 mt-2'>
+   493→   493→                  <span className={cn(
+   494→   494→                    'inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase',
+   495→   495→                    isPaused
+   496→   496→                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+   497→   497→                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+   498→   498→                  )}>
+   499→   499→                    {isPaused ? 'PAUSED' : 'RUNNING'}
+   500→   500→                  </span>
+   501→   501→                  {todaySessions.length > 0 && (
+   502→   502→                    <span className='text-[10px] text-muted-foreground'>
+   503→   503→                      Session {todaySessions.length + 1}
+   504→   504→                    </span>
+   505→   505→                  )}
+   506→   506→                </div>
+   507→   507→              </div>
+   508→   508→
+   509→   509→              {/* Timer Ring — full width, larger */}
+   510→   510→              <div className={cn('relative flex items-center justify-center w-full max-w-[300px]', timerPulse && 'timer-completion-pulse')}>
+   511→   511→                <svg
+   512→   512→                  width={MOBILE_TIMER_RADIUS * 2 + 24}
+   513→   513→                  height={MOBILE_TIMER_RADIUS * 2 + 24}
+   514→   514→                  className={cn('transform -rotate-90', !isPaused && 'timer-glow')}
+   515→   515→                >
+   516→   516→                  <circle
+   517→   517→                    cx={MOBILE_TIMER_RADIUS + 12}
+   518→   518→                    cy={MOBILE_TIMER_RADIUS + 12}
+   519→   519→                    r={MOBILE_TIMER_RADIUS}
+   520→   520→                    fill='none'
+   521→   521→                    stroke='var(--border)'
+   522→   522→                    strokeWidth='4'
+   523→   523→                  />
+   524→   524→                  {goalSeconds > 0 && (
+   525→   525→                    <motion.circle
+   526→   526→                      cx={MOBILE_TIMER_RADIUS + 12}
+   527→   527→                      cy={MOBILE_TIMER_RADIUS + 12}
+   528→   528→                      r={MOBILE_TIMER_RADIUS}
+   529→   529→                      fill='none'
+   530→   530→                      stroke='var(--color-primary)'
+   531→   531→                      strokeWidth='4'
+   532→   532→                      strokeLinecap='round'
+   533→   533→                      strokeDasharray={MOBILE_TIMER_CIRCUMFERENCE}
+   534→   534→                      strokeDashoffset={mobileStrokeDashoffset}
+   535→   535→                      transition={{ duration: 0.5, ease: 'easeOut' }}
+   536→   536→                    />
+   537→   537→                  )}
+   538→   538→                  {goalSeconds === 0 && (
+   539→   539→                    <circle
+   540→   540→                      cx={MOBILE_TIMER_RADIUS + 12}
+   541→   541→                      cy={MOBILE_TIMER_RADIUS + 12}
+   542→   542→                      r={MOBILE_TIMER_RADIUS - 8}
+   543→   543→                      fill='none'
+   544→   544→                      stroke='var(--border)'
+   545→   545→                      strokeWidth='1'
+   546→   546→                      strokeDasharray='4 8'
+   547→   547→                      opacity='0.5'
+   548→   548→                    />
+   549→   549→                  )}
+   550→   550→                </svg>
+   551→   551→              </div>
+   552→   552→
+   553→   553→              {/* Topic display */}
+   554→   554→              {(selectedSubject || selectedTopic) && (
+   555→   555→                <p className='text-xs text-muted-foreground text-center'>
+   556→   556→                  {selectedSubject?.name || 'Unknown Subject'}
+   557→   557→                  {selectedTopic && <span> · {selectedTopic.name}</span>}
+   558→   558→                </p>
+   559→   559→              )}
+   560→   560→
+   561→   561→              {/* Controls — large circular buttons */}
+   562→   562→              <div className='flex items-center gap-6 mt-2'>
+   563→   563→                <div className='flex flex-col items-center gap-1'>
+   564→   564→                  <button
+   565→   565→                    onClick={handlePauseResume}
+   566→   566→                    aria-label={isPaused ? 'Resume' : 'Pause'}
+   567→   567→                    className='h-14 w-14 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
+   568→   568→                  >
+   569→   569→                    {isPaused ? (
+   570→   570→                      <Play className='h-5 w-5 text-foreground' />
+   571→   571→                    ) : (
+   572→   572→                      <Pause className='h-5 w-5 text-foreground' />
+   573→   573→                    )}
+   574→   574→                  </button>
+   575→   575→                  <span className='text-xs text-muted-foreground'>{isPaused ? 'Resume' : 'Pause'}</span>
+   576→   576→                </div>
+   577→   577→                <div className='flex flex-col items-center gap-1'>
+   578→   578→                  <button
+   579→   579→                    onClick={handleStopClick}
+   580→   580→                    aria-label='Stop'
+   581→   581→                    className='h-14 w-14 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
+   582→   582→                  >
+   583→   583→                    <Square className='h-5 w-5 text-red-500' />
+   584→   584→                  </button>
+   585→   585→                  <span className='text-xs text-muted-foreground'>Stop</span>
+   586→   586→                </div>
+   587→   587→              </div>
+   588→   588→
+   589→   589→              {/* Motivational text */}
+   590→   590→              {!isPaused && (
+   591→   591→                <motion.p
+   592→   592→                  key={messageIndex}
+   593→   593→                  className='text-xs text-muted-foreground'
+   594→   594→                  initial={{ opacity: 0, y: 4 }}
+   595→   595→                  animate={{ opacity: 1, y: 0 }}
+   596→   596→                  exit={{ opacity: 0, y: -4 }}
+   597→   597→                  transition={{ duration: 0.35 }}
+   598→   598→                >
+   599→   599→                  {MOTIVATIONAL_MESSAGES[messageIndex]}
+   600→   600→                </motion.p>
+   601→   601→              )}
+   602→   602→
+   603→   603→              {/* Today's Sessions — compact horizontal scroll strip */}
+   604→   604→              {todaySessions.length > 0 && (
+   605→   605→                <div className='w-full mt-2'>
+   606→   606→                  <div className='flex items-center justify-between mb-2'>
+   607→   607→                    <span className='section-label'>Today's Sessions</span>
+   608→   608→                    <span className='text-[10px] text-muted-foreground tabular-nums'>{todayTotalMinutes}m total</span>
+   609→   609→                  </div>
+   610→   610→                  <div className='flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none snap-x snap-mandatory'>
+   611→   611→                    {todaySessions.slice(0, 6).map((session) => {
+   612→   612→                      const subj = subjects.find((s) => s.id === session.subjectId);
+   613→   613→                      return (
+   614→   614→                        <div
+   615→   615→                          key={session.id}
+   616→   616→                          className='metric-card flex-shrink-0 w-[120px] snap-start p-2.5'
+   617→   617→                        >
+   618→   618→                          <div className='flex items-center gap-1.5 mb-1.5'>
+   619→   619→                            <span
+   620→   620→                              className='status-dot'
+   621→   621→                              style={{ backgroundColor: subj?.color || 'var(--muted-foreground)' }}
+   622→   622→                            />
+   623→   623→                            <span className='text-[11px] font-medium truncate'>
+   624→   624→                              {subj?.name || 'Unknown'}
+   625→   625→                            </span>
+   626→   626→                          </div>
+   627→   627→                          <span className='text-sm font-semibold tabular-nums'>
+   628→   628→                            {formatDuration(session.duration)}
+   629→   629→                          </span>
+   630→   630→                        </div>
+   631→   631→                      );
+   632→   632→                    })}
+   633→   633→                  </div>
+   634→   634→                </div>
+   635→   635→              )}
+   636→   636→            </motion.div>
+   637→   637→          )}
+   638→   638→
+   639→   639→          {/* --- Mobile: Completion Phase --- */}
+   640→   640→          {phase === 'completion' && (
+   641→   641→            <motion.div
+   642→   642→              key='mobile-completion'
+   643→   643→              initial={{ opacity: 0, y: 12 }}
+   644→   644→              animate={{ opacity: 1, y: 0 }}
+   645→   645→              exit={{ opacity: 0, y: -12 }}
+   646→   646→              transition={{ duration: 0.25 }}
+   647→   647→              className='flex flex-col items-center gap-5'
+   648→   648→            >
+   649→   649→              <div className='text-center'>
+   650→   650→                <motion.div
+   651→   651→                  initial={{ scale: 0 }}
+   652→   652→                  animate={{ scale: 1 }}
+   653→   653→                  transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+   654→   654→                  className='mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
+   655→   655→                >
+   656→   656→                  <CheckCircle2 className='h-6 w-6 text-emerald-500' />
+   657→   657→                </motion.div>
+   658→   658→                <h1 className='text-lg font-semibold tracking-tight text-foreground'>Session Complete</h1>
+   659→   659→                <span className='metric-value tabular-nums text-2xl mt-1 block'>
+   660→   660→                  {formatDuration(completionDuration)}
+   661→   661→                </span>
+   662→   662→
+   663→   663→                {/* Session Stats */}
+   664→   664→                <div className='grid grid-cols-3 gap-3 mt-3'>
+   665→   665→                  <div className='text-center'>
+   666→   666→                    <span className='text-xs font-bold tabular-nums'>{todaySessions.length}</span>
+   667→   667→                    <p className='metric-label text-[9px]'>Sessions</p>
+   668→   668→                  </div>
+   669→   669→                  <div className='text-center'>
+   670→   670→                    <span className='text-xs font-bold tabular-nums'>{studyTimeTodayFormatted}</span>
+   671→   671→                    <p className='metric-label text-[9px]'>Time</p>
+   672→   672→                  </div>
+   673→   673→                  <div className='text-center'>
+   674→   674→                    <span className='flex items-center justify-center gap-0.5'>
+   675→   675→                      <Flame className='h-3 w-3 text-amber-500' />
+   676→   676→                      <span className='text-xs font-bold tabular-nums'>{studyStreak}</span>
+   677→   677→                    </span>
+   678→   678→                    <p className='metric-label text-[9px]'>Streak</p>
+   679→   679→                  </div>
+   680→   680→                </div>
+   681→   681→              </div>
+   682→   682→
+   683→   683→              <div className='w-full metric-card p-4 space-y-3'>
+   684→   684→                <div className='flex items-center justify-between'>
+   685→   685→                  <span className='metric-label'>Subject</span>
+   686→   686→                  <div className='flex items-center gap-1.5'>
+   687→   687→                    {selectedSubject && (
+   688→   688→                      <span className='status-dot' style={{ backgroundColor: selectedSubject.color }} />
+   689→   689→                    )}
+   690→   690→                    <span className='text-sm font-medium'>{selectedSubject?.name || 'Unknown'}</span>
+   691→   691→                  </div>
+   692→   692→                </div>
+   693→   693→                {completionTopicName && (
+   694→   694→                  <div className='flex items-center justify-between'>
+   695→   695→                    <span className='metric-label'>Topic</span>
+   696→   696→                    <span className='text-sm font-medium'>{completionTopicName}</span>
+   697→   697→                  </div>
+   698→   698→                )}
+   699→   699→              </div>
+   700→   700→
+   701→   701→              <div className='w-full space-y-2'>
+   702→   702→                <Label className='section-label' htmlFor='mobile-completion-notes'>
+   703→   703→                  What did you accomplish?
+   704→   704→                </Label>
+   705→   705→                <Textarea
+   706→   706→                  id='mobile-completion-notes'
+   707→   707→                  placeholder='E.g., Completed chapter 3 exercises...'
+   708→   708→                  value={completionNotes}
+   709→   709→                  onChange={(e) => setCompletionNotes(e.target.value)}
+   710→   710→                  rows={2}
+   711→   711→                  className='resize-none text-sm'
+   712→   712→                />
+   713→   713→              </div>
+   714→   714→
+   715→   715→              <Button className='w-full' onClick={handleSaveCompletion}>
+   716→   716→                <CheckCircle2 className='mr-2 h-4 w-4' />
+   717→   717→                Save Session
+   718→   718→              </Button>
+   719→   719→
+   720→   720→              <Button
+   721→   721→                variant='ghost'
+   722→   722→                size='sm'
+   723→   723→                onClick={handleAnotherSession}
+   724→   724→                className='text-muted-foreground'
+   725→   725→              >
+   726→   726→                <RotateCcw className='mr-2 h-3.5 w-3.5' />
+   727→   727→                Start Another
+   728→   728→              </Button>
+   729→   729→            </motion.div>
+   730→   730→          )}
+   731→   731→        </AnimatePresence>
+   732→   732→      </div>
+   733→   733→
+   734→   734→      {/* ═══════════════════════════════════════════════════════════════
+   735→   735→          DESKTOP LAYOUT (unchanged)
+   736→   736→          ═══════════════════════════════════════════════════════════════ */}
+   737→   737→      <div className='hidden md:block'>
+   738→   738→        <div className='content-area px-4 sm:px-6 py-6'>
+   739→   739→          <AnimatePresence mode='wait'>
+   740→   740→            {/* --- Setup Phase --- */}
+   741→   741→            {phase === 'setup' && !focusActive && (
+   742→   742→              <motion.div
+   743→   743→                key='setup'
+   744→   744→                initial={{ opacity: 0, y: 12 }}
+   745→   745→                animate={{ opacity: 1, y: 0 }}
+   746→   746→                exit={{ opacity: 0, y: -12 }}
+   747→   747→                transition={{ duration: 0.25 }}
+   748→   748→                className='flex flex-col items-center gap-8'
+   749→   749→              >
+   750→   750→                <PageHeader
+   751→   751→                  title='Focus Session'
+   752→   752→                  subtitle='Set up your study session and get into deep work mode.'
+   753→   753→                  badge={
+   754→   754→                    todaySessions.length > 0 ? (
+   755→   755→                      <span className='section-label'>{todaySessions.length} sessions today</span>
+   756→   756→                    ) : undefined
+   757→   757→                  }
+   758→   758→                  className='!mb-0 w-full max-w-md'
+   759→   759→                />
+   760→   760→
+   761→   761→                <div className='w-full max-w-md'>
+   762→   762→                  <div className='metric-card p-5 space-y-5'>
+   763→   763→                    <div className='space-y-2'>
+   764→   764→                      <Label className='section-label' htmlFor='subject-select'>Subject</Label>
+   765→   765→                      <Select
+   766→   766→                        value={selectedSubjectId}
+   767→   767→                        onValueChange={(v) => {
+   768→   768→                          setSelectedSubjectId(v);
+   769→   769→                          setSelectedTopicId('');
+   770→   770→                        }}
+   771→   771→                      >
+   772→   772→                        <SelectTrigger id='subject-select'>
+   773→   773→                          <SelectValue placeholder='Select a subject' />
+   774→   774→                        </SelectTrigger>
+   775→   775→                        <SelectContent>
+   776→   776→                          {activeSubjects.map((s) => (
+   777→   777→                            <SelectItem key={s.id} value={s.id}>
+   778→   778→                              <span className='flex items-center gap-2'>
+   779→   779→                                <span
+   780→   780→                                  className='status-dot'
+   781→   781→                                  style={{ backgroundColor: s.color }}
+   782→   782→                                />
+   783→   783→                                {s.name}
+   784→   784→                              </span>
+   785→   785→                            </SelectItem>
+   786→   786→                          ))}
+   787→   787→                        </SelectContent>
+   788→   788→                      </Select>
+   789→   789→                    </div>
+   790→   790→
+   791→   791→                    {selectedSubjectId && topicsForSubject.length > 0 && (
+   792→   792→                      <motion.div
+   793→   793→                        className='space-y-2'
+   794→   794→                        initial={{ opacity: 0, height: 0 }}
+   795→   795→                        animate={{ opacity: 1, height: 'auto' }}
+   796→   796→                        exit={{ opacity: 0, height: 0 }}
+   797→   797→                      >
+   798→   798→                        <Label className='section-label' htmlFor='topic-select'>Topic (optional)</Label>
+   799→   799→                        <Select
+   800→   800→                          value={selectedTopicId}
+   801→   801→                          onValueChange={setSelectedTopicId}
+   802→   802→                        >
+   803→   803→                          <SelectTrigger id='topic-select'>
+   804→   804→                            <SelectValue placeholder='Select a topic' />
+   805→   805→                          </SelectTrigger>
+   806→   806→                          <SelectContent>
+   807→   807→                            {topicsForSubject.map((t) => (
+   808→   808→                              <SelectItem key={t.id} value={t.id}>
+   809→   809→                                {t.name}
+   810→   810→                              </SelectItem>
+   811→   811→                            ))}
+   812→   812→                          </SelectContent>
+   813→   813→                        </Select>
+   814→   814→                      </motion.div>
+   815→   815→                    )}
+   816→   816→
+   817→   817→                    <div className='space-y-2'>
+   818→   818→                      <Label className='section-label' htmlFor='goal-input'>
+   819→   819→                        Session Goal
+   820→   820→                        <span className='font-normal normal-case tracking-normal text-muted-foreground/60 ml-1'>(optional)</span>
+   821→   821→                      </Label>
+   822→   822→                      <div className='relative'>
+   823→   823→                        <Input
+   824→   824→                          id='goal-input'
+   825→   825→                          type='number'
+   826→   826→                          min='1'
+   827→   827→                          max='480'
+   828→   828→                          placeholder='e.g. 45'
+   829→   829→                          value={goalMinutes}
+   830→   830→                          onChange={(e) => setGoalMinutes(e.target.value)}
+   831→   831→                          className='pr-16'
+   832→   832→                        />
+   833→   833→                        <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground'>
+   834→   834→                          minutes
+   835→   835→                        </span>
+   836→   836→                      </div>
+   837→   837→                    </div>
+   838→   838→
+   839→   839→                    <Button
+   840→   840→                      size='lg'
+   841→   841→                      className='w-full'
+   842→   842→                      disabled={!selectedSubjectId}
+   843→   843→                      onClick={handleStart}
+   844→   844→                    >
+   845→   845→                      <Play className='mr-2 h-4 w-4' />
+   846→   846→                      Start Focus
+   847→   847→                    </Button>
+   848→   848→                  </div>
+   849→   849→                </div>
+   850→   850→
+   851→   851→                {/* --- Recent Sessions --- */}
+   852→   852→                {todaySessions.length > 0 && (
+   853→   853→                  <div className='w-full max-w-md mt-2'>
+   854→   854→                    <SectionHeader
+   855→   855→                      title="Today's Sessions"
+   856→   856→                      subtitle={`${todayTotalMinutes}m total study time`}
+   857→   857→                    />
+   858→   858→                    <div className='space-y-2'>
+   859→   859→                      {todaySessions.map((session) => {
+   860→   860→                        const subj = subjects.find((s) => s.id === session.subjectId);
+   861→   861→                        return (
+   862→   862→                          <div
+   863→   863→                            key={session.id}
+   864→   864→                            className='card-interactive flex items-center gap-3 p-3'
+   865→   865→                          >
+   866→   866→                            <div
+   867→   867→                              className='h-8 w-8 shrink-0 rounded-md flex items-center justify-center'
+   868→   868→                              style={{ backgroundColor: subj ? `${subj.color}12` : undefined }}
+   869→   869→                            >
+   870→   870→                              <BookOpen
+   871→   871→                                className='h-4 w-4'
+   872→   872→                                style={{ color: subj?.color || 'var(--muted-foreground)' }}
+   873→   873→                              />
+   874→   874→                            </div>
+   875→   875→                            <div className='min-w-0 flex-1'>
+   876→   876→                              <p className='text-sm font-medium truncate'>
+   877→   877→                                {subj?.name || 'Unknown'}
+   878→   878→                                {session.topicName && (
+   879→   879→                                  <span className='text-muted-foreground font-normal'>
+   880→   880→                                    {' '}/ {session.topicName}
+   881→   881→                                  </span>
+   882→   882→                                )}
+   883→   883→                              </p>
+   884→   884→                              {session.notes && (
+   885→   885→                                <p className='text-[11px] text-muted-foreground truncate'>
+   886→   886→                                  {session.notes}
+   887→   887→                                </p>
+   888→   888→                              )}
+   889→   889→                            </div>
+   890→   890→                            <span className='text-sm font-semibold tabular-nums text-muted-foreground shrink-0'>
+   891→   891→                              {formatDuration(session.duration)}
+   892→   892→                            </span>
+   893→   893→                          </div>
+   894→   894→                        );
+   895→   895→                      })}
+   896→   896→                    </div>
+   897→   897→                  </div>
+   898→   898→                )}
+   899→   899→
+   900→   900→                {todaySessions.length === 0 && (
+   901→   901→                  <EmptyState
+   902→   902→                    icon={Clock}
+   903→   903→                    title='No sessions today'
+   904→   904→                    description='Start your first focus session to begin tracking study time.'
+   905→   905→                  />
+   906→   906→                )}
+   907→   907→              </motion.div>
+   908→   908→            )}
+   909→   909→
+   910→   910→            {/* --- Active Timer Phase --- */}
+   911→   911→            {phase === 'active' && focusActive && (
+   912→   912→              <motion.div
+   913→   913→                key='active'
+   914→   914→                initial={{ opacity: 0, scale: 0.97 }}
+   915→   915→                animate={{ opacity: 1, scale: 1 }}
+   916→   916→                exit={{ opacity: 0, scale: 0.97 }}
+   917→   917→                transition={{ duration: 0.35, ease: 'easeOut' }}
+   918→   918→                className='flex flex-col items-center gap-6'
+   919→   919→              >
+   920→   920→                {/* Subject & Topic */}
+   921→   921→                <div className='text-center'>
+   922→   922→                  <div className='flex items-center justify-center gap-2 mb-1'>
+   923→   923→                    {selectedSubject && (
+   924→   924→                      <span
+   925→   925→                        className='status-dot'
+   926→   926→                        style={{ backgroundColor: selectedSubject.color }}
+   927→   927→                      />
+   928→   928→                    )}
+   929→   929→                    <span className='text-sm font-medium'>
+   930→   930→                      {selectedSubject?.name || 'Unknown Subject'}
+   931→   931→                    </span>
+   932→   932→                  </div>
+   933→   933→                  {selectedTopic && (
+   934→   934→                    <p className='text-xs text-muted-foreground'>{selectedTopic.name}</p>
+   935→   935→                  )}
+   936→   936→                </div>
+   937→   937→
+   938→   938→                {/* Timer Ring */}
+   939→   939→                <div className={cn('relative flex items-center justify-center', timerPulse && 'timer-completion-pulse')}>
+   940→   940→                  <svg
+   941→   941→                    width={TIMER_RADIUS * 2 + 24}
+   942→   942→                    height={TIMER_RADIUS * 2 + 24}
+   943→   943→                    className={cn('transform -rotate-90', !isPaused && 'timer-glow')}
+   944→   944→                  >
+   945→   945→                    {/* Background track */}
+   946→   946→                    <circle
+   947→   947→                      cx={TIMER_RADIUS + 12}
+   948→   948→                      cy={TIMER_RADIUS + 12}
+   949→   949→                      r={TIMER_RADIUS}
+   950→   950→                      fill='none'
+   951→   951→                      stroke='var(--border)'
+   952→   952→                      strokeWidth='3'
+   953→   953→                    />
+   954→   954→                    {/* Progress arc */}
+   955→   955→                    {goalSeconds > 0 && (
+   956→   956→                      <motion.circle
+   957→   957→                        cx={TIMER_RADIUS + 12}
+   958→   958→                        cy={TIMER_RADIUS + 12}
+   959→   959→                        r={TIMER_RADIUS}
+   960→   960→                        fill='none'
+   961→   961→                        stroke='var(--color-primary)'
+   962→   962→                        strokeWidth='3'
+   963→   963→                        strokeLinecap='round'
+   964→   964→                        strokeDasharray={TIMER_CIRCUMFERENCE}
+   965→   965→                        strokeDashoffset={strokeDashoffset}
+   966→   966→                        transition={{ duration: 0.5, ease: 'easeOut' }}
+   967→   967→                      />
+   968→   968→                    )}
+   969→   969→                    {/* No-goal: subtle inner ring */}
+   970→   970→                    {goalSeconds === 0 && (
+   971→   971→                      <circle
+   972→   972→                        cx={TIMER_RADIUS + 12}
+   973→   973→                        cy={TIMER_RADIUS + 12}
+   974→   974→                        r={TIMER_RADIUS - 8}
+   975→   975→                        fill='none'
+   976→   976→                        stroke='var(--border)'
+   977→   977→                        strokeWidth='1'
+   978→   978→                        strokeDasharray='4 8'
+   979→   979→                        opacity='0.5'
+   980→   980→                      />
+   981→   981→                    )}
+   982→   982→                  </svg>
+   983→   983→
+   984→   984→                  {/* Timer text centered inside ring */}
+   985→   985→                  <div className='absolute flex flex-col items-center'>
+   986→   986→                    <motion.span
+   987→   987→                      key={focusElapsed}
+   988→   988→                      className={cn('text-4xl md:text-5xl font-bold tracking-tighter leading-none tabular-nums', !isPaused && 'animate-timer-pulse')}
+   989→   989→                      initial={{ scale: 1.01 }}
+   990→   990→                      animate={{ scale: 1 }}
+   991→   991→                      transition={{ duration: 0.1 }}
+   992→   992→                    >
+   993→   993→                      {formatElapsed(focusElapsed)}
+   994→   994→                    </motion.span>
+   995→   995→                    {goalSeconds > 0 && (
+   996→   996→                      <span className='text-xs text-muted-foreground mt-1'>
+   997→   997→                        of {formatDuration(goalSeconds)}
+   998→   998→                      </span>
+   999→   999→                    )}
+  1000→  1000→                    {isPaused && (
+  1001→  1001→                      <span className='text-[10px] font-medium text-amber-500 uppercase tracking-wider mt-2'>
+  1002→  1002→                        Paused
+  1003→  1003→                      </span>
+  1004→  1004→                    )}
+  1005→  1005→                  </div>
+  1006→  1006→                </div>
+  1007→  1007→
+  1008→  1008→                {/* Motivational text */}
+  1009→  1009→                {!isPaused && (
+  1010→  1010→                  <motion.p
+  1011→  1011→                    key={messageIndex}
+  1012→  1012→                    className='text-xs text-muted-foreground'
+  1013→  1013→                    initial={{ opacity: 0, y: 4 }}
+  1014→  1014→                    animate={{ opacity: 1, y: 0 }}
+  1015→  1015→                    exit={{ opacity: 0, y: -4 }}
+  1016→  1016→                    transition={{ duration: 0.35 }}
+  1017→  1017→                  >
+  1018→  1018→                    {MOTIVATIONAL_MESSAGES[messageIndex]}
+  1019→  1019→                  </motion.p>
+  1020→  1020→                )}
+  1021→  1021→
+  1022→  1022→                {/* Controls */}
+  1023→  1023→                <div className='flex items-center gap-3'>
+  1024→  1024→                  <button
+  1025→  1025→                    onClick={handlePauseResume}
+  1026→  1026→                    aria-label={isPaused ? 'Resume' : 'Pause'}
+  1027→  1027→                    className='h-12 w-12 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
+  1028→  1028→                  >
+  1029→  1029→                    {isPaused ? (
+  1030→  1030→                      <Play className='h-5 w-5 text-foreground' />
+  1031→  1031→                    ) : (
+  1032→  1032→                      <Pause className='h-5 w-5 text-foreground' />
+  1033→  1033→                    )}
+  1034→  1034→                  </button>
+  1035→  1035→
+  1036→  1036→                  <button
+  1037→  1037→                    onClick={handleStopClick}
+  1038→  1038→                    aria-label='Stop'
+  1039→  1039→                    className='h-12 w-12 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
+  1040→  1040→                  >
+  1041→  1041→                    <Square className='h-4 w-4 text-red-500' />
+  1042→  1042→                  </button>
+  1043→  1043→                </div>
+  1044→  1044→
+  1045→  1045→                {/* Keyboard shortcuts hint — desktop only */}
+  1046→  1046→                <p className='hidden md:block text-[10px] text-muted-foreground tracking-wider uppercase'>
+  1047→  1047→                  Space: Pause/Resume · Esc: Stop
+  1048→  1048→                </p>
+  1049→  1049→              </motion.div>
+  1050→  1050→            )}
+  1051→  1051→
+  1052→  1052→            {/* --- Completion Phase --- */}
+  1053→  1053→            {phase === 'completion' && (
+  1054→  1054→              <motion.div
+  1055→  1055→                key='completion'
+  1056→  1056→                initial={{ opacity: 0, y: 12 }}
+  1057→  1057→                animate={{ opacity: 1, y: 0 }}
+  1058→  1058→                exit={{ opacity: 0, y: -12 }}
+  1059→  1059→                transition={{ duration: 0.25 }}
+  1060→  1060→                className='flex flex-col items-center gap-8'
+  1061→  1061→              >
+  1062→  1062→                <div className='text-center'>
+  1063→  1063→                  <motion.div
+  1064→  1064→                    initial={{ scale: 0 }}
+  1065→  1065→                    animate={{ scale: 1 }}
+  1066→  1066→                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+  1067→  1067→                    className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
+  1068→  1068→                  >
+  1069→  1069→                    <CheckCircle2 className='h-7 w-7 text-emerald-500' />
+  1070→  1070→                  </motion.div>
+  1071→  1071→                  <h1 className='text-xl font-semibold tracking-tight text-foreground'>Session Complete</h1>
+  1072→  1072→                  <p className='text-sm text-muted-foreground mt-1'>
+  1073→  1073→                    Great work! Here is a summary of your session.
+  1074→  1074→                  </p>
+  1075→  1075→                </div>
+  1076→  1076→
+  1077→  1077→                <div className='w-full max-w-md'>
+  1078→  1078→                  <div className='metric-card p-5 space-y-4'>
+  1079→  1079→                    {/* Duration highlight */}
+  1080→  1080→                    <div className='text-center py-3'>
+  1081→  1081→                      <span className='metric-value tabular-nums'>
+  1082→  1082→                        {formatDuration(completionDuration)}
+  1083→  1083→                      </span>
+  1084→  1084→                      <p className='metric-context'>Session Duration</p>
+  1085→  1085→                    </div>
+  1086→  1086→
+  1087→  1087→                    {/* Session Stats */}
+  1088→  1088→                    <div className='grid grid-cols-3 gap-3 border-t border-border pt-3'>
+  1089→  1089→                      <div className='text-center'>
+  1090→  1090→                        <span className='text-sm font-bold tabular-nums'>{todaySessions.length}</span>
+  1091→  1091→                        <p className='metric-label'>Sessions Today</p>
+  1092→  1092→                      </div>
+  1093→  1093→                      <div className='text-center'>
+  1094→  1094→                        <span className='text-sm font-bold tabular-nums'>{studyTimeTodayFormatted}</span>
+  1095→  1095→                        <p className='metric-label'>Time Today</p>
+  1096→  1096→                      </div>
+  1097→  1097→                      <div className='text-center'>
+  1098→  1098→                        <span className='flex items-center justify-center gap-1'>
+  1099→  1099→                          <Flame className='h-3.5 w-3.5 text-amber-500' />
+  1100→  1100→                          <span className='text-sm font-bold tabular-nums'>{studyStreak}</span>
+  1101→  1101→                        </span>
+  1102→  1102→                        <p className='metric-label'>Day Streak</p>
+  1103→  1103→                      </div>
+  1104→  1104→                    </div>
+  1105→  1105→
+  1106→  1106→                    {/* Subject & Topic */}
+  1107→  1107→                    <div className='space-y-2 border-t border-border pt-3'>
+  1108→  1108→                      <div className='flex items-center justify-between'>
+  1109→  1109→                        <span className='metric-label'>Subject</span>
+  1110→  1110→                        <div className='flex items-center gap-1.5'>
+  1111→  1111→                          {selectedSubject && (
+  1112→  1112→                            <span
+  1113→  1113→                              className='status-dot'
+  1114→  1114→                              style={{ backgroundColor: selectedSubject.color }}
+  1115→  1115→                            />
+  1116→  1116→                          )}
+  1117→  1117→                          <span className='text-sm font-medium'>
+  1118→  1118→                            {selectedSubject?.name || 'Unknown'}
+  1119→  1119→                          </span>
+  1120→  1120→                        </div>
+  1121→  1121→                      </div>
+  1122→  1122→                      {completionTopicName && (
+  1123→  1123→                        <div className='flex items-center justify-between'>
+  1124→  1124→                          <span className='metric-label'>Topic</span>
+  1125→  1125→                          <span className='text-sm font-medium'>{completionTopicName}</span>
+  1126→  1126→                        </div>
+  1127→  1127→                      )}
+  1128→  1128→                    </div>
+  1129→  1129→
+  1130→  1130→                    {/* Notes */}
+  1131→  1131→                    <div className='space-y-2 border-t border-border pt-3'>
+  1132→  1132→                      <Label className='section-label' htmlFor='completion-notes'>
+  1133→  1133→                        What did you accomplish?
+  1134→  1134→                      </Label>
+  1135→  1135→                      <Textarea
+  1136→  1136→                        id='completion-notes'
+  1137→  1137→                        placeholder='E.g., Completed chapter 3 exercises, reviewed linked list operations...'
+  1138→  1138→                        value={completionNotes}
+  1139→  1139→                        onChange={(e) => setCompletionNotes(e.target.value)}
+  1140→  1140→                        rows={3}
+  1141→  1141→                        className='resize-none'
+  1142→  1142→                      />
+  1143→  1143→                    </div>
+  1144→  1144→
+  1145→  1145→                    <Button className='w-full' onClick={handleSaveCompletion}>
+  1146→  1146→                      <CheckCircle2 className='mr-2 h-4 w-4' />
+  1147→  1147→                      Save Session
+  1148→  1148→                    </Button>
+  1149→  1149→                  </div>
+  1150→  1150→                </div>
+  1151→  1151→
+  1152→  1152→                <Button
+  1153→  1153→                  variant='ghost'
+  1154→  1154→                  size='sm'
+  1155→  1155→                  onClick={handleAnotherSession}
+  1156→  1156→                  className='text-muted-foreground'
+  1157→  1157→                >
+  1158→  1158→                  <RotateCcw className='mr-2 h-3.5 w-3.5' />
+  1159→  1159→                  Start Another Session
+  1160→  1160→                </Button>
+  1161→  1161→              </motion.div>
+  1162→  1162→            )}
+  1163→  1163→          </AnimatePresence>
+  1164→  1164→        </div>
+  1165→  1165→      </div>
+  1166→  1166→
+  1167→  1167→      {/* --- Stop Confirmation Dialog --- */}
+  1168→  1168→      <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+  1169→  1169→        <AlertDialogContent>
+  1170→  1170→          <AlertDialogHeader>
+  1171→  1171→            <AlertDialogTitle>End Focus Session?</AlertDialogTitle>
+  1172→  1172→            <AlertDialogDescription>
+  1173→  1173→              You have been studying for {formatElapsed(focusElapsed)}. This action
+  1174→  1174→              cannot be undone.
+  1175→  1175→            </AlertDialogDescription>
+  1176→  1176→          </AlertDialogHeader>
+  1177→  1177→          <AlertDialogFooter>
+  1178→  1178→            <AlertDialogCancel>Continue Studying</AlertDialogCancel>
+  1179→  1179→            <AlertDialogAction onClick={handleConfirmStop}>
+  1180→  1180→              End Session
+  1181→  1181→            </AlertDialogAction>
+  1182→  1182→          </AlertDialogFooter>
+  1183→  1183→        </AlertDialogContent>
+  1184→  1184→      </AlertDialog>
+  1185→  1185→    </div>
+  1186→  1186→  );
+  1187→  1187→}
+  1188→  1188→

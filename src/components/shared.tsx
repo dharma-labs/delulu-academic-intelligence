@@ -27,6 +27,7 @@ interface MetricCardProps {
   iconColor?: string;
   valueColor?: string;
   accent?: MetricAccent;
+  sparkline?: number[];
   className?: string;
   onClick?: () => void;
 }
@@ -41,12 +42,14 @@ export function MetricCard({
   iconColor,
   valueColor,
   accent,
+  sparkline,
   className,
   onClick,
 }: MetricCardProps) {
+  const maxVal = sparkline ? Math.max(...sparkline, 1) : 0;
   return (
     <div
-      className={cn('metric-card', onClick && 'cursor-pointer', accent && ACCENT_CLASS[accent], className)}
+      className={cn('metric-card metric-card-accent-top card-hover-lift', onClick && 'cursor-pointer', accent && ACCENT_CLASS[accent], className)}
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2 md:mb-3">
@@ -76,6 +79,17 @@ export function MetricCard({
           </span>
         )}
       </div>
+      {sparkline && sparkline.length > 0 && (
+        <div className="flex items-end gap-px h-4 mt-2 opacity-50 group-hover:opacity-80 transition-opacity">
+          {sparkline.map((v, i) => (
+            <div
+              key={i}
+              className="flex-1 rounded-t-sm bg-current transition-all duration-300"
+              style={{ height: `${Math.max(10, (v / maxVal) * 100)}%` }}
+            />
+          ))}
+        </div>
+      )}
       {context && <p className="metric-context">{context}</p>}
     </div>
   );
@@ -362,7 +376,7 @@ export function CompactProgress({
           {displayValue || `${value}%`}
         </span>
       </div>
-      <div className="progress-thin">
+      <div className="progress-thin progress-animate">
         <div
           className={PROGRESS_COLORS[color]}
           style={{ width: `${Math.min(100, value)}%` }}

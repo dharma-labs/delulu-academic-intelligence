@@ -25,29 +25,31 @@ const SHORTCUTS: ShortcutSection[] = [
   {
     title: 'Navigation',
     items: [
-      { keys: '⌘K', label: 'Command Palette' },
-      { keys: '?', label: 'Show Shortcuts' },
-      { keys: 'D', label: 'Dashboard' },
-      { keys: 'S', label: 'Subjects' },
-      { keys: 'F', label: 'Focus' },
-      { keys: 'N', label: 'Notes' },
-      { keys: 'T', label: 'Tasks' },
-      { keys: 'R', label: 'Revision' },
-      { keys: 'A', label: 'Analytics' },
-      { keys: 'E', label: 'Exams' },
-      { keys: 'M', label: 'Marks' },
+      { keys: '⌘K  /', label: 'Open command palette' },
+      { keys: '?', label: 'Open this dialog' },
+      { keys: '1', label: 'Dashboard' },
+      { keys: '2', label: 'Subjects' },
+      { keys: '3', label: 'Marks' },
+      { keys: '4', label: 'Attendance' },
+      { keys: '5', label: 'Exams' },
+      { keys: '6', label: 'Focus' },
+      { keys: '7', label: 'Revision' },
+      { keys: '8', label: 'Notes' },
+      { keys: '9', label: 'Tasks' },
     ],
   },
   {
     title: 'Actions',
     items: [
-      { keys: '⌘⇧D', label: 'Toggle Dark Mode' },
-      { keys: 'Shift + /', label: 'Show Shortcuts' },
-      { keys: '1', label: 'Quick Switch → Dashboard' },
-      { keys: '2', label: 'Quick Switch → Subjects' },
-      { keys: '3', label: 'Quick Switch → Focus' },
-      { keys: '4', label: 'Quick Switch → Notes' },
-      { keys: '5', label: 'Quick Switch → Tasks' },
+      { keys: 'N', label: 'New item (context-sensitive)' },
+    ],
+  },
+  {
+    title: 'General',
+    items: [
+      { keys: '⌘,', label: 'Open Settings' },
+      { keys: 'D', label: 'Toggle dark / light theme' },
+      { keys: 'Esc', label: 'Close dialog or sheet' },
     ],
   },
 ];
@@ -78,7 +80,7 @@ const itemVariants = {
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="bg-muted border border-border rounded px-1.5 py-0.5 text-[11px] font-mono">
+    <kbd className="bg-secondary rounded px-2 py-0.5 text-xs font-mono text-foreground/80">
       {children}
     </kbd>
   );
@@ -110,7 +112,7 @@ export function ShortcutsOverlay({ open, onOpenChange }: ShortcutsOverlayProps) 
                   Keyboard Shortcuts
                 </DialogTitle>
                 <DialogDescription className="text-xs mt-0.5">
-                  Navigate faster with key commands
+                  Navigate faster with keyboard shortcuts
                 </DialogDescription>
               </div>
             </div>
@@ -164,7 +166,7 @@ export function ShortcutsOverlay({ open, onOpenChange }: ShortcutsOverlayProps) 
         <div className="border-t border-border/60 px-6 py-3 bg-muted/30">
           <p className="text-[11px] text-muted-foreground text-center">
             Press{' '}
-            <kbd className="bg-muted border border-border rounded px-1.5 py-0.5 text-[11px] font-mono">
+            <kbd className="bg-secondary rounded px-2 py-0.5 text-xs font-mono text-foreground/80">
               ?
             </kbd>{' '}
             to toggle this dialog

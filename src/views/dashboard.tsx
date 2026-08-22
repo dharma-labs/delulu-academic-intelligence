@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import {
   ArrowRight,
@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, progressColorClass } from '@/components/shared';
 import { useToast } from '@/components/toast';
+import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { cn } from '@/lib/utils';
 import type { SignalStatus } from '@/lib/types';
 
@@ -163,8 +164,8 @@ function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; durat
         return (
           <div key={d.dateStr} className="flex flex-col items-center gap-1">
             <div
-              className={cn('w-full aspect-square rounded-md transition-colors', isToday && 'ring-2 ring-primary/30')}
-              style={{ backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` }}
+              className={cn('w-full aspect-square rounded-md transition-colors', isToday && 'ring-2 ring-primary/30', d.count === 0 && 'chart-empty-cell')}
+              style={d.count > 0 ? { backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` } : undefined}
             />
             <span className={cn('text-[10px]', isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
             {d.count > 0 && (
@@ -190,6 +191,8 @@ export default function DashboardView() {
   const tasks = useStore((s) => s.tasks);
   const navigate = useStore((s) => s.navigate);
   const selectSubject = useStore((s) => s.selectSubject);
+
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
 
   const activeSubjects = useMemo(() => subjects.filter((s) => !s.archived), [subjects]);
 
@@ -460,6 +463,21 @@ export default function DashboardView() {
       .sort((a, b) => b.minutes - a.minutes);
   }, [studySessions, subjects]);
 
+  // -- 7-day sparkline data for desktop metric cards --
+  const studySparkline = useMemo(() => {
+    const data: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayMin = Math.floor(studySessions
+        .filter(s => s.date === dateStr)
+        .reduce((sum, s) => sum + s.duration / 60, 0));
+      data.push(dayMin);
+    }
+    return data;
+  }, [studySessions]);
+
   // -- Greeting --
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -485,7 +503,7 @@ export default function DashboardView() {
       {/* ══════════════════════════════════════════════════════════════
           MOBILE DASHBOARD — Intentionally minimal, action-oriented
           ══════════════════════════════════════════════════════════════ */}
-      <div className="md:hidden space-y-4">
+      <div className="md:hidden space-y-4 fab-content-pad">
         {/* Health Ring + Status */}
         <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
           <HealthRing score={healthScore} config={healthConfig} />
@@ -551,7 +569,7 @@ export default function DashboardView() {
                     <span className="text-xs font-medium truncate">{subject.name}</span>
                     <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
                   </div>
-                  <div className="progress-thin">
+                  <div className="progress-thin progress-animate">
                     <div
                       className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
                       style={{ width: `${Math.min(100, progress)}%` }}
@@ -575,7 +593,7 @@ export default function DashboardView() {
               {weeklyHoursThisWeek}h / {weeklyGoalHours}h
             </span>
           </div>
-          <div className="progress-thin">
+          <div className="progress-thin progress-animate">
             <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
           </div>
         </motion.div>
@@ -655,7 +673,7 @@ export default function DashboardView() {
               <div className="relative">
                 <span className="section-label">Academic Health</span>
                 <div className="mt-3 mb-2">
-                  <span className="text-5xl font-extrabold tracking-tighter text-foreground leading-none">
+                  <span className="text-5xl font-extrabold tracking-tighter leading-none text-gradient">
                     {healthScore}
                   </span>
                   <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
@@ -702,6 +720,7 @@ export default function DashboardView() {
                 value={formatStudyTime(studyTimeThisWeek)}
                 context="This week"
                 icon={Clock}
+                sparkline={studySparkline}
                 onClick={() => navigate('analytics')}
               />
             </div>
@@ -713,6 +732,7 @@ export default function DashboardView() {
                 icon={Flame}
                 iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
                 valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+                className={studyStreak >= 7 ? 'streak-glow' : undefined}
               />
               <div className="metric-card">
                 <div className="flex items-center justify-between mb-2 md:mb-3">
@@ -727,7 +747,7 @@ export default function DashboardView() {
                   <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
                 </div>
                 <div className="mt-2">
-                  <div className="progress-thin">
+                  <div className="progress-thin progress-animate">
                     <div
                       className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
                       style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
@@ -840,7 +860,7 @@ export default function DashboardView() {
                             <span className="text-sm font-medium truncate">{subject.name}</span>
                             <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
                           </div>
-                          <div className="progress-thin">
+                          <div className="progress-thin progress-animate">
                             <div
                               className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
                               style={{ width: `${Math.min(100, progress)}%` }}
@@ -1024,12 +1044,21 @@ export default function DashboardView() {
                       </button>
                     );
                   })}
+                  <button
+                    onClick={() => setQuickNoteOpen(true)}
+                    className="col-span-2 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
+                  >
+                    <StickyNote className="size-3.5" />
+                    Quick Note
+                  </button>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         </div>
       </motion.div>
+
+      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
     </>
   );
 }

@@ -62,6 +62,13 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 const MOBILE_TIMER_RADIUS = 130;
 const MOBILE_TIMER_CIRCUMFERENCE = 2 * Math.PI * MOBILE_TIMER_RADIUS;
 
+const TIMER_PRESETS = [
+  { minutes: 15, label: '15m', name: 'Quick' },
+  { minutes: 25, label: '25m', name: 'Pomodoro' },
+  { minutes: 45, label: '45m', name: 'Extended' },
+  { minutes: 60, label: '60m', name: 'Deep Work' },
+] as const;
+
 type Phase = 'setup' | 'active' | 'completion';
 
 // --- Helpers ---
@@ -162,6 +169,24 @@ export default function FocusView() {
     () => Math.round(todaySessions.reduce((acc, s) => acc + s.duration, 0) / 60),
     [todaySessions]
   );
+
+  const sessionStats = useMemo(() => {
+    if (todaySessions.length === 0) return null;
+    const durations = todaySessions.map((s) => s.duration);
+    const totalSecs = durations.reduce((a, b) => a + b, 0);
+    const totalMin = Math.round(totalSecs / 60);
+    const h = Math.floor(totalMin / 60);
+    const rm = totalMin % 60;
+    const totalFormatted = h > 0 ? `${h}h ${rm}m` : `${rm}m`;
+    const avgMin = Math.round(totalSecs / durations.length / 60);
+    const bestMin = Math.round(Math.max(...durations) / 60);
+    return {
+      totalFormatted,
+      avgMin: `${avgMin}m`,
+      bestMin: `${bestMin}m`,
+      count: todaySessions.length,
+    };
+  }, [todaySessions]);
 
   const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
   const studyTimeTodaySeconds = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
@@ -352,6 +377,29 @@ export default function FocusView() {
               transition={{ duration: 0.2 }}
               className='flex flex-col gap-4'
             >
+                <div className='w-full metric-card p-2.5 flex items-center justify-center gap-2'>
+                  {TIMER_PRESETS.map((preset) => {
+                    const isActive = goalMinutes === String(preset.minutes);
+                    return (
+                      <button
+                        key={preset.minutes}
+                        onClick={() => setGoalMinutes(String(preset.minutes))}
+                        className={cn(
+                          'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-full transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        )}
+                      >
+                        <span className='text-xs font-semibold tabular-nums leading-none'>{preset.label}</span>
+                        <span className={cn('text-[10px] uppercase tracking-wider leading-none', isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/60')}>
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
               {/* Compact inline session start */}
               <div className='flex flex-wrap gap-2 items-end'>
                 <div className='flex-1 min-w-[120px]'>
@@ -450,6 +498,28 @@ export default function FocusView() {
                         </motion.div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* Session Stats — mobile */}
+              {sessionStats && (
+                <div className='grid grid-cols-2 gap-2'>
+                  <div className='metric-card p-2.5'>
+                    <span className='metric-label text-[9px] block'>Today's Total</span>
+                    <span className='text-sm font-semibold tabular-nums'>{sessionStats.totalFormatted}</span>
+                  </div>
+                  <div className='metric-card p-2.5'>
+                    <span className='metric-label text-[9px] block'>Avg Session</span>
+                    <span className='text-sm font-semibold tabular-nums'>{sessionStats.avgMin}</span>
+                  </div>
+                  <div className='metric-card p-2.5'>
+                    <span className='metric-label text-[9px] block'>Best Session</span>
+                    <span className='text-sm font-semibold tabular-nums'>{sessionStats.bestMin}</span>
+                  </div>
+                  <div className='metric-card p-2.5'>
+                    <span className='metric-label text-[9px] block'>Sessions</span>
+                    <span className='text-sm font-semibold tabular-nums'>{sessionStats.count}</span>
                   </div>
                 </div>
               )}
@@ -819,6 +889,28 @@ export default function FocusView() {
                         Session Goal
                         <span className='font-normal normal-case tracking-normal text-muted-foreground/60 ml-1'>(optional)</span>
                       </Label>
+                      <div className='metric-card p-2 flex items-center justify-center gap-2'>
+                        {TIMER_PRESETS.map((preset) => {
+                          const isActive = goalMinutes === String(preset.minutes);
+                          return (
+                            <button
+                              key={preset.minutes}
+                              onClick={() => setGoalMinutes(String(preset.minutes))}
+                              className={cn(
+                                'flex flex-col items-center gap-0.5 px-3.5 py-1.5 rounded-full transition-colors',
+                                isActive
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                              )}
+                            >
+                              <span className='text-xs font-semibold tabular-nums leading-none'>{preset.label}</span>
+                              <span className={cn('text-[10px] uppercase tracking-wider leading-none', isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/60')}>
+                                {preset.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                       <div className='relative'>
                         <Input
                           id='goal-input'
@@ -894,6 +986,31 @@ export default function FocusView() {
                         );
                       })}
                     </div>
+
+                    {/* Session Stats — desktop */}
+                    {sessionStats && (
+                      <div className='mt-4'>
+                        <span className='section-label block mb-2'>Session Stats</span>
+                        <div className='grid grid-cols-4 gap-2'>
+                          <div className='metric-card p-3 text-center'>
+                            <span className='metric-label text-[9px] block'>Today's Total</span>
+                            <span className='text-sm font-semibold tabular-nums mt-1 block'>{sessionStats.totalFormatted}</span>
+                          </div>
+                          <div className='metric-card p-3 text-center'>
+                            <span className='metric-label text-[9px] block'>Avg Session</span>
+                            <span className='text-sm font-semibold tabular-nums mt-1 block'>{sessionStats.avgMin}</span>
+                          </div>
+                          <div className='metric-card p-3 text-center'>
+                            <span className='metric-label text-[9px] block'>Best Session</span>
+                            <span className='text-sm font-semibold tabular-nums mt-1 block'>{sessionStats.bestMin}</span>
+                          </div>
+                          <div className='metric-card p-3 text-center'>
+                            <span className='metric-label text-[9px] block'>Sessions</span>
+                            <span className='text-sm font-semibold tabular-nums mt-1 block'>{sessionStats.count}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

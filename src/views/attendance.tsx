@@ -13,10 +13,12 @@ import {
   UserX,
   BookOpen,
   BarChart3,
+  Download,
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
 import { getSubjectAttendance } from '@/lib/store';
+import { exportAttendanceCSV } from '@/lib/csv-export';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -168,6 +170,18 @@ export default function AttendanceView() {
       <PageHeader
         title='Attendance'
         subtitle='Track and manage your class attendance'
+        actions={
+          <Button
+            variant='outline'
+            size='sm'
+            className='text-xs'
+            onClick={() => exportAttendanceCSV(attendance, subjects, timetableSlots)}
+            disabled={attendance.length === 0}
+          >
+            <Download className='h-3.5 w-3.5 mr-1.5' />
+            Export CSV
+          </Button>
+        }
       />
 
       {/* Overall Stats */}

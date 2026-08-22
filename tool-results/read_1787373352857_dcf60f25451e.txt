@@ -1,0 +1,937 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+     4→     4→import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+     5→     5→import type { ViewId } from '@/lib/types';
+     6→     6→import { ViewRouter } from '@/components/view-router';
+     7→     7→import { format } from 'date-fns';
+     8→     8→import {
+     9→     9→  CommandDialog,
+    10→    10→  CommandInput,
+    11→    11→  CommandList,
+    12→    12→  CommandEmpty,
+    13→    13→  CommandGroup,
+    14→    14→  CommandItem,
+    15→    15→  CommandSeparator,
+    16→    16→} from '@/components/ui/command';
+    17→    17→import {
+    18→    18→  Sheet,
+    19→    19→  SheetContent,
+    20→    20→  SheetHeader,
+    21→    21→  SheetTitle,
+    22→    22→  SheetDescription,
+    23→    23→} from '@/components/ui/sheet';
+    24→    24→import {
+    25→    25→  LayoutDashboard,
+    26→    26→  BookOpen,
+    27→    27→  BarChart3,
+    28→    28→  UserCheck,
+    29→    29→  FileText,
+    30→    30→  Timer,
+    31→    31→  BrainCircuit,
+    32→    32→  StickyNote,
+    33→    33→  CalendarDays,
+    34→    34→  Clock,
+    35→    35→  CheckSquare,
+    36→    36→  TrendingUp,
+    37→    37→  FileSearch,
+    38→    38→  Bot,
+    39→    39→  Settings,
+    40→    40→  Search,
+    41→    41→  PanelLeftClose,
+    42→    42→  PanelLeftOpen,
+    43→    43→  GraduationCap,
+    44→    44→  MoreHorizontal,
+    45→    45→  ClipboardList,
+    46→    46→  Flame,
+    47→    47→  Keyboard,
+    48→    48→  ArrowRight,
+    49→    49→  Sun,
+    50→    50→  Moon,
+    51→    51→  Plus,
+    52→    52→  type LucideIcon,
+    53→    53→} from 'lucide-react';
+    54→    54→import { useTheme } from 'next-themes';
+    55→    55→import { cn } from '@/lib/utils';
+    56→    56→import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
+    57→    57→import { Onboarding } from '@/components/onboarding';
+    58→    58→import { ToastProvider } from '@/components/toast';
+    59→    59→import { motion, AnimatePresence } from 'framer-motion';
+    60→    60→
+    61→    61→// ─── Notification badges hook ──────────────────────────────────────
+    62→    62→
+    63→    63→function useNavBadges() {
+    64→    64→  const tasks = useStore((s) => s.tasks);
+    65→    65→  const revisionItems = useStore((s) => s.revisionItems);
+    66→    66→  const exams = useStore((s) => s.exams);
+    67→    67→  const assignments = useStore((s) => s.assignments);
+    68→    68→
+    69→    69→  return useMemo(() => {
+    70→    70→    const badges: Partial<Record<ViewId, number>> = {};
+    71→    71→
+    72→    72→    // Overdue tasks
+    73→    73→    const today = new Date().toISOString().split('T')[0];
+    74→    74→    const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+    75→    75→    if (overdueTasks.length > 0) badges['tasks'] = overdueTasks.length;
+    76→    76→
+    77→    77→    // Due revisions
+    78→    78→    const dueRevisions = revisionItems.filter(r => {
+    79→    79→      const nextReview = new Date(r.nextReview);
+    80→    80→      return nextReview <= new Date();
+    81→    81→    });
+    82→    82→    if (dueRevisions.length > 0) badges['revision'] = dueRevisions.length;
+    83→    83→
+    84→    84→    // Upcoming exams (within 7 days)
+    85→    85→    const weekFromNow = new Date();
+    86→    86→    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    87→    87→    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= weekFromNow.toISOString().split('T')[0]);
+    88→    88→    if (upcomingExams.length > 0) badges['exams'] = upcomingExams.length;
+    89→    89→
+    90→    90→    // Upcoming assignments (within 3 days)
+    91→    91→    const threeDays = new Date();
+    92→    92→    threeDays.setDate(threeDays.getDate() + 3);
+    93→    93→    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= threeDays.toISOString().split('T')[0]);
+    94→    94→    if (upcomingAssign.length > 0) badges['assignments'] = upcomingAssign.length;
+    95→    95→
+    96→    96→    return badges;
+    97→    97→  }, [tasks, revisionItems, exams, assignments]);
+    98→    98→}
+    99→    99→
+   100→   100→// ─── Nav badge component ──────────────────────────────────────────
+   101→   101→
+   102→   102→function NavBadge({ count }: { count: number }) {
+   103→   103→  if (count <= 0) return null;
+   104→   104→  const display = count > 9 ? '9+' : String(count);
+   105→   105→  return (
+   106→   106→    <span className="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none animate-badge-pop">
+   107→   107→      {display}
+   108→   108→    </span>
+   109→   109→  );
+   110→   110→}
+   111→   111→
+   112→   112→// ─── Nav item types ─────────────────────────────────────────────────
+   113→   113→
+   114→   114→interface NavItem {
+   115→   115→  id: ViewId | 'more';
+   116→   116→  label: string;
+   117→   117→  icon: LucideIcon;
+   118→   118→}
+   119→   119→
+   120→   120→interface NavGroup {
+   121→   121→  label: string;
+   122→   122→  items: NavItem[];
+   123→   123→}
+   124→   124→
+   125→   125→// ─── Navigation structure ────────────────────────────────────────────
+   126→   126→
+   127→   127→const NAV_GROUPS: NavGroup[] = [
+   128→   128→  {
+   129→   129→    label: 'Overview',
+   130→   130→    items: [
+   131→   131→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+   132→   132→    ],
+   133→   133→  },
+   134→   134→  {
+   135→   135→    label: 'Academic',
+   136→   136→    items: [
+   137→   137→      { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   138→   138→      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
+   139→   139→      { id: 'attendance', label: 'Attendance', icon: UserCheck },
+   140→   140→      { id: 'exams', label: 'Exams', icon: FileText },
+   141→   141→      { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+   142→   142→    ],
+   143→   143→  },
+   144→   144→  {
+   145→   145→    label: 'Study',
+   146→   146→    items: [
+   147→   147→      { id: 'focus', label: 'Focus', icon: Timer },
+   148→   148→      { id: 'revision', label: 'Revision', icon: BrainCircuit },
+   149→   149→      { id: 'notes', label: 'Notes', icon: StickyNote },
+   150→   150→      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+   151→   151→    ],
+   152→   152→  },
+   153→   153→  {
+   154→   154→    label: 'Planning',
+   155→   155→    items: [
+   156→   156→      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+   157→   157→      { id: 'timetable', label: 'Timetable', icon: Clock },
+   158→   158→    ],
+   159→   159→  },
+   160→   160→  {
+   161→   161→    label: 'Intelligence',
+   162→   162→    items: [
+   163→   163→      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+   164→   164→      { id: 'er-center', label: 'ER Center', icon: FileSearch },
+   165→   165→      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+   166→   166→      { id: 'report', label: 'Report', icon: GraduationCap },
+   167→   167→    ],
+   168→   168→  },
+   169→   169→];
+   170→   170→
+   171→   171→const BOTTOM_NAV_ITEMS: NavItem[] = [
+   172→   172→  { id: 'settings', label: 'Settings', icon: Settings },
+   173→   173→];
+   174→   174→
+   175→   175→// Mobile bottom nav items
+   176→   176→const MOBILE_NAV_ITEMS: NavItem[] = [
+   177→   177→  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+   178→   178→  { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   179→   179→  { id: 'focus', label: 'Study', icon: Timer },
+   180→   180→  { id: 'calendar', label: 'Plan', icon: CalendarDays },
+   181→   181→  { id: 'more', label: 'More', icon: MoreHorizontal },
+   182→   182→];
+   183→   183→
+   184→   184→// ─── Sidebar nav item component ──────────────────────────────────────
+   185→   185→
+   186→   186→function SidebarNavItem({
+   187→   187→  item,
+   188→   188→  collapsed,
+   189→   189→  badge,
+   190→   190→}: {
+   191→   191→  item: NavItem;
+   192→   192→  collapsed: boolean;
+   193→   193→  badge?: number;
+   194→   194→}) {
+   195→   195→  const currentView = useStore((s) => s.currentView);
+   196→   196→  const navigate = useStore((s) => s.navigate);
+   197→   197→  const isActive = currentView === item.id;
+   198→   198→  const Icon = item.icon;
+   199→   199→
+   200→   200→  return (
+   201→   201→    <button
+   202→   202→      onClick={() => navigate(item.id as ViewId)}
+   203→   203→      title={collapsed ? item.label : undefined}
+   204→   204→      className={cn(
+   205→   205→        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+   206→   206→        collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+   207→   207→        isActive
+   208→   208→          ? 'bg-primary/[0.07] text-primary font-semibold border-l-primary'
+   209→   209→          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
+   210→   210→      )}
+   211→   211→    >
+   212→   212→      <Icon className="size-[16px] shrink-0" />
+   213→   213→      {!collapsed && <span className="truncate">{item.label}</span>}
+   214→   214→      {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
+   215→   215→      {collapsed && badge !== undefined && badge > 0 && (
+   216→   216→        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+   217→   217→      )}
+   218→   218→    </button>
+   219→   219→  );
+   220→   220→}
+   221→   221→
+   222→   222→// ─── Mobile bottom nav ───────────────────────────────────────────────
+   223→   223→
+   224→   224→function MobileBottomNav({
+   225→   225→  onMoreOpen,
+   226→   226→}: {
+   227→   227→  onMoreOpen: () => void;
+   228→   228→}) {
+   229→   229→  const currentView = useStore((s) => s.currentView);
+   230→   230→  const navigate = useStore((s) => s.navigate);
+   231→   231→  const badges = useNavBadges();
+   232→   232→  const totalBadges = Object.values(badges).reduce((s, v) => s + (v || 0), 0);
+   233→   233→
+   234→   234→  return (
+   235→   235→    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+   236→   236→      <div className="flex h-[60px] items-center justify-around px-1">
+   237→   237→        {MOBILE_NAV_ITEMS.map((item) => {
+   238→   238→          const Icon = item.icon;
+   239→   239→          const isActive = item.id === 'more' ? false : currentView === item.id;
+   240→   240→
+   241→   241→          return (
+   242→   242→            <button
+   243→   243→              key={item.id}
+   244→   244→              onClick={() => {
+   245→   245→                if (item.id === 'more') {
+   246→   246→                  onMoreOpen();
+   247→   247→                } else {
+   248→   248→                  navigate(item.id as ViewId);
+   249→   249→                }
+   250→   250→              }}
+   251→   251→              className={cn(
+   252→   252→                'bottom-nav-item relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+   253→   253→                isActive ? 'active text-primary' : 'text-muted-foreground active:scale-95'
+   254→   254→              )}
+   255→   255→            >
+   256→   256→              <Icon className={cn('bottom-nav-icon size-[18px] mb-0.5 transition-transform duration-200')} />
+   257→   257→              <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
+   258→   258→              {item.id === 'more' && totalBadges > 0 && (
+   259→   259→                <span className="absolute top-1 right-1/2 translate-x-3 flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-red-500 text-[8px] font-bold text-white leading-none">
+   260→   260→                  {totalBadges > 9 ? '9+' : totalBadges}
+   261→   261→                </span>
+   262→   262→              )}
+   263→   263→              {isActive && (
+   264→   264→                <span className="bottom-nav-indicator" />
+   265→   265→              )}
+   266→   266→            </button>
+   267→   267→          );
+   268→   268→        })}
+   269→   269→      </div>
+   270→   270→    </nav>
+   271→   271→  );
+   272→   272→}
+   273→   273→
+   274→   274→// ─── Mobile more sheet ───────────────────────────────────────────────
+   275→   275→
+   276→   276→function MobileMoreSheet({
+   277→   277→  open,
+   278→   278→  onOpenChange,
+   279→   279→}: {
+   280→   280→  open: boolean;
+   281→   281→  onOpenChange: (open: boolean) => void;
+   282→   282→}) {
+   283→   283→  const currentView = useStore((s) => s.currentView);
+   284→   284→  const navigate = useStore((s) => s.navigate);
+   285→   285→  const badges = useNavBadges();
+   286→   286→
+   287→   287→  return (
+   288→   288→    <Sheet open={open} onOpenChange={onOpenChange}>
+   289→   289→      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+   290→   290→        <SheetHeader className="mb-2">
+   291→   291→          <SheetTitle className="text-base">Navigation</SheetTitle>
+   292→   292→          <SheetDescription className="text-xs">
+   293→   293→            Jump to any section
+   294→   294→          </SheetDescription>
+   295→   295→        </SheetHeader>
+   296→   296→        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
+   297→   297→          {NAV_GROUPS.map((group) => (
+   298→   298→            <div key={group.label} className="mb-3">
+   299→   299→              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
+   300→   300→                {group.label}
+   301→   301→              </p>
+   302→   302→              <div className="grid grid-cols-2 gap-1.5">
+   303→   303→                {group.items.map((item) => {
+   304→   304→                  const Icon = item.icon;
+   305→   305→                  const isActive = currentView === item.id;
+   306→   306→                  return (
+   307→   307→                    <button
+   308→   308→                      key={item.id}
+   309→   309→                      onClick={() => {
+   310→   310→                        navigate(item.id as ViewId);
+   311→   311→                        onOpenChange(false);
+   312→   312→                      }}
+   313→   313→                      className={cn(
+   314→   314→                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
+   315→   315→                        isActive
+   316→   316→                          ? 'bg-primary/10 text-primary font-medium'
+   317→   317→                          : 'text-foreground hover:bg-accent'
+   318→   318→                      )}
+   319→   319→                    >
+   320→   320→                      <Icon className="size-4 shrink-0" />
+   321→   321→                      <span className="truncate">{item.label}</span>
+   322→   322→                      {badges[item.id as ViewId] !== undefined && badges[item.id as ViewId]! > 0 && (
+   323→   323→                        <span className="ml-auto flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-semibold tabular-nums">
+   324→   324→                          {badges[item.id as ViewId]}
+   325→   325→                        </span>
+   326→   326→                      )}
+   327→   327→                    </button>
+   328→   328→                  );
+   329→   329→                })}
+   330→   330→              </div>
+   331→   331→            </div>
+   332→   332→          ))}
+   333→   333→          <div className="border-t border-border pt-3 mt-2">
+   334→   334→            {BOTTOM_NAV_ITEMS.map((item) => {
+   335→   335→              const Icon = item.icon;
+   336→   336→              const isActive = currentView === item.id;
+   337→   337→              return (
+   338→   338→                <button
+   339→   339→                  key={item.id}
+   340→   340→                  onClick={() => {
+   341→   341→                    navigate(item.id as ViewId);
+   342→   342→                    onOpenChange(false);
+   343→   343→                  }}
+   344→   344→                  className={cn(
+   345→   345→                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+   346→   346→                    isActive
+   347→   347→                      ? 'bg-primary/10 text-primary font-medium'
+   348→   348→                      : 'text-foreground hover:bg-accent'
+   349→   349→                  )}
+   350→   350→                >
+   351→   351→                  <Icon className="size-4 shrink-0" />
+   352→   352→                  <span>{item.label}</span>
+   353→   353→                </button>
+   354→   354→              );
+   355→   355→            })}
+   356→   356→          </div>
+   357→   357→        </div>
+   358→   358→      </SheetContent>
+   359→   359→    </Sheet>
+   360→   360→  );
+   361→   361→}
+   362→   362→
+   363→   363→// ─── Command palette ─────────────────────────────────────────────────
+   364→   364→
+   365→   365→function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+   366→   366→  const commandOpen = useStore((s) => s.commandOpen);
+   367→   367→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   368→   368→  const navigate = useStore((s) => s.navigate);
+   369→   369→  const subjects = useStore((s) => s.subjects);
+   370→   370→  const tasks = useStore((s) => s.tasks);
+   371→   371→  const notes = useStore((s) => s.notes);
+   372→   372→  const exams = useStore((s) => s.exams);
+   373→   373→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   374→   374→
+   375→   375→  const handleSelect = useCallback(
+   376→   376→    (action: () => void) => {
+   377→   377→      setCommandOpen(false);
+   378→   378→      action();
+   379→   379→    },
+   380→   380→    [setCommandOpen]
+   381→   381→  );
+   382→   382→
+   383→   383→  if (!commandOpen) return null;
+   384→   384→
+   385→   385→  return (
+   386→   386→    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+   387→   387→      <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
+   388→   388→      <CommandList>
+   389→   389→        <CommandEmpty>No results found.</CommandEmpty>
+   390→   390→
+   391→   391→        <CommandGroup heading="Commands">
+   392→   392→          <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
+   393→   393→            <CheckSquare className="size-4" />
+   394→   394→            <span>Add Task</span>
+   395→   395→          </CommandItem>
+   396→   396→          <CommandItem onSelect={() => handleSelect(() => navigate('focus'))}>
+   397→   397→            <Timer className="size-4" />
+   398→   398→            <span>Start Focus</span>
+   399→   399→          </CommandItem>
+   400→   400→          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
+   401→   401→            <BarChart3 className="size-4" />
+   402→   402→            <span>Go to Marks</span>
+   403→   403→          </CommandItem>
+   404→   404→          <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
+   405→   405→            <UserCheck className="size-4" />
+   406→   406→            <span>Go to Attendance</span>
+   407→   407→          </CommandItem>
+   408→   408→        </CommandGroup>
+   409→   409→
+   410→   410→        <CommandSeparator />
+   411→   411→
+   412→   412→        {subjects.length > 0 && (
+   413→   413→          <CommandGroup heading="Subjects">
+   414→   414→            {subjects.map((s) => (
+   415→   415→              <CommandItem
+   416→   416→                key={s.id}
+   417→   417→                onSelect={() =>
+   418→   418→                  handleSelect(() => {
+   419→   419→                    useStore.getState().selectSubject(s.id);
+   420→   420→                    navigate('subject-detail');
+   421→   421→                  })
+   422→   422→                }
+   423→   423→              >
+   424→   424→                <BookOpen className="size-4" />
+   425→   425→                <span>
+   426→   426→                  {s.name}
+   427→   427→                  <span className="ml-2 text-muted-foreground">{s.code}</span>
+   428→   428→                </span>
+   429→   429→              </CommandItem>
+   430→   430→            ))}
+   431→   431→          </CommandGroup>
+   432→   432→        )}
+   433→   433→
+   434→   434→        {tasks.length > 0 && (
+   435→   435→          <CommandGroup heading="Tasks">
+   436→   436→            {tasks
+   437→   437→              .filter((t) => !t.completed)
+   438→   438→              .slice(0, 5)
+   439→   439→              .map((t) => (
+   440→   440→                <CommandItem
+   441→   441→                  key={t.id}
+   442→   442→                  onSelect={() => handleSelect(() => navigate('tasks'))}
+   443→   443→                >
+   444→   444→                  <CheckSquare className="size-4" />
+   445→   445→                  <span>{t.title}</span>
+   446→   446→                </CommandItem>
+   447→   447→              ))}
+   448→   448→          </CommandGroup>
+   449→   449→        )}
+   450→   450→
+   451→   451→        {notes.length > 0 && (
+   452→   452→          <CommandGroup heading="Notes">
+   453→   453→            {notes.slice(0, 5).map((n) => (
+   454→   454→              <CommandItem
+   455→   455→                key={n.id}
+   456→   456→                onSelect={() => handleSelect(() => navigate('notes'))}
+   457→   457→              >
+   458→   458→                <StickyNote className="size-4" />
+   459→   459→                <span>{n.title}</span>
+   460→   460→              </CommandItem>
+   461→   461→            ))}
+   462→   462→          </CommandGroup>
+   463→   463→        )}
+   464→   464→
+   465→   465→        {exams.length > 0 && (
+   466→   466→          <CommandGroup heading="Exams">
+   467→   467→            {exams
+   468→   468→              .filter((e) => e.status === 'upcoming')
+   469→   469→              .slice(0, 5)
+   470→   470→              .map((e) => (
+   471→   471→                <CommandItem
+   472→   472→                  key={e.id}
+   473→   473→                  onSelect={() => handleSelect(() => navigate('exams'))}
+   474→   474→                >
+   475→   475→                  <FileText className="size-4" />
+   476→   476→                  <span>{e.name}</span>
+   477→   477→                </CommandItem>
+   478→   478→              ))}
+   479→   479→          </CommandGroup>
+   480→   480→        )}
+   481→   481→
+   482→   482→        {syllabusUnits.length > 0 && (
+   483→   483→          <CommandGroup heading="Syllabus Topics">
+   484→   484→            {syllabusUnits
+   485→   485→              .flatMap((u) =>
+   486→   486→                u.topics.map((t) => ({
+   487→   487→                  ...t,
+   488→   488→                  unitName: u.name,
+   489→   489→                  subjectId: u.subjectId,
+   490→   490→                }))
+   491→   491→              )
+   492→   492→              .slice(0, 5)
+   493→   493→              .map((t) => (
+   494→   494→                <CommandItem
+   495→   495→                  key={t.id}
+   496→   496→                  onSelect={() =>
+   497→   497→                    handleSelect(() => {
+   498→   498→                      useStore.getState().selectSubject(t.subjectId);
+   499→   499→                      navigate('subject-detail');
+   500→   500→                    })
+   501→   501→                  }
+   502→   502→                >
+   503→   503→                  <BookOpen className="size-4" />
+   504→   504→                  <span>
+   505→   505→                    {t.name}
+   506→   506→                    <span className="ml-2 text-muted-foreground">
+   507→   507→                      {t.unitName}
+   508→   508→                    </span>
+   509→   509→                  </span>
+   510→   510→                </CommandItem>
+   511→   511→              ))}
+   512→   512→          </CommandGroup>
+   513→   513→        )}
+   514→   514→
+   515→   515→        <CommandSeparator />
+   516→   516→
+   517→   517→        <CommandGroup heading="Help">
+   518→   518→          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+   519→   519→            <Keyboard className="size-4" />
+   520→   520→            <span>Show all shortcuts</span>
+   521→   521→            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+   522→   522→            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   523→   523→              ?
+   524→   524→            </kbd>
+   525→   525→          </CommandItem>
+   526→   526→        </CommandGroup>
+   527→   527→      </CommandList>
+   528→   528→    </CommandDialog>
+   529→   529→  );
+   530→   530→}
+   531→   531→
+   532→   532→// ─── Desktop Sidebar ─────────────────────────────────────────────────
+   533→   533→
+   534→   534→function DesktopSidebar() {
+   535→   535→  const collapsed = useStore((s) => s.sidebarCollapsed);
+   536→   536→  const toggleSidebar = useStore((s) => s.toggleSidebar);
+   537→   537→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   538→   538→  const badges = useNavBadges();
+   539→   539→
+   540→   540→  return (
+   541→   541→    <aside
+   542→   542→      className={cn(
+   543→   543→        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+   544→   544→        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
+   545→   545→      )}
+   546→   546→    >
+   547→   547→      {/* Brand */}
+   548→   548→      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
+   549→   549→        {!collapsed && (
+   550→   550→          <span className="text-sm font-bold tracking-tight text-foreground select-none">
+   551→   551→            DELULU
+   552→   552→          </span>
+   553→   553→        )}
+   554→   554→        <button
+   555→   555→          onClick={toggleSidebar}
+   556→   556→          className={cn(
+   557→   557→            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+   558→   558→            collapsed ? 'mx-auto' : 'ml-auto'
+   559→   559→          )}
+   560→   560→          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+   561→   561→        >
+   562→   562→          {collapsed ? (
+   563→   563→            <PanelLeftOpen className="size-3.5" />
+   564→   564→          ) : (
+   565→   565→            <PanelLeftClose className="size-3.5" />
+   566→   566→          )}
+   567→   567→        </button>
+   568→   568→      </div>
+   569→   569→
+   570→   570→      {/* Search */}
+   571→   571→      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
+   572→   572→        <button
+   573→   573→          onClick={() => setCommandOpen(true)}
+   574→   574→          className={cn(
+   575→   575→            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+   576→   576→            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+   577→   577→          )}
+   578→   578→          aria-label="Open command palette"
+   579→   579→        >
+   580→   580→          <Search className="size-3.5 shrink-0" />
+   581→   581→          {!collapsed && (
+   582→   582→            <span className="flex-1 text-left text-xs">Search...</span>
+   583→   583→          )}
+   584→   584→          {!collapsed && (
+   585→   585→            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   586→   586→              ⌘K
+   587→   587→            </kbd>
+   588→   588→          )}
+   589→   589→        </button>
+   590→   590→      </div>
+   591→   591→
+   592→   592→      {/* Nav */}
+   593→   593→      <nav className="scrollbar-thin flex-1 overflow-y-auto px-1.5 pt-1">
+   594→   594→        {NAV_GROUPS.map((group, gi) => (
+   595→   595→          <div key={group.label}>
+   596→   596→            {!collapsed && (
+   597→   597→              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
+   598→   598→            )}
+   599→   599→            {collapsed && gi > 0 && (
+   600→   600→              <div className="border-t border-border/50 my-2 mx-2" />
+   601→   601→            )}
+   602→   602→            {group.items.map((item) => (
+   603→   603→              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   604→   604→            ))}
+   605→   605→          </div>
+   606→   606→        ))}
+   607→   607→      </nav>
+   608→   608→
+   609→   609→      {/* Bottom */}
+   610→   610→      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+   611→   611→        {BOTTOM_NAV_ITEMS.map((item) => (
+   612→   612→          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   613→   613→        ))}
+   614→   614→      </div>
+   615→   615→    </aside>
+   616→   616→  );
+   617→   617→}
+   618→   618→
+   619→   619→// ─── Theme Toggle (mobile) ─────────────────────────────────────
+   620→   620→
+   621→   621→function ThemeToggle() {
+   622→   622→  const { theme, setTheme } = useTheme();
+   623→   623→  return (
+   624→   624→    <button
+   625→   625→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   626→   626→      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   627→   627→      aria-label="Toggle theme"
+   628→   628→    >
+   629→   629→      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+   630→   630→    </button>
+   631→   631→  );
+   632→   632→}
+   633→   633→
+   634→   634→// ─── Mobile Streak Badge ─────────────────────────────────────────
+   635→   635→
+   636→   636→function MobileStreakBadge() {
+   637→   637→  const studySessions = useStore((s) => s.studySessions);
+   638→   638→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   639→   639→
+   640→   640→  if (streak <= 0) return null;
+   641→   641→
+   642→   642→  return (
+   643→   643→    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+   644→   644→      <Flame className="size-3" />
+   645→   645→      {streak}
+   646→   646→    </span>
+   647→   647→  );
+   648→   648→}
+   649→   649→
+   650→   650→// ─── Desktop Top Bar ───────────────────────────────────────────────
+   651→   651→
+   652→   652→function DesktopTopBar() {
+   653→   653→  const { theme, setTheme } = useTheme();
+   654→   654→  const studySessions = useStore((s) => s.studySessions);
+   655→   655→  const subjects = useStore((s) => s.subjects);
+   656→   656→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   657→   657→  const assessments = useStore((s) => s.assessments);
+   658→   658→  const attendance = useStore((s) => s.attendance);
+   659→   659→  const revisionItems = useStore((s) => s.revisionItems);
+   660→   660→  const profile = useStore((s) => s.profile);
+   661→   661→
+   662→   662→  const healthScore = useMemo(
+   663→   663→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   664→   664→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   665→   665→  );
+   666→   666→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   667→   667→  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   668→   668→
+   669→   669→  const todayMinutes = Math.floor(studyToday / 60);
+   670→   670→  const todayH = Math.floor(todayMinutes / 60);
+   671→   671→  const todayM = todayMinutes % 60;
+   672→   672→  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+   673→   673→
+   674→   674→  return (
+   675→   675→    <div className="top-bar hidden lg:flex items-center gap-3 px-6 py-1.5">
+   676→   676→      <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+   677→   677→      <span className="text-border">·</span>
+   678→   678→      <div className="flex items-center gap-3">
+   679→   679→        <span className={cn(
+   680→   680→          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+   681→   681→          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+   682→   682→        )}>
+   683→   683→          Health {healthScore}
+   684→   684→        </span>
+   685→   685→        {streak > 0 && (
+   686→   686→          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+   687→   687→            <Flame className="size-3" />
+   688→   688→            <span className="font-semibold tabular-nums">{streak}d</span>
+   689→   689→          </span>
+   690→   690→        )}
+   691→   691→        <span className="inline-flex items-center gap-1 text-muted-foreground">
+   692→   692→          <Clock className="size-3" />
+   693→   693→          <span className="tabular-nums">{todayStr}</span>
+   694→   694→        </span>
+   695→   695→      </div>
+   696→   696→      <div className="flex-1" />
+   697→   697→      <div className="flex items-center gap-2">
+   698→   698→        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
+   699→   699→          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   700→   700→        </button>
+   701→   701→      </div>
+   702→   702→    </div>
+   703→   703→  );
+   704→   704→}
+   705→   705→
+   706→   706→// ─── Mobile FAB ──────────────────────────────────────────────────
+   707→   707→
+   708→   708→const FAB_ACTIONS: { label: string; icon: LucideIcon; view: ViewId; color: string }[] = [
+   709→   709→  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+   710→   710→  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+   711→   711→  { label: 'New Note', icon: StickyNote, view: 'notes', color: 'bg-emerald-500 dark:bg-emerald-400' },
+   712→   712→  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+   713→   713→];
+   714→   714→
+   715→   715→function MobileFAB() {
+   716→   716→  const [open, setOpen] = useState(false);
+   717→   717→  const navigate = useStore((s) => s.navigate);
+   718→   718→  const currentView = useStore((s) => s.currentView);
+   719→   719→  const fabRef = useRef<HTMLDivElement>(null);
+   720→   720→
+   721→   721→  // Auto-close when navigating away (store currentView is external state)
+   722→   722→  const prevViewRef = useRef(currentView);
+   723→   723→  /* eslint-disable react-hooks/set-state-in-effect */
+   724→   724→  useEffect(() => {
+   725→   725→    if (prevViewRef.current !== currentView) {
+   726→   726→      prevViewRef.current = currentView;
+   727→   727→      setOpen(false);
+   728→   728→    }
+   729→   729→  }, [currentView]);
+   730→   730→  /* eslint-enable react-hooks/set-state-in-effect */
+   731→   731→
+   732→   732→  const handleClose = useCallback(() => setOpen(false), []);
+   733→   733→
+   734→   734→  // Close on outside click
+   735→   735→  useEffect(() => {
+   736→   736→    if (!open) return;
+   737→   737→    const handleClick = (e: MouseEvent) => {
+   738→   738→      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+   739→   739→        setOpen(false);
+   740→   740→      }
+   741→   741→    };
+   742→   742→    // Delay to avoid immediate close from the toggle click
+   743→   743→    const timer = setTimeout(() => {
+   744→   744→      document.addEventListener('mousedown', handleClick);
+   745→   745→    }, 0);
+   746→   746→    return () => {
+   747→   747→      clearTimeout(timer);
+   748→   748→      document.removeEventListener('mousedown', handleClick);
+   749→   749→    };
+   750→   750→  }, [open]);
+   751→   751→
+   752→   752→  const handleAction = (view: ViewId) => {
+   753→   753→    setOpen(false);
+   754→   754→    navigate(view);
+   755→   755→  };
+   756→   756→
+   757→   757→  return (
+   758→   758→    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+   759→   759→      {/* Backdrop overlay when open */}
+   760→   760→      <AnimatePresence>
+   761→   761→        {open && (
+   762→   762→          <motion.div
+   763→   763→            initial={{ opacity: 0 }}
+   764→   764→            animate={{ opacity: 1 }}
+   765→   765→            exit={{ opacity: 0 }}
+   766→   766→            transition={{ duration: 0.15 }}
+   767→   767→            className="fixed inset-0 z-[-1]"
+   768→   768→            onClick={() => setOpen(false)}
+   769→   769→          />
+   770→   770→        )}
+   771→   771→      </AnimatePresence>
+   772→   772→
+   773→   773→      {/* Radial menu items */}
+   774→   774→      <AnimatePresence>
+   775→   775→        {open && (
+   776→   776→          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+   777→   777→            {FAB_ACTIONS.map((action, i) => {
+   778→   778→              const Icon = action.icon;
+   779→   779→              return (
+   780→   780→                <motion.div
+   781→   781→                  key={action.label}
+   782→   782→                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   783→   783→                  animate={{ opacity: 1, scale: 1, y: 0 }}
+   784→   784→                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+   785→   785→                  transition={{ duration: 0.2, delay: i * 0.04 }}
+   786→   786→                  className="flex items-center gap-2.5"
+   787→   787→                >
+   788→   788→                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+   789→   789→                    {action.label}
+   790→   790→                  </span>
+   791→   791→                  <button
+   792→   792→                    onClick={() => handleAction(action.view)}
+   793→   793→                    className={cn(
+   794→   794→                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+   795→   795→                      action.color,
+   796→   796→                      'text-white'
+   797→   797→                    )}
+   798→   798→                    aria-label={action.label}
+   799→   799→                  >
+   800→   800→                    <Icon className="size-4" />
+   801→   801→                  </button>
+   802→   802→                </motion.div>
+   803→   803→              );
+   804→   804→            })}
+   805→   805→          </div>
+   806→   806→        )}
+   807→   807→      </AnimatePresence>
+   808→   808→
+   809→   809→      {/* Main FAB button */}
+   810→   810→      <motion.button
+   811→   811→        onClick={() => setOpen((prev) => !prev)}
+   812→   812→        whileTap={{ scale: 0.92 }}
+   813→   813→        className="h-12 w-12 rounded-full bg-primary text-primary-foreground fab-shadow press-scale flex items-center justify-center"
+   814→   814→        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+   815→   815→        style={{ rotate: open ? 45 : 0 }}
+   816→   816→        transition={{ duration: 0.2 }}
+   817→   817→      >
+   818→   818→        <Plus className="size-5" />
+   819→   819→      </motion.button>
+   820→   820→    </div>
+   821→   821→  );
+   822→   822→}
+   823→   823→
+   824→   824→// ─── App Shell ───────────────────────────────────────────────────────
+   825→   825→
+   826→   826→export function AppShell() {
+   827→   827→  const subjects = useStore((s) => s.subjects);
+   828→   828→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   829→   829→  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+   830→   830→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   831→   831→  const { theme, setTheme } = useTheme();
+   832→   832→
+   833→   833→  const showShortcuts = useCallback(() => {
+   834→   834→    setCommandOpen(false);
+   835→   835→    setShortcutsOpen(true);
+   836→   836→  }, [setCommandOpen]);
+   837→   837→
+   838→   838→  useEffect(() => {
+   839→   839→    const NUMBER_KEY_VIEWS: Record<string, ViewId> = {
+   840→   840→      '1': 'dashboard',
+   841→   841→      '2': 'subjects',
+   842→   842→      '3': 'marks',
+   843→   843→      '4': 'attendance',
+   844→   844→      '5': 'exams',
+   845→   845→      '6': 'focus',
+   846→   846→      '7': 'revision',
+   847→   847→      '8': 'notes',
+   848→   848→      '9': 'tasks',
+   849→   849→    };
+   850→   850→
+   851→   851→    const handleKeyDown = (e: KeyboardEvent) => {
+   852→   852→      // Don't capture when typing in inputs
+   853→   853→      const tag = (e.target as HTMLElement)?.tagName;
+   854→   854→      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+   855→   855→      const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+   856→   856→
+   857→   857→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   858→   858→        e.preventDefault();
+   859→   859→        setCommandOpen(true);
+   860→   860→      }
+   861→   861→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+   862→   862→        e.preventDefault();
+   863→   863→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   864→   864→      }
+   865→   865→      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+   866→   866→        e.preventDefault();
+   867→   867→        useStore.getState().navigate('settings');
+   868→   868→      }
+   869→   869→      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+   870→   870→        e.preventDefault();
+   871→   871→        setShortcutsOpen((prev) => !prev);
+   872→   872→      }
+   873→   873→      // Number keys 1-9 for view navigation (no modifiers, not in input)
+   874→   874→      if (!isInput && !hasModifier && !e.shiftKey && NUMBER_KEY_VIEWS[e.key]) {
+   875→   875→        e.preventDefault();
+   876→   876→        useStore.getState().navigate(NUMBER_KEY_VIEWS[e.key]);
+   877→   877→      }
+   878→   878→      // D key for theme toggle (no modifiers, not in input)
+   879→   879→      if (!isInput && !hasModifier && e.key === 'd') {
+   880→   880→        e.preventDefault();
+   881→   881→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   882→   882→      }
+   883→   883→      // N key for context-sensitive new action (no modifiers, not in input)
+   884→   884→      if (!isInput && !hasModifier && e.key === 'n') {
+   885→   885→        e.preventDefault();
+   886→   886→        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
+   887→   887→      }
+   888→   888→    };
+   889→   889→    document.addEventListener('keydown', handleKeyDown);
+   890→   890→    return () => document.removeEventListener('keydown', handleKeyDown);
+   891→   891→  }, [setCommandOpen, theme, setTheme]);
+   892→   892→
+   893→   893→  return (
+   894→   894→    <ToastProvider>
+   895→   895→    <MobileFAB />
+   896→   896→    <div className="flex min-h-screen">
+   897→   897→      <DesktopSidebar />
+   898→   898→
+   899→   899→      <main className="flex-1 min-w-0 flex flex-col">
+   900→   900→        <DesktopTopBar />
+   901→   901→        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
+   902→   902→          {/* Mobile header */}
+   903→   903→          <div className="flex items-center justify-between mb-5 md:mb-0">
+   904→   904→            <div className="flex items-center gap-2">
+   905→   905→              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+   906→   906→                DELULU
+   907→   907→              </span>
+   908→   908→              <MobileStreakBadge />
+   909→   909→            </div>
+   910→   910→            <div className="flex items-center gap-1.5 ml-auto">
+   911→   911→              <ThemeToggle />
+   912→   912→              <button
+   913→   913→                onClick={() => setCommandOpen(true)}
+   914→   914→                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   915→   915→                aria-label="Search"
+   916→   916→              >
+   917→   917→                <Search className="size-4" />
+   918→   918→              </button>
+   919→   919→            </div>
+   920→   920→          </div>
+   921→   921→
+   922→   922→          {/* Onboarding — shows when no subjects exist */}
+   923→   923→          {subjects.length === 0 && <Onboarding />}
+   924→   924→
+   925→   925→          <ViewRouter />
+   926→   926→        </div>
+   927→   927→      </main>
+   928→   928→
+   929→   929→      <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
+   930→   930→      <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
+   931→   931→      <CommandPalette onShowShortcuts={showShortcuts} />
+   932→   932→      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+   933→   933→    </div>
+   934→   934→    </ToastProvider>
+   935→   935→  );
+   936→   936→}
+   937→   937→
