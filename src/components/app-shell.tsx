@@ -44,9 +44,12 @@ import {
   MoreHorizontal,
   ClipboardList,
   Flame,
+  Keyboard,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
 
 // ─── Nav item types ─────────────────────────────────────────────────
 
@@ -282,7 +285,7 @@ function MobileMoreSheet({
 
 // ─── Command palette ─────────────────────────────────────────────────
 
-function CommandPalette() {
+function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
   const commandOpen = useStore((s) => s.commandOpen);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const navigate = useStore((s) => s.navigate);
@@ -431,6 +434,19 @@ function CommandPalette() {
               ))}
           </CommandGroup>
         )}
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Help">
+          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+            <Keyboard className="size-4" />
+            <span>Show all shortcuts</span>
+            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+              ?
+            </kbd>
+          </CommandItem>
+        </CommandGroup>
       </CommandList>
     </CommandDialog>
   );
@@ -447,7 +463,7 @@ function DesktopSidebar() {
     <aside
       className={cn(
         'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
-        collapsed ? 'w-[52px]' : 'w-[220px]'
+        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
       )}
     >
       {/* Brand */}
@@ -566,6 +582,7 @@ function DesktopTopBar() {
 
   return (
     <div className="hidden lg:flex items-center gap-4 px-6 py-2 border-b border-border/50 text-xs text-muted-foreground">
+
       <span className="font-medium text-foreground/70">{greeting}, {profile.name}</span>
       <span className="text-border">|</span>
       <span>{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
@@ -598,12 +615,26 @@ function DesktopTopBar() {
 export function AppShell() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  const showShortcuts = useCallback(() => {
+    setCommandOpen(false);
+    setShortcutsOpen(true);
+  }, [setCommandOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setCommandOpen(true);
+      }
+      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+        e.preventDefault();
+        setShortcutsOpen((prev) => !prev);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -616,7 +647,7 @@ export function AppShell() {
 
       <main className="flex-1 min-w-0 flex flex-col">
         <DesktopTopBar />
-        <div className="content-area flex-1 px-4 md:px-6 py-5 pb-20 md:pb-6">
+        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-20 md:pb-6">
           {/* Mobile header */}
           <div className="flex items-center justify-between mb-5 md:mb-0">
             <div className="flex items-center gap-2">
@@ -640,7 +671,8 @@ export function AppShell() {
 
       <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
       <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
-      <CommandPalette />
+      <CommandPalette onShowShortcuts={showShortcuts} />
+      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }

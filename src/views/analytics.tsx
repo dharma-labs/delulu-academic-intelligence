@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
 import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity } from 'lucide-react';
 import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell,
+} from 'recharts';
 import { PageHeader, MetricCard, SectionHeader, EmptyState, InsightCard, CompactProgress } from '@/components/shared';
 import { progressColorClass } from '@/components/shared';
 
@@ -29,6 +33,7 @@ export default function AnalyticsView() {
   const [recentAssessments, setRecentAssessments] = useState<AssessSummary[]>([]);
   const [threshold, setThreshold] = useState(75);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'semester'>('week');
+  const [chartTheme, setChartTheme] = useState({ primary: '#3B82F6', primaryRgb: '59, 130, 246', card: '#FFFFFF', foreground: '#0F172A', border: '#E2E8F0' });
 
   useEffect(() => {
     const compute = () => {
@@ -92,6 +97,60 @@ export default function AnalyticsView() {
     if (m < 60) return 'bg-primary/60';
     return 'bg-primary';
   };
+
+  // Read CSS variables for Recharts (SVG doesn't support var() in attributes)
+  useEffect(() => {
+    const read = () => {
+      const s = getComputedStyle(document.documentElement);
+      setChartTheme({
+        primary: s.getPropertyValue('--primary').trim() || '#3B82F6',
+        primaryRgb: s.getPropertyValue('--primary-rgb').trim() || '59, 130, 246',
+        card: s.getPropertyValue('--card').trim() || '#FFFFFF',
+        foreground: s.getPropertyValue('--foreground').trim() || '#0F172A',
+        border: s.getPropertyValue('--border').trim() || '#E2E8F0',
+      });
+    };
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Chart data derived from existing computed state
+  const weekBarData = useMemo(() => {
+    const last7 = heatmap.slice(-7);
+    return last7.map((d) => ({
+      day: format(parseISO(d.dateStr), 'EEE'),
+      minutes: d.minutes,
+    }));
+  }, [heatmap]);
+
+  const cgpaTrendData = useMemo(() => {
+    return [...recentAssessments]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((a) => ({
+        name: a.name.length > 14 ? a.name.slice(0, 14) + '…' : a.name,
+        percentage: Math.round((a.obtainedMarks / a.maxMarks) * 100),
+      }));
+  }, [recentAssessments]);
+
+  const pieData = useMemo(() => {
+    return studyDist.map((d) => ({
+      name: d.name.length > 16 ? d.name.slice(0, 16) + '…' : d.name,
+      value: d.minutes,
+      color: d.color,
+    }));
+  }, [studyDist]);
+
+  const tooltipStyle = useMemo(() => ({
+    backgroundColor: chartTheme.card,
+    borderColor: chartTheme.border,
+    color: chartTheme.foreground,
+    border: `1px solid ${chartTheme.border}`,
+    borderRadius: '8px',
+    fontSize: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+  }), [chartTheme]);
 
   const belowThresholdCount = attendanceTrend.filter((a) => a.percentage < threshold).length;
   const hasInsights = weekMinutes > 0 || uniqueSubjects > 0 || belowThresholdCount > 0;
@@ -200,6 +259,157 @@ export default function AnalyticsView() {
           <span>More</span>
         </div>
       </motion.div>
+
+      {/* Recharts Visualizations */}
+      <div className="mb-6">
+        <SectionHeader title="Visualizations" subtitle="Interactive charts powered by your study data" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Weekly Study Time Bar Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.06 }}
+            className="metric-card"
+          >
+            <SectionHeader title="Weekly Study Time" subtitle="Minutes per day — last 7 days" />
+            {weekBarData.every((d) => d.minutes === 0) ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No study data this week"
+                description="Log study sessions to see your daily chart"
+                className="py-8"
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={200} maintainAspectRatio={false}>
+                <BarChart data={weekBarData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${chartTheme.primaryRgb}, 0.08)`} vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 11, fill: chartTheme.foreground }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: chartTheme.foreground }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: `rgba(${chartTheme.primaryRgb}, 0.06)` }}
+                    formatter={(value: number) => [`${value}m`, 'Study time']}
+                  />
+                  <Bar
+                    dataKey="minutes"
+                    fill={chartTheme.primary}
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </motion.div>
+
+          {/* CGPA Trend Line Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.08 }}
+            className="metric-card"
+          >
+            <SectionHeader title="Assessment Performance" subtitle="Score trend across assessments" />
+            {cgpaTrendData.length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No assessments yet"
+                description="Record CA marks to see your performance trend"
+                className="py-8"
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={200} maintainAspectRatio={false}>
+                <LineChart data={cgpaTrendData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${chartTheme.primaryRgb}, 0.08)`} vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: chartTheme.foreground }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 11, fill: chartTheme.foreground }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(value: number) => [`${value}%`, 'Score']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="percentage"
+                    stroke={chartTheme.primary}
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: chartTheme.primary, stroke: chartTheme.card, strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: chartTheme.primary, stroke: chartTheme.card, strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </motion.div>
+
+          {/* Study Distribution Donut Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="metric-card"
+          >
+            <SectionHeader title="Study Distribution" subtitle="Time per subject this week" />
+            {pieData.length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No study data"
+                description="Start a study session to see your distribution"
+                className="py-8"
+              />
+            ) : (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width="50%" height={200} maintainAspectRatio={false}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      formatter={(value: number) => [`${value}m`, 'Study time']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-2">
+                  {pieData.slice(0, 5).map((d) => (
+                    <div key={d.name} className="flex items-center gap-2">
+                      <span className="status-dot" style={{ backgroundColor: d.color }} />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{d.name}</span>
+                      <span className="text-xs font-semibold tabular-nums">{d.value}m</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">

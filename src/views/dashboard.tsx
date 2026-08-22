@@ -1,14 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { format, formatDistanceToNow, startOfWeek, isAfter, isBefore, addDays } from 'date-fns';
+import { useMemo } from 'react';
+import { format, startOfWeek, addDays } from 'date-fns';
 import {
   ArrowRight,
   BookOpen,
   Clock,
   TrendingUp,
-  TrendingDown,
-  Minus,
   Target,
   Activity,
   CalendarClock,
@@ -22,6 +20,9 @@ import {
   ChevronRight,
   Sparkles,
   Flame,
+  Zap,
+  StickyNote,
+  Bot,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -29,8 +30,6 @@ import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSu
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, progressColorClass } from '@/components/shared';
 import { cn } from '@/lib/utils';
 import type { SignalStatus } from '@/lib/types';
@@ -38,10 +37,11 @@ import type { SignalStatus } from '@/lib/types';
 // -- Animation --
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const fadeUp = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } } };
+const mobileFade = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } } };
 
 // -- Health status --
 function getHealthConfig(score: number) {
-  if (score >= 80) return { label: 'HEALTHY', status: 'healthy' as SignalStatus, description: 'Academics on track' };
+   if (score >= 80) return { label: 'HEALTHY', status: 'healthy' as SignalStatus, description: 'Academics on track' };
   if (score >= 60) return { label: 'GOOD', status: 'improving' as SignalStatus, description: 'Solid progress' };
   if (score >= 40) return { label: 'NEEDS ATTENTION', status: 'attention' as SignalStatus, description: 'Some areas need focus' };
   if (score > 0) return { label: 'CRITICAL', status: 'critical' as SignalStatus, description: 'Immediate action required' };
@@ -63,6 +63,31 @@ function signalDotClass(signal: SignalStatus): string {
     critical: 'bg-red-500', upcoming: 'bg-purple-500', nodata: 'bg-muted-foreground/40',
   };
   return map[signal];
+}
+
+// -- Health Ring Component (Mobile) --
+function HealthRing({ score, config }: { score: number; config: ReturnType<typeof getHealthConfig> }) {
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const strokeColor = score >= 75 ? 'var(--delulu-success)' : score >= 50 ? 'var(--delulu-info)' : score >= 30 ? 'var(--delulu-warning)' : 'var(--delulu-danger)';
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width="112" height="112" viewBox="0 0 112 112" className="-rotate-90">
+        <circle cx="56" cy="56" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="5" opacity="0.3" />
+        <circle
+          cx="56" cy="56" r={radius} fill="none" stroke={strokeColor} strokeWidth="5"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          strokeLinecap="round" className="transition-all duration-1000 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+        <span className="text-3xl font-extrabold tracking-tighter leading-none">{score}</span>
+        <span className="text-[10px] text-muted-foreground font-medium mt-0.5">/ 100</span>
+      </div>
+    </div>
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -93,12 +118,10 @@ function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; durat
         return (
           <div key={d.dateStr} className="flex flex-col items-center gap-1">
             <div
-              className={`w-full aspect-square rounded-md transition-colors ${
-                isToday ? 'ring-2 ring-primary/30' : ''
-              }`}
+              className={cn('w-full aspect-square rounded-md transition-colors', isToday && 'ring-2 ring-primary/30')}
               style={{ backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` }}
             />
-            <span className={`text-[10px] ${isToday ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{d.label}</span>
+            <span className={cn('text-[10px]', isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
             {d.count > 0 && (
               <span className="text-[9px] text-muted-foreground tabular-nums">{d.totalMinutes}m</span>
             )}
@@ -182,7 +205,6 @@ export default function DashboardView() {
   const recommendations = useMemo(() => {
     const items: { title: string; description: string; priority: string; priorityColor: string; actionLabel: string; actionView: string; subjectId?: string; }[] = [];
 
-    // 1. Incomplete syllabus topic with lowest progress
     const syllState = { syllabusUnits };
     const sortedByProgress = activeSubjects.map((s) => ({ subject: s, progress: getSubjectProgress(syllState, s.id) })).sort((a, b) => a.progress - b.progress);
 
@@ -200,7 +222,6 @@ export default function DashboardView() {
       }
     }
 
-    // 2. Deadline
     const today = new Date().toISOString().split('T')[0];
     const upcomingExams = exams.filter((e) => e.status === 'upcoming' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
     const upcomingAssignments = assignments.filter((a) => a.status !== 'completed' && a.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline));
@@ -217,7 +238,6 @@ export default function DashboardView() {
       });
     }
 
-    // 3. Low attendance
     const attState = { attendance };
     const lowestAtt = activeSubjects.map((s) => ({ subject: s, att: getSubjectAttendance(attState, s.id) })).filter((x) => x.att.total > 0).sort((a, b) => a.att.percentage - b.att.percentage)[0];
     if (lowestAtt && lowestAtt.att.percentage < profile.attendanceThreshold) {
@@ -250,24 +270,20 @@ export default function DashboardView() {
   const insights = useMemo(() => {
     const result: { type: 'positive' | 'warning' | 'critical' | 'info'; title: string; description?: string }[] = [];
 
-    // Check subjects at risk
     const atRisk = subjectHealthData.filter((s) => s.signal === 'critical' || s.signal === 'attention');
     if (atRisk.length > 0) {
       result.push({ type: 'warning', title: `${atRisk.length} subject${atRisk.length > 1 ? 's' : ''} need attention`, description: atRisk.map((s) => s.subject.name).join(', ') });
     }
 
-    // Revision queue
     if (dueRevisionCount > 0) {
       result.push({ type: 'info', title: `${dueRevisionCount} revision${dueRevisionCount > 1 ? 's' : ''} due`, description: 'Items in your SM-2 queue are ready for review' });
     }
 
-    // Attendance
     const lowAttSubjects = subjectHealthData.filter((s) => s.att.total > 0 && s.att.percentage < profile.attendanceThreshold);
     if (lowAttSubjects.length > 0) {
       result.push({ type: lowAttSubjects.some((s) => s.att.percentage < profile.attendanceThreshold - 5) ? 'critical' : 'warning', title: 'Attendance below threshold', description: `${lowAttSubjects.map((s) => `${s.subject.name} (${s.att.percentage}%)`).join(', ')}` });
     }
 
-    // Study streak
     const now = new Date();
     const startStr = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
     const weekSessions = studySessions.filter((s) => s.date >= startStr).length;
@@ -277,13 +293,56 @@ export default function DashboardView() {
       result.push({ type: 'warning', title: 'No study sessions this week', description: 'Start a focus session to build momentum' });
     }
 
-    // CGPA
     if (cgpa > 0 && cgpa >= profile.targetCGPA) {
       result.push({ type: 'positive', title: `CGPA on target`, description: `${cgpa.toFixed(1)} meets your goal of ${profile.targetCGPA}` });
     }
 
     return result.slice(0, 4);
   }, [subjectHealthData, dueRevisionCount, profile.attendanceThreshold, studySessions, cgpa, profile.targetCGPA]);
+
+  // -- Study Pattern Insights --
+  const studyPatterns = useMemo(() => {
+    const patterns: { type: 'positive' | 'warning' | 'info'; title: string; description: string }[] = [];
+    const today = new Date().toISOString().split('T')[0];
+    const ws = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const weekSessions = studySessions.filter((s) => s.date >= ws);
+    const todaySessions = studySessions.filter((s) => s.date === today);
+    const totalWeekSec = weekSessions.reduce((a, s) => a + s.duration, 0);
+    const avgSessionMin = weekSessions.length > 0 ? Math.round(totalWeekSec / weekSessions.length / 60) : 0;
+
+    // Best day
+    const dayTotals: Record<string, number> = {};
+    weekSessions.forEach((s) => { dayTotals[s.date] = (dayTotals[s.date] || 0) + s.duration; });
+    const bestDay = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0];
+    if (bestDay) {
+      const dayName = format(new Date(bestDay[0] + 'T12:00:00'), 'EEEE');
+      patterns.push({ type: 'info', title: `Most productive: ${dayName}`, description: `${Math.round(bestDay[1] / 60)}m total study time` });
+    }
+
+    // Session length analysis
+    if (avgSessionMin > 0 && avgSessionMin < 25) {
+      patterns.push({ type: 'warning', title: 'Short sessions detected', description: `Average ${avgSessionMin}m — try 25+ min Pomodoro sessions for deeper focus` });
+    } else if (avgSessionMin >= 45) {
+      patterns.push({ type: 'positive', title: 'Great session length', description: `Average ${avgSessionMin}m — solid deep work sessions` });
+    }
+
+    // Subject coverage
+    const coveredSubjects = new Set(weekSessions.map((s) => s.subjectId)).size;
+    if (coveredSubjects > 0 && coveredSubjects < activeSubjects.length) {
+      const uncovered = activeSubjects.filter((s) => !weekSessions.some((ws) => ws.subjectId === s.id));
+      patterns.push({ type: 'info', title: `${uncovered.length} subject${uncovered.length > 1 ? 's' : ''} not studied this week`, description: uncovered.map((s) => s.name).join(', ') });
+    }
+
+    // Grade prediction
+    if (assessments.length >= 2) {
+      const recent = [...assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      const avgPct = recent.reduce((a, x) => a + (x.obtainedMarks / x.maxMarks) * 100, 0) / recent.length;
+      const predictedGrade = avgPct >= 90 ? 'O' : avgPct >= 80 ? 'A+' : avgPct >= 70 ? 'A' : avgPct >= 60 ? 'B+' : avgPct >= 50 ? 'B' : 'C';
+      patterns.push({ type: 'positive', title: 'Grade trend prediction', description: `Based on recent assessments: ${predictedGrade} (${avgPct.toFixed(0)}% average)` });
+    }
+
+    return patterns;
+  }, [studySessions, assessments, activeSubjects]);
 
   // -- Greeting --
   const hour = new Date().getHours();
@@ -295,357 +354,519 @@ export default function DashboardView() {
     navigate(view as never);
   }
 
+  // -- Mobile micro-metrics --
+  const microMetrics = useMemo(() => [
+    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
+    { label: 'CGPA', value: cgpa.toFixed(1), color: cgpaTrend === 'up' ? 'text-[var(--delulu-success)]' : cgpaTrend === 'down' ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'marks' as const },
+    { label: 'Syllabus', value: `${avgSyllabus}%`, color: 'text-foreground', view: 'subjects' as const },
+    { label: 'Streak', value: `${studyStreak}d`, color: studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground', view: 'analytics' as const },
+    { label: 'Week', value: `${weeklyHoursThisWeek}h`, color: weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground', view: 'analytics' as const },
+    { label: 'Revision', value: `${dueRevisionCount}`, color: dueRevisionCount > 3 ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'revision' as const },
+  ], [avgAttendance, profile.attendanceThreshold, cgpa, cgpaTrend, avgSyllabus, studyStreak, weeklyHoursThisWeek, weeklyGoalProgress, dueRevisionCount]);
+
   return (
-    <motion.div className="space-y-5" variants={container} initial="hidden" animate="show">
-      {/* ── Header Bar ── */}
-      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            {greeting}, {profile.name}
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
-            Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
-          </Badge>
-        </div>
-      </motion.div>
-
-      {/* ── Academic Health + Metrics Row ── */}
-      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
-        {/* Health Score */}
-        <Card className="hero-card">
-          <CardContent className="relative p-5 pt-6 overflow-hidden">
-            {/* Subtle gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
-            {/* Decorative accent line */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
-            <div className="relative">
-              <span className="section-label">Academic Health</span>
-              <div className="mt-3 mb-2">
-                <span className="text-5xl font-extrabold tracking-tighter text-foreground leading-none">
-                  {healthScore}
-                </span>
-                <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
-              </div>
-              <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
-              <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
-              <div className="mt-4">
-                <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Metrics Grid */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard
-              label="Attendance"
-              value={`${avgAttendance}%`}
-              context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
-              trend={avgAttendance >= profile.attendanceThreshold ? 'up' : 'down'}
-              icon={UserCheck}
-              valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}
-              onClick={() => navigate('attendance')}
-            />
-            <MetricCard
-              label="Syllabus"
-              value={`${avgSyllabus}%`}
-              context="Average completion"
-              icon={BookOpen}
-              onClick={() => navigate('subjects')}
-            />
-            <MetricCard
-              label="CGPA"
-              value={cgpa.toFixed(1)}
-              context={`Target: ${profile.targetCGPA}`}
-              trend={cgpaTrend}
-              trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
-              icon={BarChart3}
-              onClick={() => navigate('marks')}
-            />
-            <MetricCard
-              label="Study Time"
-              value={formatStudyTime(studyTimeThisWeek)}
-              context="This week"
-              icon={Clock}
-              onClick={() => navigate('analytics')}
-            />
+    <>
+      {/* ══════════════════════════════════════════════════════════════
+          MOBILE DASHBOARD — Intentionally minimal, action-oriented
+          ══════════════════════════════════════════════════════════════ */}
+      <div className="md:hidden space-y-4">
+        {/* Health Ring + Status */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
+          <HealthRing score={healthScore} config={healthConfig} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground mb-1">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+            <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-1.5" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{healthConfig.description}</p>
           </div>
-          {/* Streak + Weekly Goal Row */}
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard
-              label="Streak"
-              value={studyStreak}
-              context={`${studyStreak} day streak`}
-              icon={Flame}
-              iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
-              valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
-            />
-            <div className="metric-card">
-              <div className="flex items-center justify-between mb-2 md:mb-3">
-                <span className="metric-label">Weekly Goal</span>
-                <Target className="size-3.5 md:size-4 text-muted-foreground" />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className={cn(
-                  'text-xl md:text-2xl font-bold tracking-tight leading-none',
-                  weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
-                )}>{weeklyHoursThisWeek}h</span>
-                <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
-              </div>
-              <div className="mt-2">
-                <div className="progress-thin">
-                  <div
-                    className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
-                    style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ── Weekly Activity Heatmap ── */}
-      <motion.div variants={fadeUp}>
-        <Card>
-          <CardHeader className="pb-3 pt-4 px-5">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="size-4 text-primary" />
-                This Week
-              </CardTitle>
-              <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            <WeeklyHeatmap studySessions={studySessions} />
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ── Main Content Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Today's Focus + Recommendations */}
-        <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="pb-3 pt-4 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <Target className="size-4 text-primary" />
-                  Today's Focus
-                </CardTitle>
-                <span className="text-[10px] text-muted-foreground font-medium">{recommendations.length} action{recommendations.length !== 1 ? 's' : ''}</span>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              {recommendations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-2.5 mb-2.5">
-                    <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <p className="text-sm font-medium">All caught up</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">No pending actions right now</p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {recommendations.map((rec, i) => (
-                    <div
-                      key={i}
-                      className="card-interactive flex items-center gap-3 p-3 group"
-                      onClick={() => handleAction(rec.actionView, rec.subjectId)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <p className="text-sm font-medium truncate">{rec.title}</p>
-                          <StatusBadge
-                            status={rec.priorityColor === 'signal-critical' ? 'critical' : 'attention'}
-                            label={rec.priority}
-                            className="text-[9px] shrink-0"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">{rec.description}</p>
-                      </div>
-                      <Button size="sm" variant="ghost" className="shrink-0 text-xs font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        {rec.actionLabel}
-                        <ArrowRight className="size-3 ml-1" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Academic Flow */}
-          <Card>
-            <CardHeader className="pb-3 pt-4 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <Activity className="size-4 text-primary" />
-                  Academic Flow
-                </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('subjects')}>
-                  View all <ChevronRight className="size-3 ml-0.5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              {activeSubjects.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">No subjects added yet</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {subjectHealthData.map(({ subject, progress, att, signal }) => (
-                    <div
-                      key={subject.id}
-                      className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
-                      onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
-                    >
-                      <span className={`status-dot ${signalDotClass(signal)}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium truncate">{subject.name}</span>
-                          <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
-                        </div>
-                        <div className="progress-thin">
-                          <div
-                            className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
-                            style={{ width: `${Math.min(100, progress)}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
-                          <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="size-3.5 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Signal Legend */}
-          {activeSubjects.length > 0 && (
-            <div className="signal-legend px-1">
-              <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
-              <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
-              <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
-              <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
-            </div>
-          )}
         </motion.div>
 
-        {/* Right Column */}
-        <motion.div variants={fadeUp} className="space-y-4">
-          {/* Insights */}
+        {/* Micro-Metrics Strip — Horizontal Scroll */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.05 }}>
+          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-1">
+            {microMetrics.map((m) => (
+              <button
+                key={m.label}
+                onClick={() => navigate(m.view)}
+                className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-card border border-border/50 min-w-[60px] active:scale-95 transition-transform"
+              >
+                <span className={cn('text-base font-bold tracking-tight leading-none tabular-nums', m.color)}>{m.value}</span>
+                <span className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase">{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Top Recommendation Card */}
+        {recommendations.length > 0 && (
+          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
+            <div
+              className="card-interactive p-3.5 flex items-center gap-3"
+              onClick={() => handleAction(recommendations[0].actionView, recommendations[0].subjectId)}
+            >
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Zap className="size-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mb-0.5">Focus now</p>
+                <p className="text-sm font-medium truncate">{recommendations[0].title}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{recommendations[0].description}</p>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground shrink-0" />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Compact Subject Flow */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <span className="section-label">Subject Progress</span>
+            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium">View all</button>
+          </div>
+          <div className="space-y-2">
+            {subjectHealthData.slice(0, 4).map(({ subject, progress, signal }) => (
+              <div
+                key={subject.id}
+                className="flex items-center gap-2.5 p-2 rounded-xl bg-card border border-border/40 active:bg-accent/50 transition-colors"
+                onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+              >
+                <span className={cn('status-dot shrink-0', signalDotClass(signal))} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium truncate">{subject.name}</span>
+                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
+                  </div>
+                  <div className="progress-thin">
+                    <div
+                      className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+                      style={{ width: `${Math.min(100, progress)}%` }}
+                    />
+                  </div>
+                </div>
+                <ChevronRight className="size-3.5 text-muted-foreground/50 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Weekly Goal Mini Bar */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Target className="size-3.5 text-primary" />
+              <span className="text-xs font-medium">Weekly Goal</span>
+            </div>
+            <span className={cn('text-xs font-bold tabular-nums', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
+              {weeklyHoursThisWeek}h / {weeklyGoalHours}h
+            </span>
+          </div>
+          <div className="progress-thin">
+            <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
+          </div>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
+              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
+              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
+            ].map((a) => {
+              const Icon = a.icon;
+              return (
+                <button
+                  key={a.view}
+                  onClick={() => navigate(a.view)}
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
+                >
+                  <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
+                    <Icon className="size-4" />
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground">{a.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* First Insight Only */}
+        {insights.length > 0 && (
+          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
+            <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
+          </motion.div>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DESKTOP DASHBOARD — Information-rich analytical workspace
+          ══════════════════════════════════════════════════════════════ */}
+      <motion.div className="hidden md:block space-y-5" variants={container} initial="hidden" animate="show">
+        {/* ── Header Bar ── */}
+        <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">
+              {greeting}, {profile.name}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
+              Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
+            </Badge>
+          </div>
+        </motion.div>
+
+        {/* ── Academic Health + Metrics Row ── */}
+        <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
+          {/* Health Score */}
+          <Card className="hero-card">
+            <CardContent className="relative p-5 pt-6 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
+              <div className="relative">
+                <span className="section-label">Academic Health</span>
+                <div className="mt-3 mb-2">
+                  <span className="text-5xl font-extrabold tracking-tighter text-foreground leading-none">
+                    {healthScore}
+                  </span>
+                  <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
+                </div>
+                <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
+                <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
+                <div className="mt-4">
+                  <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Metrics Grid */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <MetricCard
+                label="Attendance"
+                value={`${avgAttendance}%`}
+                context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
+                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : 'down'}
+                icon={UserCheck}
+                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}
+                onClick={() => navigate('attendance')}
+              />
+              <MetricCard
+                label="Syllabus"
+                value={`${avgSyllabus}%`}
+                context="Average completion"
+                icon={BookOpen}
+                onClick={() => navigate('subjects')}
+              />
+              <MetricCard
+                label="CGPA"
+                value={cgpa.toFixed(1)}
+                context={`Target: ${profile.targetCGPA}`}
+                trend={cgpaTrend}
+                trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
+                icon={BarChart3}
+                onClick={() => navigate('marks')}
+              />
+              <MetricCard
+                label="Study Time"
+                value={formatStudyTime(studyTimeThisWeek)}
+                context="This week"
+                icon={Clock}
+                onClick={() => navigate('analytics')}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <MetricCard
+                label="Streak"
+                value={studyStreak}
+                context={`${studyStreak} day streak`}
+                icon={Flame}
+                iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
+                valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+              />
+              <div className="metric-card">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <span className="metric-label">Weekly Goal</span>
+                  <Target className="size-3.5 md:size-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className={cn(
+                    'text-xl md:text-2xl font-bold tracking-tight leading-none',
+                    weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
+                  )}>{weeklyHoursThisWeek}h</span>
+                  <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
+                </div>
+                <div className="mt-2">
+                  <div className="progress-thin">
+                    <div
+                      className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
+                      style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Weekly Activity Heatmap ── */}
+        <motion.div variants={fadeUp}>
           <Card>
             <CardHeader className="pb-3 pt-4 px-5">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Sparkles className="size-4 text-[var(--delulu-purple)]" />
-                Insights
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock className="size-4 text-primary" />
+                  This Week
+                </CardTitle>
+                <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
+              </div>
             </CardHeader>
             <CardContent className="px-5 pb-4">
-              {insights.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">No insights yet</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {insights.map((insight, i) => {
-                    const iconMap = { positive: CheckCircle2, warning: AlertTriangle, critical: AlertTriangle, info: Info };
-                    const Icon = iconMap[insight.type];
-                    return (
-                      <div key={i} className={i >= 1 ? 'hidden md:block' : ''}>
+              <WeeklyHeatmap studySessions={studySessions} />
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* ── Main Content Grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Today's Focus + Recommendations */}
+          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader className="pb-3 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <Target className="size-4 text-primary" />
+                    Today's Focus
+                  </CardTitle>
+                  <span className="text-[10px] text-muted-foreground font-medium">{recommendations.length} action{recommendations.length !== 1 ? 's' : ''}</span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                {recommendations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-2.5 mb-2.5">
+                      <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <p className="text-sm font-medium">All caught up</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">No pending actions right now</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {recommendations.map((rec, i) => (
+                      <div
+                        key={i}
+                        className="card-interactive flex items-center gap-3 p-3 group"
+                        onClick={() => handleAction(rec.actionView, rec.subjectId)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="text-sm font-medium truncate">{rec.title}</p>
+                            <StatusBadge
+                              status={rec.priorityColor === 'signal-critical' ? 'critical' : 'attention'}
+                              label={rec.priority}
+                              className="text-[9px] shrink-0"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{rec.description}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="shrink-0 text-xs font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          {rec.actionLabel}
+                          <ArrowRight className="size-3 ml-1" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Academic Flow */}
+            <Card>
+              <CardHeader className="pb-3 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <Activity className="size-4 text-primary" />
+                    Academic Flow
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('subjects')}>
+                    View all <ChevronRight className="size-3 ml-0.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                {activeSubjects.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No subjects added yet</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {subjectHealthData.map(({ subject, progress, att, signal }) => (
+                      <div
+                        key={subject.id}
+                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+                        onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+                      >
+                        <span className={cn('status-dot', signalDotClass(signal))} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium truncate">{subject.name}</span>
+                            <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
+                          </div>
+                          <div className="progress-thin">
+                            <div
+                              className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+                              style={{ width: `${Math.min(100, progress)}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
+                            <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="size-3.5 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Signal Legend */}
+            {activeSubjects.length > 0 && (
+              <div className="signal-legend px-1">
+                <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
+                <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
+                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+                <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Right Column */}
+          <motion.div variants={fadeUp} className="space-y-4">
+            {/* Study Pattern Insights */}
+            {studyPatterns.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3 pt-4 px-5">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <Sparkles className="size-4 text-[var(--delulu-purple)]" />
+                    Study Patterns
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  <div className="space-y-2.5">
+                    {studyPatterns.map((p, i) => (
+                      <InsightCard key={i} type={p.type} icon={p.type === 'positive' ? TrendingUp : p.type === 'warning' ? AlertTriangle : Info} title={p.title} description={p.description} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Insights */}
+            <Card>
+              <CardHeader className="pb-3 pt-4 px-5">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Activity className="size-4 text-[var(--delulu-purple)]" />
+                  Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                {insights.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No insights yet</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {insights.map((insight, i) => {
+                      const iconMap = { positive: CheckCircle2, warning: AlertTriangle, critical: AlertTriangle, info: Info };
+                      const Icon = iconMap[insight.type];
+                      return (
                         <InsightCard
+                          key={i}
                           type={insight.type}
                           icon={Icon}
                           title={insight.title}
                           description={insight.description}
                         />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Upcoming Deadlines */}
-          <Card>
-            <CardHeader className="pb-3 pt-4 px-5">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <CalendarClock className="size-4 text-[var(--delulu-warning)]" />
-                  Deadlines
-                </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('calendar')}>
-                  Calendar <ChevronRight className="size-3 ml-0.5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              {upcomingDeadlines.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">No upcoming deadlines</p>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingDeadlines.map((d, i) => {
-                    const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
-                      >
-                        <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{d.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
-                        </div>
-                        <Badge
-                          variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
-                          className="text-[10px] px-1.5 py-0 shrink-0"
+            {/* Upcoming Deadlines */}
+            <Card>
+              <CardHeader className="pb-3 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                    <CalendarClock className="size-4 text-[var(--delulu-warning)]" />
+                    Deadlines
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('calendar')}>
+                    Calendar <ChevronRight className="size-3 ml-0.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                {upcomingDeadlines.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">No upcoming deadlines</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingDeadlines.map((d, i) => {
+                      const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
                         >
-                          {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
-                        </Badge>
-                      </div>
+                          <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{d.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
+                          </div>
+                          <Badge
+                            variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
+                            className="text-[10px] px-1.5 py-0 shrink-0"
+                          >
+                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions — desktop only */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Focus', icon: Timer, view: 'focus' as const },
+                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
+                    { label: 'Notes', icon: BookOpen, view: 'notes' as const },
+                    { label: 'Report', icon: BarChart3, view: 'report' as const },
+                  ].map((a) => {
+                    const Icon = a.icon;
+                    return (
+                      <button
+                        key={a.view}
+                        onClick={() => navigate(a.view)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Icon className="size-3.5" />
+                        {a.label}
+                      </button>
                     );
                   })}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions — desktop only */}
-          <Card className="hidden md:block">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: 'Focus', icon: Timer, view: 'focus' as const },
-                  { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
-                  { label: 'Notes', icon: BookOpen, view: 'notes' as const },
-                  { label: 'Report', icon: BarChart3, view: 'report' as const },
-                ].map((a) => {
-                  const Icon = a.icon;
-                  return (
-                    <button
-                      key={a.view}
-                      onClick={() => navigate(a.view)}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                    >
-                      <Icon className="size-3.5" />
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </motion.div>
+    </>
   );
 }

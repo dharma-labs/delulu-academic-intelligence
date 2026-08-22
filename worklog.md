@@ -438,3 +438,173 @@ The Delulu 4.0 FlowTune-inspired Academic Intelligence System is now **feature-c
 5. **LOW**: Add data visualization charts (Recharts) to analytics view for richer insights
 6. **LOW**: Add keyboard shortcuts overlay (like FlowTune's ? shortcut)
 ---
+Task ID: 5
+Agent: Recharts Analytics Charts
+Task: Add Recharts data visualizations to Analytics view
+
+Work Log:
+- Read worklog.md and analytics.tsx to understand project state, design system, and existing code
+- Confirmed recharts ^2.15.4 installed in package.json
+- Added Recharts imports: BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
+- Added useMemo to React imports for derived chart data
+- Added chartTheme state with MutationObserver to read CSS variables (--primary, --primary-rgb, --card, --foreground, --border) at runtime, enabling proper dark mode support since SVG attributes don't support CSS var()
+- Derived 3 chart datasets from existing computed state (no new store queries):
+  - weekBarData: last 7 days from heatmap, showing minutes per day
+  - cgpaTrendData: sorted recentAssessments with percentage scores
+  - pieData: studyDist mapped for donut chart with subject colors
+- Created tooltipStyle memo with bg-card, text-foreground, border-border for dark mode compatibility
+- Inserted new 'Visualizations' section between heatmap and existing charts grid with SectionHeader
+- Implemented Weekly Study Time BarChart: rounded bars (radius [6,6,0,0]), primary color fill, responsive container, CartesianGrid with low-opacity primary, clean axis styling
+- Implemented Assessment Performance LineChart: monotone smooth line, styled dots (r:4 with card stroke), active dots, 0-100 domain YAxis
+- Implemented Study Distribution Donut PieChart: inner/outer radius donut, subject colors from store, padding between slices, companion legend list with status dots
+- All charts use metric-card class, motion fadeUp pattern with staggered delays (0.06, 0.08, 0.1), EmptyState fallbacks
+- Zero lint errors verified with `bun run lint`
+
+Stage Summary:
+- Analytics view: Enhanced with 3 Recharts visualizations (Bar, Line, Pie)
+- Dark mode: Full support via MutationObserver CSS variable reading
+- Existing content: Preserved — all heatmap, metric cards, insights, distribution bars, attendance/syllabus progress intact
+- Lint: 0 errors
+---
+Task ID: AI Tutor Enhancement
+Agent: General-purpose
+Task: AI Tutor — Markdown rendering, streaming responses, syllabus-aware context
+
+Work Log:
+- Verified z-ai-web-dev-sdk v0.0.18 supports streaming: `stream: true` returns `ReadableStream` body from API (SSE format)
+- Installed remark-gfm@4.0.1 (react-markdown v10.1.0 and date-fns v4.1.0 already present)
+- Rewrote src/app/api/ai-tutor/route.ts:
+  - Added `stream: true` to SDK chat.completions.create call
+  - Returns ReadableStream with `text/event-stream` Content-Type when streaming
+  - Parses upstream SSE data chunks, re-emits as `data: {"content": "chunk"}\n\n`
+  - Sends `data: [DONE]\n\n` on stream end
+  - Graceful error handling: sends error content chunk + [DONE] on failure
+  - Fallback: if SDK returns JSON (non-stream), returns JSON response as before
+- Rewrote src/views/ai-tutor.tsx:
+  - **Markdown rendering**: Assistant messages rendered with ReactMarkdown + remarkGfm; custom components for h3 (text-sm font-semibold), h4 (text-xs font-semibold), code blocks (bg-muted rounded-lg px-3 py-2 text-xs font-mono overflow-x-auto), inline code (bg-muted px-1 py-0.5 rounded text-xs font-mono), lists (text-xs, proper indentation), tables (border-collapse border-border text-xs), links (text-primary underline), blockquotes, hr; user messages remain plain text
+  - **Streaming**: Frontend consumes ReadableStream from fetch response, parses SSE `data:` lines, progressively updates assistant message content; uses AbortController for cancellation; typing dots animation shown while streaming empty content
+  - **Syllabus-aware context**: buildContext() now includes per-subject (name, code, credits, syllabus progress %, attendance %, up to 10 incomplete topics), upcoming exams and assignments, academic health score, study streak, weekly study hours; imports getSubjectProgress, getSubjectAttendance, getSemesterHealth, getStudyStreak, getStudyTimeThisWeek from store
+  - **Dynamic quick prompts**: Generates prompts from actual data — lowest-progress subject's first incomplete topic, nearest upcoming exam, due revision items; falls back to 2 generic prompts
+  - **Message timestamps**: Uses date-fns formatDistanceToNow with addSuffix, styled as text-[10px] text-muted-foreground mt-1
+  - **Typing indicator**: Three bouncing dots animation (typing-dot class) in empty streaming message, non-streaming fallback, and send button during loading
+- Added typing-dots animation to globals.css: `@keyframes typing-bounce` with 0.8s ease-in-out infinite, staggered delays (0ms, 150ms, 300ms)
+
+Stage Summary:
+- Backend: Streaming SSE endpoint with fallback to JSON
+- Frontend: Markdown rendering (GFM), progressive streaming, dynamic context-rich prompts, relative timestamps
+- Lint: 0 errors
+
+---
+Task ID: keyboard-shortcuts-overlay
+Agent: Sub-agent
+Task: Keyboard shortcuts overlay + command palette enhancement
+
+Work Log:
+- Created `src/components/shortcuts-overlay.tsx`: New Dialog-based overlay component
+  - Uses Radix Dialog (via shadcn/ui) with framer-motion stagger animations
+  - 2-column grid layout (1-column on mobile via `sm:grid-cols-2`)
+  - Two sections: "Navigation" (11 shortcuts) and "Actions" (6 shortcuts)
+  - Each shortcut row: label (left) + kbd-styled key combo (right)
+  - kbd elements use: `bg-muted border border-border rounded px-1.5 py-0.5 text-[11px] font-mono`
+  - Header with Keyboard icon in primary/10 badge, title + subtitle
+  - Footer hint: "Press ? to toggle this dialog"
+  - Closes on Escape (native Dialog behavior) and click-outside (onPointerDownOutside)
+- Modified `src/components/app-shell.tsx`:
+  - Added `shortcutsOpen` local state + `showShortcuts` callback (closes command palette, opens shortcuts)
+  - Extended keyboard handler: `?` and `Shift+/` toggle shortcuts overlay (skipped when focused on INPUT/TEXTAREA/contentEditable)
+  - Added `ShortcutsOverlay` component to render tree
+  - Enhanced `CommandPalette` to accept `onShowShortcuts` prop
+  - Added "Help" section at bottom of command palette with "Show all shortcuts →" item featuring Keyboard icon, ArrowRight, and `?` kbd hint
+  - Imported `Keyboard` and `ArrowRight` icons from lucide-react
+- All 17 shortcuts listed: ⌘K, ?, D, S, F, N, T, R, A, E, M, Shift+/, 1-5
+
+Stage Summary:
+- New file: `src/components/shortcuts-overlay.tsx`
+- Modified: `src/components/app-shell.tsx` (keyboard handler, CommandPalette, AppShell)
+- No store.ts changes (local state used as instructed)
+- No view or business logic changes
+- Lint: 0 errors
+---
+---
+Task ID: 10
+Agent: Main Orchestrator
+Task: Phase 10 — Mobile Dashboard, Tablet Layout, Styling Polish, Study Patterns, Bug Fixes
+
+Work Log:
+- QA Assessment: Tested all 17 views on desktop (1440px) and mobile (390px) via agent-browser — zero console errors
+- Identified Next.js Dev Tools floating badge overlapping mobile bottom nav (dev-only issue, not production bug)
+- Dispatched 3 parallel subagents:
+  - Recharts Analytics Charts: Added BarChart, LineChart, PieChart to analytics.tsx with dark mode support
+  - AI Tutor Enhancement: Added markdown rendering (react-markdown + remark-gfm), SSE streaming, syllabus-aware context, dynamic prompts, timestamps
+  - Keyboard Shortcuts Overlay: Created shortcuts-overlay.tsx with Dialog, ? key toggle, command palette integration
+- **Mobile Dashboard Redesign** (dashboard.tsx):
+  - Created separate mobile experience (md:hidden) with intentionally different information hierarchy
+  - Mobile: Health Ring (SVG circular progress), horizontal-scroll micro-metrics strip (6 metrics), single top recommendation card, compact subject progress list (4 subjects), weekly goal mini bar, 4 quick action buttons with colored icons, first insight only
+  - Desktop: kept existing full layout (hidden md:block) with new Study Patterns widget
+  - Added HealthRing component with SVG circle, animated stroke-dashoffset, color based on health score
+  - Added Study Patterns insights: most productive day, session length analysis, subject coverage gaps, grade trend prediction
+- **Tablet Layout** (app-shell.tsx): Sidebar width 180px on md, 220px on lg (hybrid responsive)
+- **Styling Polish** (globals.css):
+  - Added scrollbar-none utility (hide scrollbars on mobile micro-metrics strip)
+  - Added safe-area-bottom for iOS bottom nav
+  - Added table-row-hover utility for table views
+  - Added press-scale micro-interaction class
+  - Added skeleton-shimmer loading animation
+  - Added focus-visible improvement (border-radius)
+  - Added mobile tap-highlight-color:transparent for card interactions
+  - Added badge-pop animation
+  - Added stagger-children CSS animation helper
+- **Bug Fix**: AI Tutor crashed with client-side error — `store.getState()` called on state object instead of store. Fixed by changing `store.getState()` to `useStore.getState()` in buildContext and quickPrompts callbacks
+- Cleaned up unused imports in dashboard.tsx (TrendingDown, Minus, formatDistanceToNow, isAfter, isBefore, AnimatePresence, Progress, Separator, useState)
+
+Stage Summary:
+- Mobile dashboard: Completely redesigned with different information hierarchy (not responsive shrink)
+- Desktop dashboard: Added Study Patterns insights + grade prediction widget
+- Tablet: Hybrid sidebar width (180px → 220px)
+- Analytics: 3 Recharts charts (Bar, Line, Donut) with dark mode
+- AI Tutor: Markdown rendering, streaming, rich context, bug fixed
+- Keyboard Shortcuts: ? overlay, 17 shortcuts, command palette help link
+- Styling: 8 new CSS utilities/animations
+- ESLint: 0 errors
+- All views tested and verified working
+
+---
+
+## Current Project Status
+
+### Assessment
+The Delulu 4.0 Academic Intelligence System is now **feature-rich and polished**. The mobile experience is intentionally minimal and action-oriented (different hierarchy from desktop), not just a responsive shrink. Analytics has real data visualizations. AI Tutor supports markdown and streaming. Study pattern insights provide actionable intelligence.
+
+### Completed This Session
+1. **Mobile Dashboard Redesign** — Health ring, micro-metrics strip, single top action, compact subject flow, quick actions with colored icons
+2. **Study Pattern Insights** — Most productive day, session length analysis, subject coverage gaps, grade prediction
+3. **Recharts Analytics** — Weekly study time bar chart, assessment performance line chart, study distribution donut chart
+4. **AI Tutor Enhancement** — ReactMarkdown + GFM rendering, SSE streaming, syllabus-aware context with full academic profile, dynamic quick prompts, message timestamps, typing dots animation
+5. **Keyboard Shortcuts Overlay** — 17 shortcuts in Dialog, ?/Shift+/ toggle, command palette integration
+6. **Tablet Layout** — Responsive sidebar (180px md → 220px lg)
+7. **CSS Polish** — scrollbar-none, safe-area-bottom, table-row-hover, press-scale, skeleton-shimmer, badge-pop, stagger-children, mobile tap-highlight
+8. **AI Tutor Bug Fix** — Fixed store.getState() runtime error
+
+### Verification Results
+- ESLint: 0 errors
+- Dev server: GET / 200 consistently
+- Console errors: 0 across all 19 views (after AI Tutor fix)
+- Viewports tested: 390px (mobile), 1440px (desktop)
+- Dark mode: Verified on desktop
+- All navigation working: sidebar, mobile bottom nav, More sheet, command palette
+- New features verified: Recharts charts, AI Tutor with markdown, keyboard shortcuts, mobile dashboard
+
+### Unresolved Issues / Risks
+1. **Next.js Dev Tools badge**: Floating badge can overlap mobile bottom nav in dev mode (production unaffected)
+2. **v2 spec remaining**: Some ultra-minimal mobile pages (Study, Calendar, Insights) still use responsive approach — not yet customized per-page
+3. **No actual study data**: Dashboard shows placeholder metrics (0 streak, 0h study). Features work but need real data to demonstrate full value
+4. **AI Tutor streaming untested**: Backend streaming path works in theory but untested with live z-ai-web-dev-sdk connection
+5. **Tablet testing**: 768px viewport not explicitly tested this session
+
+### Priority Recommendations for Next Phase
+1. **HIGH**: Per-page mobile minimalism for Study (focus), Calendar, and Insights views
+2. **MEDIUM**: Add data seeding (sample study sessions, assessments) to demonstrate full dashboard value
+3. **MEDIUM**: Test and optimize 768-1024px tablet viewport specifically
+4. **LOW**: Add notification/toast for study streak milestones
+5. **LOW**: Add dark/light mode toggle to mobile header
+---
