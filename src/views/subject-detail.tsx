@@ -241,7 +241,7 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
   if (!subject) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* 4 metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
@@ -287,7 +287,7 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
       </div>
 
       {/* Next Assessment + Recommendation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
           <div className="metric-card">
             <div className="flex items-center gap-2 mb-3">
@@ -320,7 +320,7 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
 
       {/* Recent Activity */}
       <motion.div variants={fadeUp} initial="hidden" animate="show">
-        <div className="metric-card">
+        <div className="metric-card p-3.5 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="section-label">Recent Activity</span>
           </div>
@@ -429,7 +429,7 @@ function SyllabusTab({ subjectId }: { subjectId: string }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       {/* Overall progress */}
       {totalTopics > 0 && (
         <div className="metric-card">
@@ -698,7 +698,7 @@ function MarksTab({ subjectId }: { subjectId: string }) {
     ASSESSMENT_CATEGORIES.find((x) => x.value === c)?.label || c;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* Summary metric cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard
@@ -979,7 +979,7 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* Stats metric cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <MetricCard
@@ -1125,7 +1125,7 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* Due items */}
       <div>
         <SectionHeader
@@ -1142,7 +1142,7 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {dueItems.map((item) => (
-              <div key={item.id} className="card-interactive p-4 border-l-2 border-l-[var(--delulu-danger)]">
+              <div key={item.id} className="card-interactive p-3.5 md:p-4 border-l-2 border-l-[var(--delulu-danger)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{item.topicName}</p>
@@ -1190,7 +1190,7 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
         ) : upcomingItems.length > 0 ? (
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
             {upcomingItems.sort((a, b) => a.nextReview.localeCompare(b.nextReview)).map((item) => (
-              <div key={item.id} className="card-interactive p-4">
+              <div key={item.id} className="card-interactive p-3.5 md:p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{item.topicName}</p>
@@ -1248,7 +1248,7 @@ function NotesTab({ subjectId }: { subjectId: string }) {
   const sortedNotes = [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
           <Plus className="size-4 mr-1" /> Add Note
@@ -1371,7 +1371,7 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
   const sortedExams = [...exams].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="size-4 mr-1" /> Add Exam
@@ -1562,9 +1562,9 @@ export default function SubjectDetailView() {
   };
 
   return (
-    <div className="content-area px-4 md:px-6 py-6">
+    <div className="content-area px-4 md:px-6 py-4 md:py-6">
       {/* Back button + Header */}
-      <div className="flex items-start gap-3 mb-6">
+      <div className="flex items-start gap-3 mb-4 md:mb-6">
         <Button
           variant="ghost"
           size="icon"
@@ -1581,17 +1581,17 @@ export default function SubjectDetailView() {
               className="w-1 h-7 rounded-full shrink-0"
               style={{ backgroundColor: subject.color }}
             />
-            <h1 className="page-title">{subject.name}</h1>
+            <h1 className="page-title truncate">{subject.name}</h1>
             <StatusBadge status={signalToStatus(signal)} label={signalLabel(signal)} />
           </div>
-          <div className="flex items-center gap-3 mt-1.5 ml-5">
+          <div className="flex items-center gap-3 mt-1 md:mt-1.5 ml-5">
             <span className="text-sm text-muted-foreground">
               {subject.code}{subject.code ? ' · ' : ''}{subject.credits} Credit{subject.credits !== 1 ? 's' : ''}
             </span>
           </div>
 
           {/* Quick metrics strip */}
-          <div className="flex items-center gap-4 mt-3 ml-5 flex-wrap">
+          <div className="flex items-center gap-3 md:gap-4 mt-2 md:mt-3 ml-5 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Grade</span>
               <span className={`text-sm font-bold ${marks.max > 0 ? pctColor(marks.percentage) : 'text-muted-foreground'}`}>
@@ -1629,7 +1629,7 @@ export default function SubjectDetailView() {
         {/* Actions dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9">
+            <Button variant="outline" size="icon" className="h-10 w-10 md:h-9 md:w-9">
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -1646,14 +1646,14 @@ export default function SubjectDetailView() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="w-full justify-start overflow-x-auto scrollbar-thin">
-          <TabsTrigger value="overview" className="text-xs font-medium">Overview</TabsTrigger>
-          <TabsTrigger value="syllabus" className="text-xs font-medium">Syllabus</TabsTrigger>
-          <TabsTrigger value="marks" className="text-xs font-medium">Marks</TabsTrigger>
-          <TabsTrigger value="attendance" className="text-xs font-medium">Attendance</TabsTrigger>
-          <TabsTrigger value="revision" className="text-xs font-medium">Revision</TabsTrigger>
-          <TabsTrigger value="notes" className="text-xs font-medium">Notes</TabsTrigger>
-          <TabsTrigger value="exams" className="text-xs font-medium">Exams</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto scrollbar-none sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50 md:static md:bg-transparent md:backdrop-blur-none md:border-b-0 md:z-auto">
+          <TabsTrigger value="overview" className="min-h-[40px] px-3 py-2 text-xs font-medium">Overview</TabsTrigger>
+          <TabsTrigger value="syllabus" className="min-h-[40px] px-3 py-2 text-xs font-medium">Syllabus</TabsTrigger>
+          <TabsTrigger value="marks" className="min-h-[40px] px-3 py-2 text-xs font-medium">Marks</TabsTrigger>
+          <TabsTrigger value="attendance" className="min-h-[40px] px-3 py-2 text-xs font-medium">Attendance</TabsTrigger>
+          <TabsTrigger value="revision" className="min-h-[40px] px-3 py-2 text-xs font-medium">Revision</TabsTrigger>
+          <TabsTrigger value="notes" className="min-h-[40px] px-3 py-2 text-xs font-medium">Notes</TabsTrigger>
+          <TabsTrigger value="exams" className="min-h-[40px] px-3 py-2 text-xs font-medium">Exams</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">

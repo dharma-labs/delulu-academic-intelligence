@@ -91,6 +91,50 @@ function HealthRing({ score, config }: { score: number; config: ReturnType<typeo
   );
 }
 
+// -- Weekly Mini Chart (mobile sparkline) --
+function WeeklyMiniChart({ studySessions }: { studySessions: { date: string; duration: number }[] }) {
+  const bars = useMemo(() => {
+    const days: { label: string; minutes: number; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayMinutes = Math.floor(studySessions
+        .filter(s => s.date === dateStr)
+        .reduce((sum, s) => sum + s.duration / 60, 0));
+      days.push({
+        label: format(d, 'EEE').charAt(0),
+        minutes: dayMinutes,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  }, [studySessions]);
+
+  const maxMin = Math.max(...bars.map(b => b.minutes), 1);
+
+  return (
+    <div className="flex items-end gap-1.5 h-12">
+      {bars.map((b, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <div className="w-full relative" style={{ height: '32px' }}>
+            <div
+              className={cn(
+                'absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 rounded-t-sm transition-all duration-500',
+                b.isToday ? 'bg-primary' : 'bg-primary/25',
+              )}
+              style={{ height: `${Math.max(4, (b.minutes / maxMin) * 100)}%` }}
+            />
+          </div>
+          <span className={cn('text-[8px] tabular-nums', b.isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+            {b.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Dashboard
 // ════════════════════════════════════════════════════════════════════
@@ -428,7 +472,7 @@ export default function DashboardView() {
 
   // -- Mobile micro-metrics --
   const microMetrics = useMemo(() => [
-    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
+    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
     { label: 'CGPA', value: cgpa.toFixed(1), color: cgpaTrend === 'up' ? 'text-[var(--delulu-success)]' : cgpaTrend === 'down' ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'marks' as const },
     { label: 'Syllabus', value: `${avgSyllabus}%`, color: 'text-foreground', view: 'subjects' as const },
     { label: 'Streak', value: `${studyStreak}d`, color: studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground', view: 'analytics' as const },
@@ -472,7 +516,7 @@ export default function DashboardView() {
         {recommendations.length > 0 && (
           <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
             <div
-              className="card-interactive p-3.5 flex items-center gap-3"
+              className="card-interactive p-3.5 flex items-center gap-3 border-l-[3px] border-l-primary"
               onClick={() => handleAction(recommendations[0].actionView, recommendations[0].subjectId)}
             >
               <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -492,7 +536,7 @@ export default function DashboardView() {
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
           <div className="flex items-center justify-between mb-2.5 px-1">
             <span className="section-label">Subject Progress</span>
-            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium">View all</button>
+            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium px-2 py-1 -mx-2 -my-1 rounded-md hover:bg-primary/5 active:bg-primary/10 transition-colors">View all</button>
           </div>
           <div className="space-y-2">
             {subjectHealthData.slice(0, 4).map(({ subject, progress, signal }) => (
@@ -534,6 +578,18 @@ export default function DashboardView() {
           <div className="progress-thin">
             <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
           </div>
+        </motion.div>
+
+        {/* Weekly Study Sparkline */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.22 }} className="metric-card">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="size-3.5 text-primary" />
+              <span className="text-xs font-medium">Study This Week</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground tabular-nums">{weeklyHoursThisWeek}h total</span>
+          </div>
+          <WeeklyMiniChart studySessions={studySessions} />
         </motion.div>
 
         {/* Quick Actions */}
@@ -614,15 +670,15 @@ export default function DashboardView() {
           </Card>
 
           {/* Metrics Grid */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard
                 label="Attendance"
                 value={`${avgAttendance}%`}
                 context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
-                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : 'down'}
+                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
                 icon={UserCheck}
-                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}
+                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
                 onClick={() => navigate('attendance')}
               />
               <MetricCard
@@ -850,14 +906,14 @@ export default function DashboardView() {
                     const maxMin = weeklyDistribution[0].minutes;
                     const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
                     return (
-                      <div key={d.subjectId} className="flex items-center gap-3">
+                      <div key={d.subjectId} className="flex items-center gap-3 group">
                         <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
                           {d.name}
                         </span>
                         <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
                           <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)' }}
+                            className="h-full rounded-full transition-all duration-500 group-hover:opacity-100"
+                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)', opacity: 0.65 }}
                           />
                         </div>
                         <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
@@ -947,7 +1003,7 @@ export default function DashboardView() {
             </Card>
 
             {/* Quick Actions — desktop only */}
-            <Card>
+            <Card className="hero-card">
               <CardContent className="p-4">
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -961,7 +1017,7 @@ export default function DashboardView() {
                       <button
                         key={a.view}
                         onClick={() => navigate(a.view)}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
                       >
                         <Icon className="size-3.5" />
                         {a.label}

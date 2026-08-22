@@ -1,0 +1,901 @@
+    80→        <circle
+    81→          cx="56" cy="56" r={radius} fill="none" stroke={strokeColor} strokeWidth="5"
+    82→          strokeDasharray={circumference} strokeDashoffset={offset}
+    83→          strokeLinecap="round" className="transition-all duration-1000 ease-out"
+    84→        />
+    85→      </svg>
+    86→      <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+    87→        <span className="text-3xl font-extrabold tracking-tighter leading-none">{score}</span>
+    88→        <span className="text-[10px] text-muted-foreground font-medium mt-0.5">/ 100</span>
+    89→      </div>
+    90→    </div>
+    91→  );
+    92→}
+    93→
+    94→// ════════════════════════════════════════════════════════════════════
+    95→// Dashboard
+    96→// ════════════════════════════════════════════════════════════════════
+    97→// ─── Weekly Heatmap ──────────────────────────────────────────────
+    98→function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; duration: number; subjectId: string }[] }) {
+    99→  const days = useMemo(() => {
+   100→    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+   101→    return Array.from({ length: 7 }, (_, i) => {
+   102→      const d = addDays(start, i);
+   103→      const dateStr = d.toISOString().split('T')[0];
+   104→      const daySessions = studySessions.filter((s) => s.date === dateStr);
+   105→      const totalMinutes = Math.floor(daySessions.reduce((sum, s) => sum + s.duration / 60, 0));
+   106→      return { date: d, dateStr, label: format(d, 'EEE'), totalMinutes, count: daySessions.length };
+   107→    });
+   108→  }, [studySessions]);
+   109→
+   110→  const maxMinutes = Math.max(...days.map((d) => d.totalMinutes), 1);
+   111→  const today = new Date().toISOString().split('T')[0];
+   112→
+   113→  return (
+   114→    <div className="grid grid-cols-7 gap-1.5">
+   115→      {days.map((d) => {
+   116→        const intensity = Math.min(d.totalMinutes / maxMinutes, 1);
+   117→        const isToday = d.dateStr === today;
+   118→        const bgOpacity = d.count === 0 ? 0.08 : Math.max(0.15, intensity);
+   119→        return (
+   120→          <div key={d.dateStr} className="flex flex-col items-center gap-1">
+   121→            <div
+   122→              className={cn('w-full aspect-square rounded-md transition-colors', isToday && 'ring-2 ring-primary/30')}
+   123→              style={{ backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` }}
+   124→            />
+   125→            <span className={cn('text-[10px]', isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
+   126→            {d.count > 0 && (
+   127→              <span className="text-[9px] text-muted-foreground tabular-nums">{d.totalMinutes}m</span>
+   128→            )}
+   129→          </div>
+   130→        );
+   131→      })}
+   132→    </div>
+   133→  );
+   134→}
+   135→
+   136→export default function DashboardView() {
+   137→  const profile = useStore((s) => s.profile);
+   138→  const subjects = useStore((s) => s.subjects);
+   139→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   140→  const attendance = useStore((s) => s.attendance);
+   141→  const assessments = useStore((s) => s.assessments);
+   142→  const studySessions = useStore((s) => s.studySessions);
+   143→  const revisionItems = useStore((s) => s.revisionItems);
+   144→  const exams = useStore((s) => s.exams);
+   145→  const assignments = useStore((s) => s.assignments);
+   146→  const tasks = useStore((s) => s.tasks);
+   147→  const navigate = useStore((s) => s.navigate);
+   148→  const selectSubject = useStore((s) => s.selectSubject);
+   149→
+   150→  const activeSubjects = useMemo(() => subjects.filter((s) => !s.archived), [subjects]);
+   151→
+   152→  // -- Core metrics --
+   153→  const healthScore = useMemo(
+   154→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   155→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   156→  );
+   157→
+   158→  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments }), [subjects, assessments]);
+   159→
+   160→  const avgAttendance = useMemo(() => {
+   161→    if (activeSubjects.length === 0) return 0;
+   162→    const attState = { attendance };
+   163→    return Math.round(activeSubjects.reduce((sum, s) => sum + getSubjectAttendance(attState, s.id).percentage, 0) / activeSubjects.length);
+   164→  }, [activeSubjects, attendance]);
+   165→
+   166→  const avgSyllabus = useMemo(() => {
+   167→    if (activeSubjects.length === 0) return 0;
+   168→    const syllState = { syllabusUnits };
+   169→    return Math.round(activeSubjects.reduce((sum, s) => sum + getSubjectProgress(syllState, s.id), 0) / activeSubjects.length);
+   170→  }, [activeSubjects, syllabusUnits]);
+   171→
+   172→  const studyTimeThisWeek = useMemo(() => getStudyTimeThisWeek({ studySessions }), [studySessions]);
+   173→
+   174→  const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   175→
+   176→  // -- Streak milestone toast --
+   177→  const { toast } = useToast();
+   178→  const milestoneToastRef = useRef<Set<number> | null>(null);
+   179→
+   180→  useEffect(() => {
+   181→    const milestones = [3, 7, 14, 21, 30, 60, 90];
+   182→    const met = milestones.filter((m) => studyStreak >= m);
+   183→
+   184→    // First run: seed ref with already-reached milestones (no toast)
+   185→    if (milestoneToastRef.current === null) {
+   186→      milestoneToastRef.current = new Set(met);
+   187→      if (studyStreak >= 100) milestoneToastRef.current.add(100);
+   188→      return;
+   189→    }
+   190→
+   191→    const titleMap: Record<number, string> = {
+   192→      3: '3-day streak started!',
+   193→      7: 'One week streak!',
+   194→      14: 'Two weeks strong!',
+   195→      21: 'Three week streak!',
+   196→      30: 'Monthly milestone!',
+   197→      60: 'Two months of consistency!',
+   198→      90: 'Quarter-year streak!',
+   199→    };
+   200→
+   201→    // Check each milestone
+   202→    for (const m of met) {
+   203→      if (!milestoneToastRef.current.has(m)) {
+   204→        milestoneToastRef.current.add(m);
+   205→        toast({
+   206→          variant: 'success',
+   207→          title: titleMap[m] ?? `Incredible ${m}-day streak!`,
+   208→          description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+   209→        });
+   210→      }
+   211→    }
+   212→
+   213→    // 100+ milestone
+   214→    if (studyStreak >= 100 && !milestoneToastRef.current.has(100)) {
+   215→      milestoneToastRef.current.add(100);
+   216→      toast({
+   217→        variant: 'success',
+   218→        title: `Incredible ${studyStreak}-day streak!`,
+   219→        description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+   220→      });
+   221→    }
+   222→  }, [studyStreak, toast]);
+   223→
+   224→  const studyTimeToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   225→
+   226→  const weeklyGoalHours = profile.weeklyStudyGoalHours || 10;
+   227→  const weeklyGoalSeconds = weeklyGoalHours * 3600;
+   228→  const weeklyGoalProgress = weeklyGoalSeconds > 0 ? Math.min(100, Math.round((studyTimeThisWeek / weeklyGoalSeconds) * 100)) : 0;
+   229→  const weeklyHoursThisWeek = (studyTimeThisWeek / 3600).toFixed(1);
+   230→
+   231→  const dueRevisionCount = useMemo(() => getDueRevisionItems({ revisionItems }).length, [revisionItems]);
+   232→
+   233→  const healthConfig = useMemo(() => getHealthConfig(healthScore), [healthScore]);
+   234→
+   235→  // -- CGPA trend --
+   236→  const cgpaTrend = useMemo(() => {
+   237→    if (cgpa === 0) return 'neutral' as const;
+   238→    if (cgpa >= profile.targetCGPA) return 'up' as const;
+   239→    if (cgpa >= profile.targetCGPA - 1) return 'neutral' as const;
+   240→    return 'down' as const;
+   241→  }, [cgpa, profile.targetCGPA]);
+   242→
+   243→  // -- Subject health data for Academic Flow --
+   244→  const subjectHealthData = useMemo(() => {
+   245→    return activeSubjects.map((s) => {
+   246→      const progress = getSubjectProgress({ syllabusUnits }, s.id);
+   247→      const att = getSubjectAttendance({ attendance }, s.id);
+   248→      const signal = getSubjectSignal({ attendance, assessments, syllabusUnits, revisionItems, profile, subjects } as any, s.id);
+   249→      return { subject: s, progress, att, signal };
+   250→    }).sort((a, b) => a.progress - b.progress);
+   251→  }, [activeSubjects, syllabusUnits, attendance, assessments, revisionItems, profile, subjects]);
+   252→
+   253→  // -- Recommendations --
+   254→  const recommendations = useMemo(() => {
+   255→    const items: { title: string; description: string; priority: string; priorityColor: string; actionLabel: string; actionView: string; subjectId?: string; }[] = [];
+   256→
+   257→    const syllState = { syllabusUnits };
+   258→    const sortedByProgress = activeSubjects.map((s) => ({ subject: s, progress: getSubjectProgress(syllState, s.id) })).sort((a, b) => a.progress - b.progress);
+   259→
+   260→    for (const { subject, progress } of sortedByProgress) {
+   261→      if (progress >= 100) continue;
+   262→      const units = syllabusUnits.filter((u) => u.subjectId === subject.id);
+   263→      const incompleteTopic = units.flatMap((u) => u.topics).find((t) => !t.completed);
+   264→      if (incompleteTopic) {
+   265→        items.push({
+   266→          title: incompleteTopic.name, description: `${subject.name} — ${progress}% complete`,
+   267→          priority: 'HIGH IMPACT', priorityColor: 'signal-attention',
+   268→          actionLabel: 'STUDY', actionView: 'focus', subjectId: subject.id,
+   269→        });
+   270→        break;
+   271→      }
+   272→    }
+   273→
+   274→    const today = new Date().toISOString().split('T')[0];
+   275→    const upcomingExams = exams.filter((e) => e.status === 'upcoming' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+   276→    const upcomingAssignments = assignments.filter((a) => a.status !== 'completed' && a.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline));
+   277→
+   278→    const deadlineItem = upcomingExams[0] || upcomingAssignments[0];
+   279→    if (deadlineItem) {
+   280→      const dateStr = 'date' in deadlineItem ? deadlineItem.date : deadlineItem.deadline;
+   281→      const daysUntil = Math.ceil((new Date(dateStr).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+   282→      const sub = subjects.find((s) => s.id === deadlineItem.subjectId);
+   283→      items.push({
+   284→        title: deadlineItem.name || deadlineItem.title, description: `${sub?.name ?? ''} — ${daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil}d`}`,
+   285→        priority: 'DEADLINE', priorityColor: 'signal-critical',
+   286→        actionLabel: 'PREPARE', actionView: 'subject-detail', subjectId: deadlineItem.subjectId,
+   287→      });
+   288→    }
+   289→
+   290→    const attState = { attendance };
+   291→    const lowestAtt = activeSubjects.map((s) => ({ subject: s, att: getSubjectAttendance(attState, s.id) })).filter((x) => x.att.total > 0).sort((a, b) => a.att.percentage - b.att.percentage)[0];
+   292→    if (lowestAtt && lowestAtt.att.percentage < profile.attendanceThreshold) {
+   293→      items.push({
+   294→        title: `${lowestAtt.subject.name} Attendance`, description: `${lowestAtt.att.percentage}% — need ${profile.attendanceThreshold}%`,
+   295→        priority: 'ATTENTION', priorityColor: 'signal-attention',
+   296→        actionLabel: 'VIEW', actionView: 'attendance', subjectId: lowestAtt.subject.id,
+   297→      });
+   298→    }
+   299→
+   300→    return items;
+   301→  }, [activeSubjects, syllabusUnits, exams, assignments, subjects, attendance, profile]);
+   302→
+   303→  // -- Upcoming deadlines --
+   304→  const upcomingDeadlines = useMemo(() => {
+   305→    const today = new Date().toISOString().split('T')[0];
+   306→    const items: { title: string; subjectName: string; date: string; type: string; color: string }[] = [];
+   307→    exams.filter((e) => e.status === 'upcoming' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).forEach((e) => {
+   308→      const sub = subjects.find((s) => s.id === e.subjectId);
+   309→      items.push({ title: e.name, subjectName: sub?.name ?? '', date: e.date, type: 'exam', color: sub?.color ?? 'var(--delulu-info)' });
+   310→    });
+   311→    assignments.filter((a) => a.status !== 'completed' && a.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 3).forEach((a) => {
+   312→      const sub = subjects.find((s) => s.id === a.subjectId);
+   313→      items.push({ title: a.title, subjectName: sub?.name ?? '', date: a.deadline, type: 'assignment', color: sub?.color ?? 'var(--delulu-warning)' });
+   314→    });
+   315→    return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+   316→  }, [exams, assignments, subjects]);
+   317→
+   318→  // -- Insights --
+   319→  const insights = useMemo(() => {
+   320→    const result: { type: 'positive' | 'warning' | 'critical' | 'info'; title: string; description?: string }[] = [];
+   321→
+   322→    const atRisk = subjectHealthData.filter((s) => s.signal === 'critical' || s.signal === 'attention');
+   323→    if (atRisk.length > 0) {
+   324→      result.push({ type: 'warning', title: `${atRisk.length} subject${atRisk.length > 1 ? 's' : ''} need attention`, description: atRisk.map((s) => s.subject.name).join(', ') });
+   325→    }
+   326→
+   327→    if (dueRevisionCount > 0) {
+   328→      result.push({ type: 'info', title: `${dueRevisionCount} revision${dueRevisionCount > 1 ? 's' : ''} due`, description: 'Items in your SM-2 queue are ready for review' });
+   329→    }
+   330→
+   331→    const lowAttSubjects = subjectHealthData.filter((s) => s.att.total > 0 && s.att.percentage < profile.attendanceThreshold);
+   332→    if (lowAttSubjects.length > 0) {
+   333→      result.push({ type: lowAttSubjects.some((s) => s.att.percentage < profile.attendanceThreshold - 5) ? 'critical' : 'warning', title: 'Attendance below threshold', description: `${lowAttSubjects.map((s) => `${s.subject.name} (${s.att.percentage}%)`).join(', ')}` });
+   334→    }
+   335→
+   336→    const now = new Date();
+   337→    const startStr = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
+   338→    const weekSessions = studySessions.filter((s) => s.date >= startStr).length;
+   339→    if (weekSessions >= 5) {
+   340→      result.push({ type: 'positive', title: `${weekSessions} study sessions this week`, description: 'Consistent study pattern detected' });
+   341→    } else if (weekSessions === 0) {
+   342→      result.push({ type: 'warning', title: 'No study sessions this week', description: 'Start a focus session to build momentum' });
+   343→    }
+   344→
+   345→    if (cgpa > 0 && cgpa >= profile.targetCGPA) {
+   346→      result.push({ type: 'positive', title: `CGPA on target`, description: `${cgpa.toFixed(1)} meets your goal of ${profile.targetCGPA}` });
+   347→    }
+   348→
+   349→    return result.slice(0, 4);
+   350→  }, [subjectHealthData, dueRevisionCount, profile.attendanceThreshold, studySessions, cgpa, profile.targetCGPA]);
+   351→
+   352→  // -- Study Pattern Insights --
+   353→  const studyPatterns = useMemo(() => {
+   354→    const patterns: { type: 'positive' | 'warning' | 'info'; title: string; description: string }[] = [];
+   355→    const today = new Date().toISOString().split('T')[0];
+   356→    const ws = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+   357→    const weekSessions = studySessions.filter((s) => s.date >= ws);
+   358→    const todaySessions = studySessions.filter((s) => s.date === today);
+   359→    const totalWeekSec = weekSessions.reduce((a, s) => a + s.duration, 0);
+   360→    const avgSessionMin = weekSessions.length > 0 ? Math.round(totalWeekSec / weekSessions.length / 60) : 0;
+   361→
+   362→    // Best day
+   363→    const dayTotals: Record<string, number> = {};
+   364→    weekSessions.forEach((s) => { dayTotals[s.date] = (dayTotals[s.date] || 0) + s.duration; });
+   365→    const bestDay = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0];
+   366→    if (bestDay) {
+   367→      const dayName = format(new Date(bestDay[0] + 'T12:00:00'), 'EEEE');
+   368→      patterns.push({ type: 'info', title: `Most productive: ${dayName}`, description: `${Math.round(bestDay[1] / 60)}m total study time` });
+   369→    }
+   370→
+   371→    // Session length analysis
+   372→    if (avgSessionMin > 0 && avgSessionMin < 25) {
+   373→      patterns.push({ type: 'warning', title: 'Short sessions detected', description: `Average ${avgSessionMin}m — try 25+ min Pomodoro sessions for deeper focus` });
+   374→    } else if (avgSessionMin >= 45) {
+   375→      patterns.push({ type: 'positive', title: 'Great session length', description: `Average ${avgSessionMin}m — solid deep work sessions` });
+   376→    }
+   377→
+   378→    // Subject coverage
+   379→    const coveredSubjects = new Set(weekSessions.map((s) => s.subjectId)).size;
+   380→    if (coveredSubjects > 0 && coveredSubjects < activeSubjects.length) {
+   381→      const uncovered = activeSubjects.filter((s) => !weekSessions.some((ws) => ws.subjectId === s.id));
+   382→      patterns.push({ type: 'info', title: `${uncovered.length} subject${uncovered.length > 1 ? 's' : ''} not studied this week`, description: uncovered.map((s) => s.name).join(', ') });
+   383→    }
+   384→
+   385→    // Grade prediction
+   386→    if (assessments.length >= 2) {
+   387→      const recent = [...assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+   388→      const avgPct = recent.reduce((a, x) => a + (x.obtainedMarks / x.maxMarks) * 100, 0) / recent.length;
+   389→      const predictedGrade = avgPct >= 90 ? 'O' : avgPct >= 80 ? 'A+' : avgPct >= 70 ? 'A' : avgPct >= 60 ? 'B+' : avgPct >= 50 ? 'B' : 'C';
+   390→      patterns.push({ type: 'positive', title: 'Grade trend prediction', description: `Based on recent assessments: ${predictedGrade} (${avgPct.toFixed(0)}% average)` });
+   391→    }
+   392→
+   393→    return patterns;
+   394→  }, [studySessions, assessments, activeSubjects]);
+   395→
+   396→  // -- Weekly Study Distribution (per subject) --
+   397→  const weeklyDistribution = useMemo(() => {
+   398→    const now = new Date();
+   399→    const sevenDaysAgo = new Date(now);
+   400→    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+   401→    const cutoff = sevenDaysAgo.toISOString().split('T')[0];
+   402→
+   403→    const weekSessions = studySessions.filter((s) => s.date >= cutoff);
+   404→    const subjectMinutes: Record<string, number> = {};
+   405→
+   406→    for (const s of weekSessions) {
+   407→      subjectMinutes[s.subjectId] = (subjectMinutes[s.subjectId] || 0) + s.duration / 60;
+   408→    }
+   409→
+   410→    return Object.entries(subjectMinutes)
+   411→      .map(([subjectId, minutes]) => {
+   412→        const subject = subjects.find((s) => s.id === subjectId);
+   413→        return subject ? { subjectId: subject.id, name: subject.name, color: subject.color, minutes: Math.round(minutes) } : null;
+   414→      })
+   415→      .filter((x): x is NonNullable<typeof x> => x !== null)
+   416→      .sort((a, b) => b.minutes - a.minutes);
+   417→  }, [studySessions, subjects]);
+   418→
+   419→  // -- Greeting --
+   420→  const hour = new Date().getHours();
+   421→  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+   422→  const formattedDate = format(new Date(), 'EEEE, d MMMM');
+   423→
+   424→  function handleAction(view: string, subjectId?: string) {
+   425→    if (subjectId) selectSubject(subjectId);
+   426→    navigate(view as never);
+   427→  }
+   428→
+   429→  // -- Mobile micro-metrics --
+   430→  const microMetrics = useMemo(() => [
+   431→    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
+   432→    { label: 'CGPA', value: cgpa.toFixed(1), color: cgpaTrend === 'up' ? 'text-[var(--delulu-success)]' : cgpaTrend === 'down' ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'marks' as const },
+   433→    { label: 'Syllabus', value: `${avgSyllabus}%`, color: 'text-foreground', view: 'subjects' as const },
+   434→    { label: 'Streak', value: `${studyStreak}d`, color: studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground', view: 'analytics' as const },
+   435→    { label: 'Week', value: `${weeklyHoursThisWeek}h`, color: weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground', view: 'analytics' as const },
+   436→    { label: 'Revision', value: `${dueRevisionCount}`, color: dueRevisionCount > 3 ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'revision' as const },
+   437→  ], [avgAttendance, profile.attendanceThreshold, cgpa, cgpaTrend, avgSyllabus, studyStreak, weeklyHoursThisWeek, weeklyGoalProgress, dueRevisionCount]);
+   438→
+   439→  return (
+   440→    <>
+   441→      {/* ══════════════════════════════════════════════════════════════
+   442→          MOBILE DASHBOARD — Intentionally minimal, action-oriented
+   443→          ══════════════════════════════════════════════════════════════ */}
+   444→      <div className="md:hidden space-y-4">
+   445→        {/* Health Ring + Status */}
+   446→        <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
+   447→          <HealthRing score={healthScore} config={healthConfig} />
+   448→          <div className="flex-1 min-w-0">
+   449→            <p className="text-xs text-muted-foreground mb-1">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+   450→            <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-1.5" />
+   451→            <p className="text-[11px] text-muted-foreground leading-relaxed">{healthConfig.description}</p>
+   452→          </div>
+   453→        </motion.div>
+   454→
+   455→        {/* Micro-Metrics Strip — Horizontal Scroll */}
+   456→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.05 }}>
+   457→          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-1">
+   458→            {microMetrics.map((m) => (
+   459→              <button
+   460→                key={m.label}
+   461→                onClick={() => navigate(m.view)}
+   462→                className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-card border border-border/50 min-w-[60px] active:scale-95 transition-transform"
+   463→              >
+   464→                <span className={cn('text-base font-bold tracking-tight leading-none tabular-nums', m.color)}>{m.value}</span>
+   465→                <span className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase">{m.label}</span>
+   466→              </button>
+   467→            ))}
+   468→          </div>
+   469→        </motion.div>
+   470→
+   471→        {/* Top Recommendation Card */}
+   472→        {recommendations.length > 0 && (
+   473→          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
+   474→            <div
+   475→              className="card-interactive p-3.5 flex items-center gap-3 border-l-[3px] border-l-primary"
+   476→              onClick={() => handleAction(recommendations[0].actionView, recommendations[0].subjectId)}
+   477→            >
+   478→              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+   479→                <Zap className="size-4 text-primary" />
+   480→              </div>
+   481→              <div className="flex-1 min-w-0">
+   482→                <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mb-0.5">Focus now</p>
+   483→                <p className="text-sm font-medium truncate">{recommendations[0].title}</p>
+   484→                <p className="text-[11px] text-muted-foreground truncate">{recommendations[0].description}</p>
+   485→              </div>
+   486→              <ArrowRight className="size-4 text-muted-foreground shrink-0" />
+   487→            </div>
+   488→          </motion.div>
+   489→        )}
+   490→
+   491→        {/* Compact Subject Flow */}
+   492→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+   493→          <div className="flex items-center justify-between mb-2.5 px-1">
+   494→            <span className="section-label">Subject Progress</span>
+   495→            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium px-2 py-1 -mx-2 -my-1 rounded-md hover:bg-primary/5 active:bg-primary/10 transition-colors">View all</button>
+   496→          </div>
+   497→          <div className="space-y-2">
+   498→            {subjectHealthData.slice(0, 4).map(({ subject, progress, signal }) => (
+   499→              <div
+   500→                key={subject.id}
+   501→                className="flex items-center gap-2.5 p-2 rounded-xl bg-card border border-border/40 active:bg-accent/50 transition-colors"
+   502→                onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+   503→              >
+   504→                <span className={cn('status-dot shrink-0', signalDotClass(signal))} />
+   505→                <div className="flex-1 min-w-0">
+   506→                  <div className="flex items-center justify-between mb-1">
+   507→                    <span className="text-xs font-medium truncate">{subject.name}</span>
+   508→                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
+   509→                  </div>
+   510→                  <div className="progress-thin">
+   511→                    <div
+   512→                      className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+   513→                      style={{ width: `${Math.min(100, progress)}%` }}
+   514→                    />
+   515→                  </div>
+   516→                </div>
+   517→                <ChevronRight className="size-3.5 text-muted-foreground/50 shrink-0" />
+   518→              </div>
+   519→            ))}
+   520→          </div>
+   521→        </motion.div>
+   522→
+   523→        {/* Weekly Goal Mini Bar */}
+   524→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
+   525→          <div className="flex items-center justify-between mb-2">
+   526→            <div className="flex items-center gap-2">
+   527→              <Target className="size-3.5 text-primary" />
+   528→              <span className="text-xs font-medium">Weekly Goal</span>
+   529→            </div>
+   530→            <span className={cn('text-xs font-bold tabular-nums', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
+   531→              {weeklyHoursThisWeek}h / {weeklyGoalHours}h
+   532→            </span>
+   533→          </div>
+   534→          <div className="progress-thin">
+   535→            <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
+   536→          </div>
+   537→        </motion.div>
+   538→
+   539→        {/* Quick Actions */}
+   540→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
+   541→          <div className="grid grid-cols-4 gap-2">
+   542→            {[
+   543→              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
+   544→              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
+   545→              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+   546→              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
+   547→            ].map((a) => {
+   548→              const Icon = a.icon;
+   549→              return (
+   550→                <button
+   551→                  key={a.view}
+   552→                  onClick={() => navigate(a.view)}
+   553→                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
+   554→                >
+   555→                  <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
+   556→                    <Icon className="size-4" />
+   557→                  </div>
+   558→                  <span className="text-[10px] font-medium text-muted-foreground">{a.label}</span>
+   559→                </button>
+   560→              );
+   561→            })}
+   562→          </div>
+   563→        </motion.div>
+   564→
+   565→        {/* First Insight Only */}
+   566→        {insights.length > 0 && (
+   567→          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
+   568→            <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
+   569→          </motion.div>
+   570→        )}
+   571→      </div>
+   572→
+   573→      {/* ══════════════════════════════════════════════════════════════
+   574→          DESKTOP DASHBOARD — Information-rich analytical workspace
+   575→          ══════════════════════════════════════════════════════════════ */}
+   576→      <motion.div className="hidden md:block space-y-5" variants={container} initial="hidden" animate="show">
+   577→        {/* ── Header Bar ── */}
+   578→        <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+   579→          <div>
+   580→            <h1 className="text-lg font-semibold tracking-tight">
+   581→              {greeting}, {profile.name}
+   582→            </h1>
+   583→            <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
+   584→          </div>
+   585→          <div className="flex items-center gap-2">
+   586→            <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
+   587→              Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
+   588→            </Badge>
+   589→          </div>
+   590→        </motion.div>
+   591→
+   592→        {/* ── Academic Health + Metrics Row ── */}
+   593→        <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
+   594→          {/* Health Score */}
+   595→          <Card className="hero-card">
+   596→            <CardContent className="relative p-5 pt-6 overflow-hidden">
+   597→              <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
+   598→              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
+   599→              <div className="relative">
+   600→                <span className="section-label">Academic Health</span>
+   601→                <div className="mt-3 mb-2">
+   602→                  <span className="text-5xl font-extrabold tracking-tighter text-foreground leading-none">
+   603→                    {healthScore}
+   604→                  </span>
+   605→                  <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
+   606→                </div>
+   607→                <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
+   608→                <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
+   609→                <div className="mt-4">
+   610→                  <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+   611→                </div>
+   612→              </div>
+   613→            </CardContent>
+   614→          </Card>
+   615→
+   616→          {/* Metrics Grid */}
+   617→          <div className="space-y-4">
+   618→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   619→              <MetricCard
+   620→                label="Attendance"
+   621→                value={`${avgAttendance}%`}
+   622→                context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
+   623→                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
+   624→                icon={UserCheck}
+   625→                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
+   626→                onClick={() => navigate('attendance')}
+   627→              />
+   628→              <MetricCard
+   629→                label="Syllabus"
+   630→                value={`${avgSyllabus}%`}
+   631→                context="Average completion"
+   632→                icon={BookOpen}
+   633→                onClick={() => navigate('subjects')}
+   634→              />
+   635→              <MetricCard
+   636→                label="CGPA"
+   637→                value={cgpa.toFixed(1)}
+   638→                context={`Target: ${profile.targetCGPA}`}
+   639→                trend={cgpaTrend}
+   640→                trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
+   641→                icon={BarChart3}
+   642→                onClick={() => navigate('marks')}
+   643→              />
+   644→              <MetricCard
+   645→                label="Study Time"
+   646→                value={formatStudyTime(studyTimeThisWeek)}
+   647→                context="This week"
+   648→                icon={Clock}
+   649→                onClick={() => navigate('analytics')}
+   650→              />
+   651→            </div>
+   652→            <div className="grid grid-cols-2 gap-3">
+   653→              <MetricCard
+   654→                label="Streak"
+   655→                value={studyStreak}
+   656→                context={`${studyStreak} day streak`}
+   657→                icon={Flame}
+   658→                iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
+   659→                valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+   660→              />
+   661→              <div className="metric-card">
+   662→                <div className="flex items-center justify-between mb-2 md:mb-3">
+   663→                  <span className="metric-label">Weekly Goal</span>
+   664→                  <Target className="size-3.5 md:size-4 text-muted-foreground" />
+   665→                </div>
+   666→                <div className="flex items-baseline gap-1.5">
+   667→                  <span className={cn(
+   668→                    'text-xl md:text-2xl font-bold tracking-tight leading-none',
+   669→                    weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
+   670→                  )}>{weeklyHoursThisWeek}h</span>
+   671→                  <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
+   672→                </div>
+   673→                <div className="mt-2">
+   674→                  <div className="progress-thin">
+   675→                    <div
+   676→                      className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
+   677→                      style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
+   678→                    />
+   679→                  </div>
+   680→                </div>
+   681→              </div>
+   682→            </div>
+   683→          </div>
+   684→        </motion.div>
+   685→
+   686→        {/* ── Weekly Activity Heatmap ── */}
+   687→        <motion.div variants={fadeUp}>
+   688→          <Card>
+   689→            <CardHeader className="pb-3 pt-4 px-5">
+   690→              <div className="flex items-center justify-between">
+   691→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   692→                  <Clock className="size-4 text-primary" />
+   693→                  This Week
+   694→                </CardTitle>
+   695→                <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
+   696→              </div>
+   697→            </CardHeader>
+   698→            <CardContent className="px-5 pb-4">
+   699→              <WeeklyHeatmap studySessions={studySessions} />
+   700→            </CardContent>
+   701→          </Card>
+   702→        </motion.div>
+   703→
+   704→        {/* ── Main Content Grid ── */}
+   705→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   706→          {/* Today's Focus + Recommendations */}
+   707→          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+   708→            <Card>
+   709→              <CardHeader className="pb-3 pt-4 px-5">
+   710→                <div className="flex items-center justify-between">
+   711→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   712→                    <Target className="size-4 text-primary" />
+   713→                    Today's Focus
+   714→                  </CardTitle>
+   715→                  <span className="text-[10px] text-muted-foreground font-medium">{recommendations.length} action{recommendations.length !== 1 ? 's' : ''}</span>
+   716→                </div>
+   717→              </CardHeader>
+   718→              <CardContent className="px-5 pb-4">
+   719→                {recommendations.length === 0 ? (
+   720→                  <div className="flex flex-col items-center justify-center py-8 text-center">
+   721→                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-2.5 mb-2.5">
+   722→                      <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+   723→                    </div>
+   724→                    <p className="text-sm font-medium">All caught up</p>
+   725→                    <p className="text-xs text-muted-foreground mt-0.5">No pending actions right now</p>
+   726→                  </div>
+   727→                ) : (
+   728→                  <div className="space-y-2.5">
+   729→                    {recommendations.map((rec, i) => (
+   730→                      <div
+   731→                        key={i}
+   732→                        className="card-interactive flex items-center gap-3 p-3 group"
+   733→                        onClick={() => handleAction(rec.actionView, rec.subjectId)}
+   734→                      >
+   735→                        <div className="flex-1 min-w-0">
+   736→                          <div className="flex items-center gap-2 mb-0.5">
+   737→                            <p className="text-sm font-medium truncate">{rec.title}</p>
+   738→                            <StatusBadge
+   739→                              status={rec.priorityColor === 'signal-critical' ? 'critical' : 'attention'}
+   740→                              label={rec.priority}
+   741→                              className="text-[9px] shrink-0"
+   742→                            />
+   743→                          </div>
+   744→                          <p className="text-xs text-muted-foreground truncate">{rec.description}</p>
+   745→                        </div>
+   746→                        <Button size="sm" variant="ghost" className="shrink-0 text-xs font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+   747→                          {rec.actionLabel}
+   748→                          <ArrowRight className="size-3 ml-1" />
+   749→                        </Button>
+   750→                      </div>
+   751→                    ))}
+   752→                  </div>
+   753→                )}
+   754→              </CardContent>
+   755→            </Card>
+   756→
+   757→            {/* Academic Flow */}
+   758→            <Card>
+   759→              <CardHeader className="pb-3 pt-4 px-5">
+   760→                <div className="flex items-center justify-between">
+   761→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   762→                    <Activity className="size-4 text-primary" />
+   763→                    Academic Flow
+   764→                  </CardTitle>
+   765→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('subjects')}>
+   766→                    View all <ChevronRight className="size-3 ml-0.5" />
+   767→                  </Button>
+   768→                </div>
+   769→              </CardHeader>
+   770→              <CardContent className="px-5 pb-4">
+   771→                {activeSubjects.length === 0 ? (
+   772→                  <p className="text-xs text-muted-foreground py-4 text-center">No subjects added yet</p>
+   773→                ) : (
+   774→                  <div className="space-y-2.5">
+   775→                    {subjectHealthData.map(({ subject, progress, att, signal }) => (
+   776→                      <div
+   777→                        key={subject.id}
+   778→                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+   779→                        onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+   780→                      >
+   781→                        <span className={cn('status-dot', signalDotClass(signal))} />
+   782→                        <div className="flex-1 min-w-0">
+   783→                          <div className="flex items-center justify-between mb-1">
+   784→                            <span className="text-sm font-medium truncate">{subject.name}</span>
+   785→                            <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
+   786→                          </div>
+   787→                          <div className="progress-thin">
+   788→                            <div
+   789→                              className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+   790→                              style={{ width: `${Math.min(100, progress)}%` }}
+   791→                            />
+   792→                          </div>
+   793→                          <div className="flex items-center gap-3 mt-1">
+   794→                            <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
+   795→                            <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
+   796→                          </div>
+   797→                        </div>
+   798→                        <ChevronRight className="size-3.5 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" />
+   799→                      </div>
+   800→                    ))}
+   801→                  </div>
+   802→                )}
+   803→              </CardContent>
+   804→            </Card>
+   805→
+   806→            {/* Signal Legend */}
+   807→            {activeSubjects.length > 0 && (
+   808→              <div className="signal-legend px-1">
+   809→                <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
+   810→                <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
+   811→                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+   812→                <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
+   813→              </div>
+   814→            )}
+   815→          </motion.div>
+   816→
+   817→          {/* Right Column */}
+   818→          <motion.div variants={fadeUp} className="space-y-4">
+   819→            {/* Study Pattern Insights */}
+   820→            {studyPatterns.length > 0 && (
+   821→              <Card>
+   822→                <CardHeader className="pb-3 pt-4 px-5">
+   823→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   824→                    <Sparkles className="size-4 text-[var(--delulu-purple)]" />
+   825→                    Study Patterns
+   826→                  </CardTitle>
+   827→                </CardHeader>
+   828→                <CardContent className="px-5 pb-4">
+   829→                  <div className="space-y-2.5">
+   830→                    {studyPatterns.map((p, i) => (
+   831→                      <InsightCard key={i} type={p.type} icon={p.type === 'positive' ? TrendingUp : p.type === 'warning' ? AlertTriangle : Info} title={p.title} description={p.description} />
+   832→                    ))}
+   833→                  </div>
+   834→                </CardContent>
+   835→              </Card>
+   836→            )}
+   837→
+   838→            {/* Study Distribution */}
+   839→            <div className="metric-card">
+   840→              <SectionHeader title="This Week's Focus" />
+   841→              {weeklyDistribution.length === 0 ? (
+   842→                <EmptyState
+   843→                  icon={BarChart3}
+   844→                  title="No study sessions"
+   845→                  description="Start a focus session to see your weekly study distribution"
+   846→                />
+   847→              ) : (
+   848→                <div className="space-y-3">
+   849→                  {weeklyDistribution.map((d) => {
+   850→                    const maxMin = weeklyDistribution[0].minutes;
+   851→                    const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
+   852→                    return (
+   853→                      <div key={d.subjectId} className="flex items-center gap-3 group">
+   854→                        <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
+   855→                          {d.name}
+   856→                        </span>
+   857→                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+   858→                          <div
+   859→                            className="h-full rounded-full transition-all duration-500 group-hover:opacity-100"
+   860→                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)', opacity: 0.65 }}
+   861→                          />
+   862→                        </div>
+   863→                        <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
+   864→                          {d.minutes}m
+   865→                        </span>
+   866→                      </div>
+   867→                    );
+   868→                  })}
+   869→                </div>
+   870→              )}
+   871→            </div>
+   872→
+   873→            {/* Insights */}
+   874→            <Card>
+   875→              <CardHeader className="pb-3 pt-4 px-5">
+   876→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   877→                  <Activity className="size-4 text-[var(--delulu-purple)]" />
+   878→                  Insights
+   879→                </CardTitle>
+   880→              </CardHeader>
+   881→              <CardContent className="px-5 pb-4">
+   882→                {insights.length === 0 ? (
+   883→                  <p className="text-xs text-muted-foreground py-4 text-center">No insights yet</p>
+   884→                ) : (
+   885→                  <div className="space-y-2.5">
+   886→                    {insights.map((insight, i) => {
+   887→                      const iconMap = { positive: CheckCircle2, warning: AlertTriangle, critical: AlertTriangle, info: Info };
+   888→                      const Icon = iconMap[insight.type];
+   889→                      return (
+   890→                        <InsightCard
+   891→                          key={i}
+   892→                          type={insight.type}
+   893→                          icon={Icon}
+   894→                          title={insight.title}
+   895→                          description={insight.description}
+   896→                        />
+   897→                      );
+   898→                    })}
+   899→                  </div>
+   900→                )}
+   901→              </CardContent>
+   902→            </Card>
+   903→
+   904→            {/* Upcoming Deadlines */}
+   905→            <Card>
+   906→              <CardHeader className="pb-3 pt-4 px-5">
+   907→                <div className="flex items-center justify-between">
+   908→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   909→                    <CalendarClock className="size-4 text-[var(--delulu-warning)]" />
+   910→                    Deadlines
+   911→                  </CardTitle>
+   912→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('calendar')}>
+   913→                    Calendar <ChevronRight className="size-3 ml-0.5" />
+   914→                  </Button>
+   915→                </div>
+   916→              </CardHeader>
+   917→              <CardContent className="px-5 pb-4">
+   918→                {upcomingDeadlines.length === 0 ? (
+   919→                  <p className="text-xs text-muted-foreground py-4 text-center">No upcoming deadlines</p>
+   920→                ) : (
+   921→                  <div className="space-y-2">
+   922→                    {upcomingDeadlines.map((d, i) => {
+   923→                      const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+   924→                      return (
+   925→                        <div
+   926→                          key={i}
+   927→                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+   928→                          onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
+   929→                        >
+   930→                          <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+   931→                          <div className="flex-1 min-w-0">
+   932→                            <p className="text-sm font-medium truncate">{d.title}</p>
+   933→                            <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
+   934→                          </div>
+   935→                          <Badge
+   936→                            variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
+   937→                            className="text-[10px] px-1.5 py-0 shrink-0"
+   938→                          >
+   939→                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
+   940→                          </Badge>
+   941→                        </div>
+   942→                      );
+   943→                    })}
+   944→                  </div>
+   945→                )}
+   946→              </CardContent>
+   947→            </Card>
+   948→
+   949→            {/* Quick Actions — desktop only */}
+   950→            <Card className="hero-card">
+   951→              <CardContent className="p-4">
+   952→                <div className="grid grid-cols-2 gap-2">
+   953→                  {[
+   954→                    { label: 'Focus', icon: Timer, view: 'focus' as const },
+   955→                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
+   956→                    { label: 'Notes', icon: BookOpen, view: 'notes' as const },
+   957→                    { label: 'Report', icon: BarChart3, view: 'report' as const },
+   958→                  ].map((a) => {
+   959→                    const Icon = a.icon;
+   960→                    return (
+   961→                      <button
+   962→                        key={a.view}
+   963→                        onClick={() => navigate(a.view)}
+   964→                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+   965→                      >
+   966→                        <Icon className="size-3.5" />
+   967→                        {a.label}
+   968→                      </button>
+   969→                    );
+   970→                  })}
+   971→                </div>
+   972→              </CardContent>
+   973→            </Card>
+   974→          </motion.div>
+   975→        </div>
+   976→      </motion.div>
+   977→    </>
+   978→  );
+   979→}
+   980→

@@ -31,6 +31,7 @@ export default function AnalyticsView() {
   const [syllabusTrend, setSyllabusTrend] = useState<SubjectSummary[]>([]);
   const [studyDist, setStudyDist] = useState<StudyDistItem[]>([]);
   const [recentAssessments, setRecentAssessments] = useState<AssessSummary[]>([]);
+  const [completionRate, setCompletionRate] = useState(0);
   const [threshold, setThreshold] = useState(75);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'semester'>('week');
   const [chartTheme, setChartTheme] = useState({ primary: '#3B82F6', primaryRgb: '59, 130, 246', card: '#FFFFFF', foreground: '#0F172A', border: '#E2E8F0' });
@@ -75,6 +76,8 @@ export default function AnalyticsView() {
           .sort((a, b) => b.minutes - a.minutes),
       );
       setDueRevisionCount(getDueRevisionItems({ revisionItems: s.revisionItems }).length);
+      const syllabusProgresses = active.map((sub) => getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id));
+      setCompletionRate(active.length > 0 ? Math.round(syllabusProgresses.reduce((a, p) => a + p, 0) / active.length) : 0);
       setThreshold(s.profile.attendanceThreshold);
       setReady(true);
     };
@@ -193,12 +196,28 @@ export default function AnalyticsView() {
         }
       />
 
+      {/* Mobile KPI Strip */}
+      <div className="md:hidden flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-3">
+        {[
+          { label: 'This Week', value: `${(weekMinutes / 60).toFixed(1)}h`, sub: 'study time' },
+          { label: 'Avg Session', value: `${avgSession}m`, sub: 'per session' },
+          { label: 'Subjects', value: `${uniqueSubjects}`, sub: 'studied' },
+          { label: 'Completion', value: `${completionRate}%`, sub: 'syllabus' },
+        ].map(kpi => (
+          <div key={kpi.label} className="shrink-0 bg-card border border-border/50 rounded-xl px-3 py-2.5 min-w-[100px]">
+            <p className="text-sm font-bold tracking-tight tabular-nums">{kpi.value}</p>
+            <p className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5">{kpi.label}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{kpi.sub}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Summary Metric Cards */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6"
       >
         <MetricCard
           label="Study Time"
@@ -235,7 +254,7 @@ export default function AnalyticsView() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="metric-card mb-6"
+        className="metric-card mb-4 md:mb-6"
       >
         <SectionHeader title="Study Activity" subtitle="Last 35 days" />
         <div className="flex flex-wrap gap-[3px]">
@@ -261,15 +280,15 @@ export default function AnalyticsView() {
       </motion.div>
 
       {/* Recharts Visualizations */}
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <SectionHeader title="Visualizations" subtitle="Interactive charts powered by your study data" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           {/* Weekly Study Time Bar Chart */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.06 }}
-            className="metric-card"
+            className="metric-card min-w-0"
           >
             <SectionHeader title="Weekly Study Time" subtitle="Minutes per day — last 7 days" />
             {weekBarData.every((d) => d.minutes === 0) ? (
@@ -315,7 +334,7 @@ export default function AnalyticsView() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.08 }}
-            className="metric-card"
+            className="metric-card min-w-0"
           >
             <SectionHeader title="Assessment Performance" subtitle="Score trend across assessments" />
             {cgpaTrendData.length === 0 ? (
@@ -363,7 +382,7 @@ export default function AnalyticsView() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="metric-card"
+            className="metric-card min-w-0"
           >
             <SectionHeader title="Study Distribution" subtitle="Time per subject this week" />
             {pieData.length === 0 ? (
@@ -412,7 +431,7 @@ export default function AnalyticsView() {
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
         {/* Study Distribution */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}

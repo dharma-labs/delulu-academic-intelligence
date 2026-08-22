@@ -167,6 +167,13 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+  /* shadcn Card shadow override — add subtle depth to all cards */
+  [data-slot="card"] {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dark [data-slot="card"] {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  }
 }
 
 /* ── Utility Classes ── */
@@ -212,28 +219,28 @@
   /* Metric card interaction */
   .metric-card {
     @apply relative bg-card border border-border rounded-xl p-3.5 md:p-5 transition-all duration-200;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   }
   .metric-card:hover {
     @apply border-border/80;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 4px 8px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.05), 0 0 0 1px rgba(var(--primary-rgb), 0.04);
   }
   .dark .metric-card {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.2);
   }
   .dark .metric-card:hover {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.35), 0 2px 4px -2px rgba(0,0,0,0.25), 0 0 0 1px rgba(var(--primary-rgb), 0.06);
   }
 
   /* Subtle card hover */
   .card-interactive {
     @apply bg-card border border-border rounded-xl cursor-pointer;
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
   }
   .card-interactive:hover {
     @apply border-primary/25;
-    box-shadow: 0 2px 4px rgba(var(--primary-rgb), 0.08), 0 4px 12px rgba(var(--primary-rgb), 0.05);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.08), 0 2px 4px rgba(var(--primary-rgb), 0.04), 0 0 0 1px rgba(var(--primary-rgb), 0.04);
     transform: translateY(-1px);
   }
   .card-interactive:active {
@@ -241,13 +248,13 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   .dark .card-interactive {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.2);
   }
   .dark .card-interactive:hover {
-    box-shadow: 0 2px 4px rgba(var(--primary-rgb), 0.12), 0 4px 12px rgba(var(--primary-rgb), 0.08);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.12), 0 2px 4px rgba(var(--primary-rgb), 0.08), 0 0 0 1px rgba(var(--primary-rgb), 0.06);
   }
   .dark .card-interactive:active {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
   }
 
   /* Status dot */
@@ -295,10 +302,10 @@
 
   /* Progress bar thin variant */
   .progress-thin {
-    @apply h-1 rounded-full overflow-hidden bg-secondary;
+    @apply h-1.5 rounded-full overflow-hidden bg-secondary;
   }
   .progress-thin > div {
-    @apply h-full rounded-full transition-all duration-500;
+    @apply h-full rounded-full transition-all duration-500 ease-out;
   }
 
   /* Number display */
@@ -396,19 +403,17 @@ input:focus, textarea:focus, select:focus {
 /* Hero card for primary metric */
 .hero-card {
   @apply relative bg-card border border-border rounded-xl overflow-hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
 }
 .hero-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 3px;
   background: linear-gradient(90deg, var(--primary), var(--delulu-purple));
 }
 .dark .hero-card {
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
 }
 .dark .hero-card::before {
   background: linear-gradient(90deg, var(--primary), var(--delulu-purple));
@@ -514,7 +519,8 @@ button:focus-visible {
 
 /* ── Sidebar nav item polish ── */
 .sidebar-active {
-  @apply bg-primary/10 text-primary font-semibold;
+  @apply text-primary font-semibold bg-primary/[0.07];
+  border-left-color: var(--primary) !important;
 }
 
 /* ── Smooth number transitions ── */
@@ -552,6 +558,47 @@ button:focus-visible {
     margin-top: 2px;
     letter-spacing: 0.01em;
   }
+}
+
+/* ── Mobile bottom nav enhancement ── */
+@media (max-width: 767px) {
+  .bottom-nav-item {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .bottom-nav-item.active {
+    color: var(--primary);
+  }
+  .bottom-nav-item.active .bottom-nav-icon {
+    transform: scale(1.1);
+  }
+  .bottom-nav-item .bottom-nav-indicator {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 2.5px;
+    width: 24px;
+    border-radius: 0 0 4px 4px;
+    background: var(--primary);
+    transition: width 0.25s ease, opacity 0.25s ease;
+  }
+}
+
+/* ── FAB shadow (separated from nav) ── */
+.fab-shadow {
+  box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.35), 0 2px 6px rgba(0,0,0,0.1);
+}
+.dark .fab-shadow {
+  box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.3), 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* ── Dark mode badge contrast fix ── */
+.dark .signal-attention {
+  @apply bg-amber-950/60 text-amber-300;
+}
+.dark .signal-improving {
+  @apply bg-blue-950/60 text-blue-300;
 }
 
 /* ── Desktop top bar refinement ── */

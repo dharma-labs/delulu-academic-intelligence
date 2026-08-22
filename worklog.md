@@ -960,3 +960,196 @@ The Delulu 4.0 Academic Intelligence System is now **production-quality with pre
 3. **MEDIUM**: Implement notification badges on sidebar items (e.g., overdue tasks count on Tasks icon)
 4. **LOW**: Add widget customization (drag-and-drop dashboard layout)
 5. **LOW**: Add export to PDF for individual subject detail reports
+
+---
+Task ID: 13a
+Agent: CSS & Shell Polish
+Task: Premium card shadows, sidebar active state, bottom nav enhancements, top bar redesign, dark mode contrast fix
+
+Work Log:
+- globals.css: Replaced `.metric-card` shadow system with layered multi-shadow (0 1px 3px + 0 1px 2px base; 3-layer hover with primary ring glow; stronger dark mode)
+- globals.css: Replaced `.card-interactive` with richer 3-layer hover shadows using primary-rgb, added translateY(-1px) lift, stronger dark mode active state
+- globals.css: Replaced `.hero-card` with deeper dual-layer shadow (0 2px 4px + 0 4px 16px), stronger dark mode
+- globals.css: Replaced `.sidebar-active` to use `bg-primary/[0.07]` with `border-left-color: var(--primary) !important`
+- globals.css: Added mobile bottom nav enhancement CSS (`.bottom-nav-item`, `.bottom-nav-item.active`, `.bottom-nav-icon` scale, `.bottom-nav-indicator` bar)
+- globals.css: Added `.fab-shadow` class with primary-tinted shadow and dark mode variant
+- globals.css: Replaced `.progress-thin` from `h-1` to `h-1.5`, added `ease-out` to child transition
+- globals.css: Added dark mode badge contrast fix (`.dark .signal-attention` with amber-950/60 + amber-300, `.dark .signal-improving` with blue-950/60 + blue-300)
+- app-shell.tsx: Redesigned DesktopTopBar — removed redundant greeting, added compact layout with date/time, Health score badge, streak with 'd' suffix, study time, and theme toggle button
+- app-shell.tsx: Updated SidebarNavItem active state from `bg-primary/10 font-medium` to `bg-primary/[0.07] font-semibold`
+- app-shell.tsx: Updated MobileBottomNav — added `bottom-nav-item` class, `active` class, `bottom-nav-icon` class on icon, `font-semibold` on active label, replaced inline indicator with CSS-driven `bottom-nav-indicator`
+- app-shell.tsx: Updated MobileFAB — replaced `shadow-lg` with `fab-shadow` class on main FAB button
+- shared.tsx: Verified StatusBadge uses `signal-*` classes (CSS overrides handle dark mode). Verified CompactProgress renders correctly with updated `h-1.5` progress-thin
+
+Stage Summary:
+- All 8 CSS changes applied to globals.css
+- All 4 component changes applied to app-shell.tsx
+- shared.tsx verified — no changes needed (CSS overrides handle contrast)
+- ESLint: 0 errors
+- Dev server: Compiling successfully, GET / 200
+---
+Task ID: 13b
+Agent: Dashboard Polish
+Task: Fix attendance color semantics, Focus Now card accent, View all touch target, study distribution opacity, spacing consistency, quick actions enhancement
+
+Work Log:
+- Verified changes 1-5 were already applied by a prior agent (attendance 3-way color, Focus Now border-l accent, View all touch target, study distribution opacity with group-hover)
+- Changed metrics grid parent spacing from `space-y-3` to `space-y-4` (line 617) for consistent desktop card spacing
+- Added `hero-card` class to desktop Quick Actions `<Card>` (line 950) for visual weight
+- Changed Quick Actions button hover from `hover:text-foreground hover:bg-accent` to `hover:text-primary hover:bg-primary/5` for better hover feedback
+- Ran `bun run lint` — zero errors
+
+Stage Summary:
+- All 6 actionable changes applied (changes 7-8 verified as no-op)
+- Attendance color: 3-way semantic (green/amber/red) with 10% borderline zone on both mobile and desktop
+- Focus Now card: left border accent added
+- View all button: expanded touch target with hover/active states
+- Study distribution bars: opacity 0.65 with group-hover:opacity-100
+- Metrics grid: consistent space-y-4 spacing
+- Quick Actions: hero-card class + refined hover states
+- ESLint: 0 errors
+---
+Task ID: 13c
+Agent: Feature Developer
+Task: Notification badges on sidebar and mobile nav items
+
+Work Log:
+- Added `useNavBadges` hook before NavItem types (~line 61): computes badges for overdue tasks, due revisions, upcoming exams (7 days), and upcoming assignments (3 days) using `useMemo`
+- Added `NavBadge` inline component after useNavBadges: renders a red pill badge with 9+ overflow, uses existing `animate-badge-pop` CSS animation
+- Updated `SidebarNavItem` to accept optional `badge` prop and render badges (full badge when expanded, dot indicator when collapsed with `relative` positioning)
+- Updated `DesktopSidebar` to call `useNavBadges()` and pass `badge={badges[item.id as ViewId]}` to all `SidebarNavItem` instances (both nav groups and bottom nav)
+- Updated `MobileBottomNav` to compute `totalBadges` and show a combined count badge on the "More" button
+- Updated `MobileMoreSheet` to call `useNavBadges()` and show per-item badges with subtle red tinted style (`bg-red-500/10 text-red-600`)
+- Fixed revision field name: used `r.nextReview` (correct per types.ts) instead of `r.nextReviewDate` (incorrect in original spec)
+- ESLint: 0 errors
+- Dev server: Compiled successfully, GET / 200
+
+Stage Summary:
+- Notification badges fully implemented on desktop sidebar (expanded + collapsed), mobile bottom nav (More button), and mobile more sheet
+- 4 badge categories: overdue tasks, due revisions, upcoming exams (7d), upcoming assignments (3d)
+- Desktop collapsed sidebar: small red dot on icon, Desktop expanded: full count pill, Mobile More button: total count, Mobile More sheet: subtle per-item count
+- ESLint: 0 errors, dev server: compiling successfully
+---
+Task ID: 13d
+Agent: Feature Developer
+Task: Mobile sparklines on dashboard, mobile analytics KPI strip and improvements
+
+Work Log:
+- Added `WeeklyMiniChart` component to dashboard.tsx (lines 94-135): Pure CSS/SVG mini bar chart showing study minutes for the last 7 days, with today highlighted in primary color and other days at 25% opacity. Uses `useMemo` to compute daily study minutes from `studySessions` array.
+- Added Weekly Study Sparkline section to mobile dashboard (lines 583-593): New `metric-card` placed between Weekly Goal card and Quick Actions grid, with `BarChart3` icon header showing total hours and the `WeeklyMiniChart` sparkline. Animated with `mobileFade` variant at delay 0.22.
+- Added `completionRate` state variable to analytics.tsx (line 34) and computed it in the `compute` function (lines 79-80) by averaging syllabus progress across all active subjects using `getSubjectProgress`.
+- Added Mobile KPI Strip to analytics.tsx (lines 199-213): Horizontal scrollable `md:hidden` strip with 4 compact KPI cards (This Week study hours, Avg Session minutes, Subjects studied, Completion %). Uses `scrollbar-none` for clean mobile look with `-mx-4 px-4` to span full width.
+- Improved mobile spacing in analytics.tsx: Changed metric cards grid from `gap-4 mb-6` to `gap-3 md:gap-4 mb-4 md:mb-6`, heatmap card from `mb-6` to `mb-4 md:mb-6`, visualizations section from `mb-6` to `mb-4 md:mb-6`, visualization grid from `gap-4` to `gap-3 md:gap-4`, charts grid from `gap-4 mb-6` to `gap-3 md:gap-4 mb-4 md:mb-6`.
+- Added `min-w-0` to Weekly Study Time Bar Chart card in visualizations grid to prevent grid overflow.
+
+Stage Summary:
+- Dashboard mobile: New sparkline visualization widget showing 7-day study pattern with today highlighted
+- Analytics mobile: Compact scrollable KPI strip at top with 4 key metrics (study hours, avg session, subjects, completion rate)
+- Analytics mobile: Tighter spacing (`gap-3` instead of `gap-4`) on mobile for denser information display
+- All chart cards use ResponsiveContainer with `width="100%"` and `min-w-0` where needed
+- ESLint: 0 errors
+- Dev server: Compiling successfully, GET / 200
+---
+Task ID: 13e
+Agent: Feature Developer
+Task: Subject detail mobile sticky tabs, touch target improvements, compact layout
+
+Work Log:
+- Made TabsList sticky on mobile: added `sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50` with `md:static md:bg-transparent md:backdrop-blur-none md:border-b-0 md:z-auto` to revert on desktop
+- Changed scrollbar from `scrollbar-thin` to `scrollbar-none` on tab bar for cleaner mobile look
+- Improved tab button touch targets: added `min-h-[40px] px-3 py-2` to all 7 TabsTrigger elements (was just `text-xs font-medium`)
+- Subject header: added `truncate` to page-title h1 to prevent long subject name overflow on mobile
+- Subject header: reduced bottom margin from `mb-6` to `mb-4 md:mb-6` for tighter mobile spacing
+- Subject header: reduced code/credits sub-spacing from `mt-1.5` to `mt-1 md:mt-1.5`
+- Subject header: reduced quick metrics strip gap from `gap-4` to `gap-3 md:gap-4` and top margin from `mt-3` to `mt-2 md:mt-3`
+- Subject header: increased actions dropdown button size from `h-9 w-9` to `h-10 w-10 md:h-9 md:w-9` for better mobile touch target
+- Content area: reduced vertical padding from `py-6` to `py-4 md:py-6`
+- Overview tab: reduced space-y from `5` to `4 md:space-y-5`, grid gap from `4` to `3 md:gap-4`, added `p-3.5 md:p-5` to Recent Activity card
+- Marks tab: reduced space-y from `5` to `4 md:space-y-5`
+- Attendance tab: reduced space-y from `5` to `4 md:space-y-5`
+- Revision tab: reduced space-y from `5` to `4 md:space-y-5`, card padding from `p-4` to `p-3.5 md:p-4` on both due and upcoming cards
+- Syllabus tab: reduced space-y from `4` to `3 md:space-y-4`
+- Notes tab: reduced space-y from `4` to `3 md:space-y-4`
+- Exams tab: reduced space-y from `4` to `3 md:space-y-4`
+- Verified marks tab already has mobile card layout (card-interactive) with `md:hidden` and desktop table with `hidden md:block` — no additional mobile fix needed
+
+Stage Summary:
+- Sticky tab bar on mobile with backdrop blur, normal static on desktop
+- All tab buttons have 40px minimum height and adequate touch padding on mobile
+- Subject header is more compact on mobile: truncated name, tighter spacing, larger action button
+- All 7 tabs have responsive spacing (tighter on mobile, normal on desktop)
+- Card padding reduced on mobile where applicable (revision cards, overview recent activity)
+- ESLint: 0 errors
+- Dev server: Compiling successfully, GET / 200
+
+---
+Task ID: 13f
+Agent: Main Orchestrator
+Task: Phase 13 Final — Global Card Shadow Enhancement, VLM Quality Re-assessment, Comprehensive QA
+
+Work Log:
+- VLM re-assessment identified remaining flatness: shadows were too subtle on shadcn Card components
+- Added global [data-slot="card"] shadow override in globals.css base layer
+- Strengthened metric-card base shadow (0.04→0.06 opacity, 0.03→0.04 second layer)
+- Strengthened metric-card hover shadow (6px spread, 0.08 opacity)
+- Strengthened shadcn Card base shadow (4px spread, 0.06 opacity light / 0.3 dark)
+- Full QA via agent-browser: all 18 views tested on desktop (1440px) and mobile (390px), zero errors
+- Dark mode tested on both viewports: zero errors
+- VLM final scores: Desktop 8.5/10 (up from 6/10), Mobile 8.5/10 (up from 8.5/10, consistent)
+- Card depth rated 8/10, Top bar 9/10, Color consistency 9/10, Typography 8/10
+- Mobile: design quality 9/10, touch targets 9/10, information density 8/10, card styling 8/10
+- ESLint: 0 errors
+- Dev server: All views compile and render successfully
+
+Stage Summary:
+- Shadow system now provides visible card elevation on all components (shadcn Card + custom metric/card-interactive)
+- VLM quality improved from 6/10 to 8.5/10 on desktop
+- All 18 views verified across desktop, mobile, and dark mode with zero errors
+
+---
+
+## Current Project Status
+
+### Assessment
+The Delulu 4.0 Academic Intelligence System is **production-quality with premium FlowTune-inspired design**. After this round of improvements, the VLM quality score has risen to **8.5/10** on both desktop and mobile (up from 6/10 and 8.5/10 respectively). The application features comprehensive notification badges, mobile sparklines, enhanced card depth, and refined information architecture.
+
+### Completed This Session (Phase 13)
+1. **Card Shadow System Overhaul**: 3-layer shadows on metric-card/card-interactive, global shadcn Card shadow override, stronger hover effects
+2. **Sidebar Active State**: Left border accent with lighter bg-primary/[0.07], font-semibold on active items
+3. **Desktop Top Bar Redesign**: Removed redundant greeting, compact layout with date/Health/Streak/Time + theme toggle
+4. **Attendance Color Semantics**: 3-way color system (green ≥ threshold, amber ≥ threshold-10, red below)
+5. **Focus Now Card Accent**: Left border (3px primary) on mobile recommendation card
+6. **Mobile Bottom Nav**: CSS-driven active state with icon scale, refined indicator bar (2.5px, 24px)
+7. **FAB Shadow Enhancement**: Primary-tinted shadow for better separation from nav bar
+8. **Progress Bar Refinement**: Height increased to h-1.5 with ease-out timing
+9. **Dark Mode Contrast Fix**: signal-attention (amber-300 text) and signal-improving (blue-300 text) for WCAG AA
+10. **Study Distribution Opacity**: Bars toned down to 0.65 opacity with group-hover:opacity-100
+11. **Desktop Spacing Consistency**: Metrics grid gap unified to space-y-4
+12. **Quick Actions Enhancement**: hero-card class + primary-tinted hover states
+13. **Notification Badges**: useNavBadges hook computing overdue tasks, due revisions, upcoming exams, upcoming assignments. Displayed as red pills on sidebar, dot badges when collapsed, total count on mobile "More" button, subtle badges in More sheet
+14. **Mobile Sparklines**: WeeklyMiniChart component with 7-day study bar chart, today highlighted, inserted between Weekly Goal and Quick Actions
+15. **Mobile Analytics KPI Strip**: 4 compact KPI cards (This Week, Avg Session, Subjects, Completion) in horizontal scroll strip
+16. **Subject Detail Mobile**: Sticky tab bar with backdrop blur, 40px min-height tab buttons, compact header, responsive spacing across all 7 tabs
+17. **View All Touch Target**: Expanded with padding, hover/active states on mobile
+
+### Verification Results
+- ESLint: 0 errors
+- Dev server: GET / 200 consistently across all 18 views
+- Console errors: 0 across all views (desktop 1440px, mobile 390px, dark mode)
+- VLM Quality Score: Desktop 8.5/10 (↑ from 6/10), Mobile 8.5/10 (consistent)
+- Card Depth: 8/10, Top Bar: 9/10, Color Consistency: 9/10, Typography: 8/10
+- Mobile Design Quality: 9/10, Touch Targets: 9/10, Info Density: 8/10, Card Styling: 8/10
+
+### Unresolved Issues / Risks
+1. **Next.js Dev Tools badge**: Floating badge can overlap mobile bottom nav in dev mode (production unaffected)
+2. **AI Tutor streaming**: Backend SSE streaming path implemented but not fully load-tested under high concurrency
+3. **Seed data staleness**: Sessions use fixed past dates; dashboard data is static until user creates new sessions
+4. **VLM notes minor opportunity**: Activity visualization color semantics could be further refined
+5. **Sidebar text size**: VLM notes sidebar labels are slightly small relative to content cards (intentional for compact nav)
+
+### Priority Recommendations for Next Phase
+1. **HIGH**: Add data export functionality (CSV/PDF) for individual views (marks, attendance, analytics)
+2. **HIGH**: Implement real-time study session sync via WebSocket for multi-device support
+3. **MEDIUM**: Add widget customization to dashboard (reorder/hide cards)
+4. **MEDIUM**: Implement collaborative features (study groups, shared notes)
+5. **LOW**: Add gamification elements (achievements, XP system, level progression)

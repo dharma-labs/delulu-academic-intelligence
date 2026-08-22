@@ -1,0 +1,834 @@
+     1→'use client';
+     2→
+     3→import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+     4→import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+     5→import type { ViewId } from '@/lib/types';
+     6→import { ViewRouter } from '@/components/view-router';
+     7→import { format } from 'date-fns';
+     8→import {
+     9→  CommandDialog,
+    10→  CommandInput,
+    11→  CommandList,
+    12→  CommandEmpty,
+    13→  CommandGroup,
+    14→  CommandItem,
+    15→  CommandSeparator,
+    16→} from '@/components/ui/command';
+    17→import {
+    18→  Sheet,
+    19→  SheetContent,
+    20→  SheetHeader,
+    21→  SheetTitle,
+    22→  SheetDescription,
+    23→} from '@/components/ui/sheet';
+    24→import {
+    25→  LayoutDashboard,
+    26→  BookOpen,
+    27→  BarChart3,
+    28→  UserCheck,
+    29→  FileText,
+    30→  Timer,
+    31→  BrainCircuit,
+    32→  StickyNote,
+    33→  CalendarDays,
+    34→  Clock,
+    35→  CheckSquare,
+    36→  TrendingUp,
+    37→  FileSearch,
+    38→  Bot,
+    39→  Settings,
+    40→  Search,
+    41→  PanelLeftClose,
+    42→  PanelLeftOpen,
+    43→  GraduationCap,
+    44→  MoreHorizontal,
+    45→  ClipboardList,
+    46→  Flame,
+    47→  Keyboard,
+    48→  ArrowRight,
+    49→  Sun,
+    50→  Moon,
+    51→  Plus,
+    52→  type LucideIcon,
+    53→} from 'lucide-react';
+    54→import { useTheme } from 'next-themes';
+    55→import { cn } from '@/lib/utils';
+    56→import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
+    57→import { Onboarding } from '@/components/onboarding';
+    58→import { ToastProvider } from '@/components/toast';
+    59→import { motion, AnimatePresence } from 'framer-motion';
+    60→
+    61→// ─── Nav item types ─────────────────────────────────────────────────
+    62→
+    63→interface NavItem {
+    64→  id: ViewId | 'more';
+    65→  label: string;
+    66→  icon: LucideIcon;
+    67→}
+    68→
+    69→interface NavGroup {
+    70→  label: string;
+    71→  items: NavItem[];
+    72→}
+    73→
+    74→// ─── Navigation structure ────────────────────────────────────────────
+    75→
+    76→const NAV_GROUPS: NavGroup[] = [
+    77→  {
+    78→    label: 'Overview',
+    79→    items: [
+    80→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    81→    ],
+    82→  },
+    83→  {
+    84→    label: 'Academic',
+    85→    items: [
+    86→      { id: 'subjects', label: 'Subjects', icon: BookOpen },
+    87→      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
+    88→      { id: 'attendance', label: 'Attendance', icon: UserCheck },
+    89→      { id: 'exams', label: 'Exams', icon: FileText },
+    90→      { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+    91→    ],
+    92→  },
+    93→  {
+    94→    label: 'Study',
+    95→    items: [
+    96→      { id: 'focus', label: 'Focus', icon: Timer },
+    97→      { id: 'revision', label: 'Revision', icon: BrainCircuit },
+    98→      { id: 'notes', label: 'Notes', icon: StickyNote },
+    99→      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+   100→    ],
+   101→  },
+   102→  {
+   103→    label: 'Planning',
+   104→    items: [
+   105→      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+   106→      { id: 'timetable', label: 'Timetable', icon: Clock },
+   107→    ],
+   108→  },
+   109→  {
+   110→    label: 'Intelligence',
+   111→    items: [
+   112→      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+   113→      { id: 'er-center', label: 'ER Center', icon: FileSearch },
+   114→      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+   115→      { id: 'report', label: 'Report', icon: GraduationCap },
+   116→    ],
+   117→  },
+   118→];
+   119→
+   120→const BOTTOM_NAV_ITEMS: NavItem[] = [
+   121→  { id: 'settings', label: 'Settings', icon: Settings },
+   122→];
+   123→
+   124→// Mobile bottom nav items
+   125→const MOBILE_NAV_ITEMS: NavItem[] = [
+   126→  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+   127→  { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   128→  { id: 'focus', label: 'Study', icon: Timer },
+   129→  { id: 'calendar', label: 'Plan', icon: CalendarDays },
+   130→  { id: 'more', label: 'More', icon: MoreHorizontal },
+   131→];
+   132→
+   133→// ─── Sidebar nav item component ──────────────────────────────────────
+   134→
+   135→function SidebarNavItem({
+   136→  item,
+   137→  collapsed,
+   138→}: {
+   139→  item: NavItem;
+   140→  collapsed: boolean;
+   141→}) {
+   142→  const currentView = useStore((s) => s.currentView);
+   143→  const navigate = useStore((s) => s.navigate);
+   144→  const isActive = currentView === item.id;
+   145→  const Icon = item.icon;
+   146→
+   147→  return (
+   148→    <button
+   149→      onClick={() => navigate(item.id as ViewId)}
+   150→      title={collapsed ? item.label : undefined}
+   151→      className={cn(
+   152→        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+   153→        collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+   154→        isActive
+   155→          ? 'bg-primary/10 text-primary font-medium border-l-primary'
+   156→          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
+   157→      )}
+   158→    >
+   159→      <Icon className="size-[16px] shrink-0" />
+   160→      {!collapsed && <span className="truncate">{item.label}</span>}
+   161→    </button>
+   162→  );
+   163→}
+   164→
+   165→// ─── Mobile bottom nav ───────────────────────────────────────────────
+   166→
+   167→function MobileBottomNav({
+   168→  onMoreOpen,
+   169→}: {
+   170→  onMoreOpen: () => void;
+   171→}) {
+   172→  const currentView = useStore((s) => s.currentView);
+   173→  const navigate = useStore((s) => s.navigate);
+   174→
+   175→  return (
+   176→    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+   177→      <div className="flex h-[60px] items-center justify-around px-1">
+   178→        {MOBILE_NAV_ITEMS.map((item) => {
+   179→          const Icon = item.icon;
+   180→          const isActive = item.id === 'more' ? false : currentView === item.id;
+   181→
+   182→          return (
+   183→            <button
+   184→              key={item.id}
+   185→              onClick={() => {
+   186→                if (item.id === 'more') {
+   187→                  onMoreOpen();
+   188→                } else {
+   189→                  navigate(item.id as ViewId);
+   190→                }
+   191→              }}
+   192→              className={cn(
+   193→                'relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+   194→                isActive ? 'text-primary scale-105' : 'text-muted-foreground active:scale-95'
+   195→              )}
+   196→            >
+   197→              <Icon className="size-[18px] mb-0.5" />
+   198→              <span>{item.label}</span>
+   199→              {isActive && (
+   200→                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-primary transition-all duration-200" />
+   201→              )}
+   202→            </button>
+   203→          );
+   204→        })}
+   205→      </div>
+   206→    </nav>
+   207→  );
+   208→}
+   209→
+   210→// ─── Mobile more sheet ───────────────────────────────────────────────
+   211→
+   212→function MobileMoreSheet({
+   213→  open,
+   214→  onOpenChange,
+   215→}: {
+   216→  open: boolean;
+   217→  onOpenChange: (open: boolean) => void;
+   218→}) {
+   219→  const currentView = useStore((s) => s.currentView);
+   220→  const navigate = useStore((s) => s.navigate);
+   221→
+   222→  return (
+   223→    <Sheet open={open} onOpenChange={onOpenChange}>
+   224→      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+   225→        <SheetHeader className="mb-2">
+   226→          <SheetTitle className="text-base">Navigation</SheetTitle>
+   227→          <SheetDescription className="text-xs">
+   228→            Jump to any section
+   229→          </SheetDescription>
+   230→        </SheetHeader>
+   231→        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
+   232→          {NAV_GROUPS.map((group) => (
+   233→            <div key={group.label} className="mb-3">
+   234→              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
+   235→                {group.label}
+   236→              </p>
+   237→              <div className="grid grid-cols-2 gap-1.5">
+   238→                {group.items.map((item) => {
+   239→                  const Icon = item.icon;
+   240→                  const isActive = currentView === item.id;
+   241→                  return (
+   242→                    <button
+   243→                      key={item.id}
+   244→                      onClick={() => {
+   245→                        navigate(item.id as ViewId);
+   246→                        onOpenChange(false);
+   247→                      }}
+   248→                      className={cn(
+   249→                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
+   250→                        isActive
+   251→                          ? 'bg-primary/10 text-primary font-medium'
+   252→                          : 'text-foreground hover:bg-accent'
+   253→                      )}
+   254→                    >
+   255→                      <Icon className="size-4 shrink-0" />
+   256→                      <span className="truncate">{item.label}</span>
+   257→                    </button>
+   258→                  );
+   259→                })}
+   260→              </div>
+   261→            </div>
+   262→          ))}
+   263→          <div className="border-t border-border pt-3 mt-2">
+   264→            {BOTTOM_NAV_ITEMS.map((item) => {
+   265→              const Icon = item.icon;
+   266→              const isActive = currentView === item.id;
+   267→              return (
+   268→                <button
+   269→                  key={item.id}
+   270→                  onClick={() => {
+   271→                    navigate(item.id as ViewId);
+   272→                    onOpenChange(false);
+   273→                  }}
+   274→                  className={cn(
+   275→                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+   276→                    isActive
+   277→                      ? 'bg-primary/10 text-primary font-medium'
+   278→                      : 'text-foreground hover:bg-accent'
+   279→                  )}
+   280→                >
+   281→                  <Icon className="size-4 shrink-0" />
+   282→                  <span>{item.label}</span>
+   283→                </button>
+   284→              );
+   285→            })}
+   286→          </div>
+   287→        </div>
+   288→      </SheetContent>
+   289→    </Sheet>
+   290→  );
+   291→}
+   292→
+   293→// ─── Command palette ─────────────────────────────────────────────────
+   294→
+   295→function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+   296→  const commandOpen = useStore((s) => s.commandOpen);
+   297→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   298→  const navigate = useStore((s) => s.navigate);
+   299→  const subjects = useStore((s) => s.subjects);
+   300→  const tasks = useStore((s) => s.tasks);
+   301→  const notes = useStore((s) => s.notes);
+   302→  const exams = useStore((s) => s.exams);
+   303→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   304→
+   305→  const handleSelect = useCallback(
+   306→    (action: () => void) => {
+   307→      setCommandOpen(false);
+   308→      action();
+   309→    },
+   310→    [setCommandOpen]
+   311→  );
+   312→
+   313→  if (!commandOpen) return null;
+   314→
+   315→  return (
+   316→    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+   317→      <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
+   318→      <CommandList>
+   319→        <CommandEmpty>No results found.</CommandEmpty>
+   320→
+   321→        <CommandGroup heading="Commands">
+   322→          <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
+   323→            <CheckSquare className="size-4" />
+   324→            <span>Add Task</span>
+   325→          </CommandItem>
+   326→          <CommandItem onSelect={() => handleSelect(() => navigate('focus'))}>
+   327→            <Timer className="size-4" />
+   328→            <span>Start Focus</span>
+   329→          </CommandItem>
+   330→          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
+   331→            <BarChart3 className="size-4" />
+   332→            <span>Go to Marks</span>
+   333→          </CommandItem>
+   334→          <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
+   335→            <UserCheck className="size-4" />
+   336→            <span>Go to Attendance</span>
+   337→          </CommandItem>
+   338→        </CommandGroup>
+   339→
+   340→        <CommandSeparator />
+   341→
+   342→        {subjects.length > 0 && (
+   343→          <CommandGroup heading="Subjects">
+   344→            {subjects.map((s) => (
+   345→              <CommandItem
+   346→                key={s.id}
+   347→                onSelect={() =>
+   348→                  handleSelect(() => {
+   349→                    useStore.getState().selectSubject(s.id);
+   350→                    navigate('subject-detail');
+   351→                  })
+   352→                }
+   353→              >
+   354→                <BookOpen className="size-4" />
+   355→                <span>
+   356→                  {s.name}
+   357→                  <span className="ml-2 text-muted-foreground">{s.code}</span>
+   358→                </span>
+   359→              </CommandItem>
+   360→            ))}
+   361→          </CommandGroup>
+   362→        )}
+   363→
+   364→        {tasks.length > 0 && (
+   365→          <CommandGroup heading="Tasks">
+   366→            {tasks
+   367→              .filter((t) => !t.completed)
+   368→              .slice(0, 5)
+   369→              .map((t) => (
+   370→                <CommandItem
+   371→                  key={t.id}
+   372→                  onSelect={() => handleSelect(() => navigate('tasks'))}
+   373→                >
+   374→                  <CheckSquare className="size-4" />
+   375→                  <span>{t.title}</span>
+   376→                </CommandItem>
+   377→              ))}
+   378→          </CommandGroup>
+   379→        )}
+   380→
+   381→        {notes.length > 0 && (
+   382→          <CommandGroup heading="Notes">
+   383→            {notes.slice(0, 5).map((n) => (
+   384→              <CommandItem
+   385→                key={n.id}
+   386→                onSelect={() => handleSelect(() => navigate('notes'))}
+   387→              >
+   388→                <StickyNote className="size-4" />
+   389→                <span>{n.title}</span>
+   390→              </CommandItem>
+   391→            ))}
+   392→          </CommandGroup>
+   393→        )}
+   394→
+   395→        {exams.length > 0 && (
+   396→          <CommandGroup heading="Exams">
+   397→            {exams
+   398→              .filter((e) => e.status === 'upcoming')
+   399→              .slice(0, 5)
+   400→              .map((e) => (
+   401→                <CommandItem
+   402→                  key={e.id}
+   403→                  onSelect={() => handleSelect(() => navigate('exams'))}
+   404→                >
+   405→                  <FileText className="size-4" />
+   406→                  <span>{e.name}</span>
+   407→                </CommandItem>
+   408→              ))}
+   409→          </CommandGroup>
+   410→        )}
+   411→
+   412→        {syllabusUnits.length > 0 && (
+   413→          <CommandGroup heading="Syllabus Topics">
+   414→            {syllabusUnits
+   415→              .flatMap((u) =>
+   416→                u.topics.map((t) => ({
+   417→                  ...t,
+   418→                  unitName: u.name,
+   419→                  subjectId: u.subjectId,
+   420→                }))
+   421→              )
+   422→              .slice(0, 5)
+   423→              .map((t) => (
+   424→                <CommandItem
+   425→                  key={t.id}
+   426→                  onSelect={() =>
+   427→                    handleSelect(() => {
+   428→                      useStore.getState().selectSubject(t.subjectId);
+   429→                      navigate('subject-detail');
+   430→                    })
+   431→                  }
+   432→                >
+   433→                  <BookOpen className="size-4" />
+   434→                  <span>
+   435→                    {t.name}
+   436→                    <span className="ml-2 text-muted-foreground">
+   437→                      {t.unitName}
+   438→                    </span>
+   439→                  </span>
+   440→                </CommandItem>
+   441→              ))}
+   442→          </CommandGroup>
+   443→        )}
+   444→
+   445→        <CommandSeparator />
+   446→
+   447→        <CommandGroup heading="Help">
+   448→          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+   449→            <Keyboard className="size-4" />
+   450→            <span>Show all shortcuts</span>
+   451→            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+   452→            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   453→              ?
+   454→            </kbd>
+   455→          </CommandItem>
+   456→        </CommandGroup>
+   457→      </CommandList>
+   458→    </CommandDialog>
+   459→  );
+   460→}
+   461→
+   462→// ─── Desktop Sidebar ─────────────────────────────────────────────────
+   463→
+   464→function DesktopSidebar() {
+   465→  const collapsed = useStore((s) => s.sidebarCollapsed);
+   466→  const toggleSidebar = useStore((s) => s.toggleSidebar);
+   467→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   468→
+   469→  return (
+   470→    <aside
+   471→      className={cn(
+   472→        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+   473→        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
+   474→      )}
+   475→    >
+   476→      {/* Brand */}
+   477→      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
+   478→        {!collapsed && (
+   479→          <span className="text-sm font-bold tracking-tight text-foreground select-none">
+   480→            DELULU
+   481→          </span>
+   482→        )}
+   483→        <button
+   484→          onClick={toggleSidebar}
+   485→          className={cn(
+   486→            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+   487→            collapsed ? 'mx-auto' : 'ml-auto'
+   488→          )}
+   489→          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+   490→        >
+   491→          {collapsed ? (
+   492→            <PanelLeftOpen className="size-3.5" />
+   493→          ) : (
+   494→            <PanelLeftClose className="size-3.5" />
+   495→          )}
+   496→        </button>
+   497→      </div>
+   498→
+   499→      {/* Search */}
+   500→      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
+   501→        <button
+   502→          onClick={() => setCommandOpen(true)}
+   503→          className={cn(
+   504→            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+   505→            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+   506→          )}
+   507→          aria-label="Open command palette"
+   508→        >
+   509→          <Search className="size-3.5 shrink-0" />
+   510→          {!collapsed && (
+   511→            <span className="flex-1 text-left text-xs">Search...</span>
+   512→          )}
+   513→          {!collapsed && (
+   514→            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   515→              ⌘K
+   516→            </kbd>
+   517→          )}
+   518→        </button>
+   519→      </div>
+   520→
+   521→      {/* Nav */}
+   522→      <nav className="scrollbar-thin flex-1 overflow-y-auto px-1.5 pt-1">
+   523→        {NAV_GROUPS.map((group, gi) => (
+   524→          <div key={group.label}>
+   525→            {!collapsed && (
+   526→              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
+   527→            )}
+   528→            {collapsed && gi > 0 && (
+   529→              <div className="border-t border-border/50 my-2 mx-2" />
+   530→            )}
+   531→            {group.items.map((item) => (
+   532→              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
+   533→            ))}
+   534→          </div>
+   535→        ))}
+   536→      </nav>
+   537→
+   538→      {/* Bottom */}
+   539→      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+   540→        {BOTTOM_NAV_ITEMS.map((item) => (
+   541→          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
+   542→        ))}
+   543→      </div>
+   544→    </aside>
+   545→  );
+   546→}
+   547→
+   548→// ─── Theme Toggle (mobile) ─────────────────────────────────────
+   549→
+   550→function ThemeToggle() {
+   551→  const { theme, setTheme } = useTheme();
+   552→  return (
+   553→    <button
+   554→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   555→      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   556→      aria-label="Toggle theme"
+   557→    >
+   558→      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+   559→    </button>
+   560→  );
+   561→}
+   562→
+   563→// ─── Mobile Streak Badge ─────────────────────────────────────────
+   564→
+   565→function MobileStreakBadge() {
+   566→  const studySessions = useStore((s) => s.studySessions);
+   567→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   568→
+   569→  if (streak <= 0) return null;
+   570→
+   571→  return (
+   572→    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+   573→      <Flame className="size-3" />
+   574→      {streak}
+   575→    </span>
+   576→  );
+   577→}
+   578→
+   579→// ─── Desktop Top Bar ───────────────────────────────────────────────
+   580→
+   581→function DesktopTopBar() {
+   582→  const profile = useStore((s) => s.profile);
+   583→  const studySessions = useStore((s) => s.studySessions);
+   584→  const subjects = useStore((s) => s.subjects);
+   585→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   586→  const assessments = useStore((s) => s.assessments);
+   587→  const attendance = useStore((s) => s.attendance);
+   588→  const revisionItems = useStore((s) => s.revisionItems);
+   589→
+   590→  const healthScore = useMemo(
+   591→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   592→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   593→  );
+   594→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   595→  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   596→
+   597→  const hour = new Date().getHours();
+   598→  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+   599→
+   600→  const todayMinutes = Math.floor(studyToday / 60);
+   601→  const todayH = Math.floor(todayMinutes / 60);
+   602→  const todayM = todayMinutes % 60;
+   603→  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+   604→
+   605→  return (
+   606→    <div className="top-bar hidden lg:flex items-center gap-4 px-6 py-2">
+   607→
+   608→      <span className="font-semibold text-foreground/80">{greeting}, {profile.name}</span>
+   609→      <span className="text-border">|</span>
+   610→      <span>{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+   611→      <div className="flex-1" />
+   612→      <div className="flex items-center gap-3">
+   613→        <span className={cn(
+   614→          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+   615→          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+   616→        )}>
+   617→          {healthScore}
+   618→        </span>
+   619→        {streak > 0 && (
+   620→          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+   621→            <Flame className="size-3" />
+   622→            <span className="font-semibold tabular-nums">{streak}</span>
+   623→          </span>
+   624→        )}
+   625→        <span className="inline-flex items-center gap-1">
+   626→          <Clock className="size-3" />
+   627→          <span className="tabular-nums">{todayStr}</span>
+   628→          <span>today</span>
+   629→        </span>
+   630→      </div>
+   631→    </div>
+   632→  );
+   633→}
+   634→
+   635→// ─── Mobile FAB ──────────────────────────────────────────────────
+   636→
+   637→const FAB_ACTIONS: { label: string; icon: LucideIcon; view: ViewId; color: string }[] = [
+   638→  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+   639→  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+   640→  { label: 'New Note', icon: StickyNote, view: 'notes', color: 'bg-emerald-500 dark:bg-emerald-400' },
+   641→  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+   642→];
+   643→
+   644→function MobileFAB() {
+   645→  const [open, setOpen] = useState(false);
+   646→  const navigate = useStore((s) => s.navigate);
+   647→  const currentView = useStore((s) => s.currentView);
+   648→  const fabRef = useRef<HTMLDivElement>(null);
+   649→
+   650→  // Auto-close when navigating away (store currentView is external state)
+   651→  const prevViewRef = useRef(currentView);
+   652→  /* eslint-disable react-hooks/set-state-in-effect */
+   653→  useEffect(() => {
+   654→    if (prevViewRef.current !== currentView) {
+   655→      prevViewRef.current = currentView;
+   656→      setOpen(false);
+   657→    }
+   658→  }, [currentView]);
+   659→  /* eslint-enable react-hooks/set-state-in-effect */
+   660→
+   661→  const handleClose = useCallback(() => setOpen(false), []);
+   662→
+   663→  // Close on outside click
+   664→  useEffect(() => {
+   665→    if (!open) return;
+   666→    const handleClick = (e: MouseEvent) => {
+   667→      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+   668→        setOpen(false);
+   669→      }
+   670→    };
+   671→    // Delay to avoid immediate close from the toggle click
+   672→    const timer = setTimeout(() => {
+   673→      document.addEventListener('mousedown', handleClick);
+   674→    }, 0);
+   675→    return () => {
+   676→      clearTimeout(timer);
+   677→      document.removeEventListener('mousedown', handleClick);
+   678→    };
+   679→  }, [open]);
+   680→
+   681→  const handleAction = (view: ViewId) => {
+   682→    setOpen(false);
+   683→    navigate(view);
+   684→  };
+   685→
+   686→  return (
+   687→    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+   688→      {/* Backdrop overlay when open */}
+   689→      <AnimatePresence>
+   690→        {open && (
+   691→          <motion.div
+   692→            initial={{ opacity: 0 }}
+   693→            animate={{ opacity: 1 }}
+   694→            exit={{ opacity: 0 }}
+   695→            transition={{ duration: 0.15 }}
+   696→            className="fixed inset-0 z-[-1]"
+   697→            onClick={() => setOpen(false)}
+   698→          />
+   699→        )}
+   700→      </AnimatePresence>
+   701→
+   702→      {/* Radial menu items */}
+   703→      <AnimatePresence>
+   704→        {open && (
+   705→          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+   706→            {FAB_ACTIONS.map((action, i) => {
+   707→              const Icon = action.icon;
+   708→              return (
+   709→                <motion.div
+   710→                  key={action.label}
+   711→                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   712→                  animate={{ opacity: 1, scale: 1, y: 0 }}
+   713→                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+   714→                  transition={{ duration: 0.2, delay: i * 0.04 }}
+   715→                  className="flex items-center gap-2.5"
+   716→                >
+   717→                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+   718→                    {action.label}
+   719→                  </span>
+   720→                  <button
+   721→                    onClick={() => handleAction(action.view)}
+   722→                    className={cn(
+   723→                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+   724→                      action.color,
+   725→                      'text-white'
+   726→                    )}
+   727→                    aria-label={action.label}
+   728→                  >
+   729→                    <Icon className="size-4" />
+   730→                  </button>
+   731→                </motion.div>
+   732→              );
+   733→            })}
+   734→          </div>
+   735→        )}
+   736→      </AnimatePresence>
+   737→
+   738→      {/* Main FAB button */}
+   739→      <motion.button
+   740→        onClick={() => setOpen((prev) => !prev)}
+   741→        whileTap={{ scale: 0.92 }}
+   742→        className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg press-scale flex items-center justify-center"
+   743→        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+   744→        style={{ rotate: open ? 45 : 0 }}
+   745→        transition={{ duration: 0.2 }}
+   746→      >
+   747→        <Plus className="size-5" />
+   748→      </motion.button>
+   749→    </div>
+   750→  );
+   751→}
+   752→
+   753→// ─── App Shell ───────────────────────────────────────────────────────
+   754→
+   755→export function AppShell() {
+   756→  const subjects = useStore((s) => s.subjects);
+   757→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   758→  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+   759→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   760→  const { theme, setTheme } = useTheme();
+   761→
+   762→  const showShortcuts = useCallback(() => {
+   763→    setCommandOpen(false);
+   764→    setShortcutsOpen(true);
+   765→  }, [setCommandOpen]);
+   766→
+   767→  useEffect(() => {
+   768→    const handleKeyDown = (e: KeyboardEvent) => {
+   769→      // Don't capture when typing in inputs
+   770→      const tag = (e.target as HTMLElement)?.tagName;
+   771→      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+   772→
+   773→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   774→        e.preventDefault();
+   775→        setCommandOpen(true);
+   776→      }
+   777→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+   778→        e.preventDefault();
+   779→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   780→      }
+   781→      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+   782→        e.preventDefault();
+   783→        setShortcutsOpen((prev) => !prev);
+   784→      }
+   785→    };
+   786→    document.addEventListener('keydown', handleKeyDown);
+   787→    return () => document.removeEventListener('keydown', handleKeyDown);
+   788→  }, [setCommandOpen, theme, setTheme]);
+   789→
+   790→  return (
+   791→    <ToastProvider>
+   792→    <MobileFAB />
+   793→    <div className="flex min-h-screen">
+   794→      <DesktopSidebar />
+   795→
+   796→      <main className="flex-1 min-w-0 flex flex-col">
+   797→        <DesktopTopBar />
+   798→        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
+   799→          {/* Mobile header */}
+   800→          <div className="flex items-center justify-between mb-5 md:mb-0">
+   801→            <div className="flex items-center gap-2">
+   802→              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+   803→                DELULU
+   804→              </span>
+   805→              <MobileStreakBadge />
+   806→            </div>
+   807→            <div className="flex items-center gap-1.5 ml-auto">
+   808→              <ThemeToggle />
+   809→              <button
+   810→                onClick={() => setCommandOpen(true)}
+   811→                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   812→                aria-label="Search"
+   813→              >
+   814→                <Search className="size-4" />
+   815→              </button>
+   816→            </div>
+   817→          </div>
+   818→
+   819→          {/* Onboarding — shows when no subjects exist */}
+   820→          {subjects.length === 0 && <Onboarding />}
+   821→
+   822→          <ViewRouter />
+   823→        </div>
+   824→      </main>
+   825→
+   826→      <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
+   827→      <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
+   828→      <CommandPalette onShowShortcuts={showShortcuts} />
+   829→      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+   830→    </div>
+   831→    </ToastProvider>
+   832→  );
+   833→}
+   834→

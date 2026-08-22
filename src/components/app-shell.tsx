@@ -58,6 +58,57 @@ import { Onboarding } from '@/components/onboarding';
 import { ToastProvider } from '@/components/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// ─── Notification badges hook ──────────────────────────────────────
+
+function useNavBadges() {
+  const tasks = useStore((s) => s.tasks);
+  const revisionItems = useStore((s) => s.revisionItems);
+  const exams = useStore((s) => s.exams);
+  const assignments = useStore((s) => s.assignments);
+
+  return useMemo(() => {
+    const badges: Partial<Record<ViewId, number>> = {};
+
+    // Overdue tasks
+    const today = new Date().toISOString().split('T')[0];
+    const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+    if (overdueTasks.length > 0) badges['tasks'] = overdueTasks.length;
+
+    // Due revisions
+    const dueRevisions = revisionItems.filter(r => {
+      const nextReview = new Date(r.nextReview);
+      return nextReview <= new Date();
+    });
+    if (dueRevisions.length > 0) badges['revision'] = dueRevisions.length;
+
+    // Upcoming exams (within 7 days)
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= weekFromNow.toISOString().split('T')[0]);
+    if (upcomingExams.length > 0) badges['exams'] = upcomingExams.length;
+
+    // Upcoming assignments (within 3 days)
+    const threeDays = new Date();
+    threeDays.setDate(threeDays.getDate() + 3);
+    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= threeDays.toISOString().split('T')[0]);
+    if (upcomingAssign.length > 0) badges['assignments'] = upcomingAssign.length;
+
+    return badges;
+  }, [tasks, revisionItems, exams, assignments]);
+}
+
+// ─── Nav badge component ──────────────────────────────────────────
+
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const display = count > 9 ? '9+' : String(count);
+  return (
+    <span className="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none animate-badge-pop">
+      {display}
+    </span>
+  );
+}
+
 // ─── Nav item types ─────────────────────────────────────────────────
 
 interface NavItem {
@@ -135,9 +186,11 @@ const MOBILE_NAV_ITEMS: NavItem[] = [
 function SidebarNavItem({
   item,
   collapsed,
+  badge,
 }: {
   item: NavItem;
   collapsed: boolean;
+  badge?: number;
 }) {
   const currentView = useStore((s) => s.currentView);
   const navigate = useStore((s) => s.navigate);
@@ -150,14 +203,18 @@ function SidebarNavItem({
       title={collapsed ? item.label : undefined}
       className={cn(
         'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
-        collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+        collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
         isActive
-          ? 'bg-primary/10 text-primary font-medium border-l-primary'
+          ? 'bg-primary/[0.07] text-primary font-semibold border-l-primary'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
       )}
     >
       <Icon className="size-[16px] shrink-0" />
       {!collapsed && <span className="truncate">{item.label}</span>}
+      {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
+      {collapsed && badge !== undefined && badge > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+      )}
     </button>
   );
 }
@@ -171,6 +228,8 @@ function MobileBottomNav({
 }) {
   const currentView = useStore((s) => s.currentView);
   const navigate = useStore((s) => s.navigate);
+  const badges = useNavBadges();
+  const totalBadges = Object.values(badges).reduce((s, v) => s + (v || 0), 0);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
@@ -190,14 +249,19 @@ function MobileBottomNav({
                 }
               }}
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
-                isActive ? 'text-primary scale-105' : 'text-muted-foreground active:scale-95'
+                'bottom-nav-item relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+                isActive ? 'active text-primary' : 'text-muted-foreground active:scale-95'
               )}
             >
-              <Icon className="size-[18px] mb-0.5" />
-              <span>{item.label}</span>
+              <Icon className={cn('bottom-nav-icon size-[18px] mb-0.5 transition-transform duration-200')} />
+              <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
+              {item.id === 'more' && totalBadges > 0 && (
+                <span className="absolute top-1 right-1/2 translate-x-3 flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-red-500 text-[8px] font-bold text-white leading-none">
+                  {totalBadges > 9 ? '9+' : totalBadges}
+                </span>
+              )}
               {isActive && (
-                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-primary transition-all duration-200" />
+                <span className="bottom-nav-indicator" />
               )}
             </button>
           );
@@ -218,6 +282,7 @@ function MobileMoreSheet({
 }) {
   const currentView = useStore((s) => s.currentView);
   const navigate = useStore((s) => s.navigate);
+  const badges = useNavBadges();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -254,6 +319,11 @@ function MobileMoreSheet({
                     >
                       <Icon className="size-4 shrink-0" />
                       <span className="truncate">{item.label}</span>
+                      {badges[item.id as ViewId] !== undefined && badges[item.id as ViewId]! > 0 && (
+                        <span className="ml-auto flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-semibold tabular-nums">
+                          {badges[item.id as ViewId]}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -465,6 +535,7 @@ function DesktopSidebar() {
   const collapsed = useStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
+  const badges = useNavBadges();
 
   return (
     <aside
@@ -529,7 +600,7 @@ function DesktopSidebar() {
               <div className="border-t border-border/50 my-2 mx-2" />
             )}
             {group.items.map((item) => (
-              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
+              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
             ))}
           </div>
         ))}
@@ -538,7 +609,7 @@ function DesktopSidebar() {
       {/* Bottom */}
       <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
         {BOTTOM_NAV_ITEMS.map((item) => (
-          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
+          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
         ))}
       </div>
     </aside>
@@ -579,13 +650,14 @@ function MobileStreakBadge() {
 // ─── Desktop Top Bar ───────────────────────────────────────────────
 
 function DesktopTopBar() {
-  const profile = useStore((s) => s.profile);
+  const { theme, setTheme } = useTheme();
   const studySessions = useStore((s) => s.studySessions);
   const subjects = useStore((s) => s.subjects);
   const syllabusUnits = useStore((s) => s.syllabusUnits);
   const assessments = useStore((s) => s.assessments);
   const attendance = useStore((s) => s.attendance);
   const revisionItems = useStore((s) => s.revisionItems);
+  const profile = useStore((s) => s.profile);
 
   const healthScore = useMemo(
     () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
@@ -594,39 +666,38 @@ function DesktopTopBar() {
   const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
   const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
   const todayMinutes = Math.floor(studyToday / 60);
   const todayH = Math.floor(todayMinutes / 60);
   const todayM = todayMinutes % 60;
   const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
 
   return (
-    <div className="top-bar hidden lg:flex items-center gap-4 px-6 py-2">
-
-      <span className="font-semibold text-foreground/80">{greeting}, {profile.name}</span>
-      <span className="text-border">|</span>
-      <span>{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
-      <div className="flex-1" />
+    <div className="top-bar hidden lg:flex items-center gap-3 px-6 py-1.5">
+      <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+      <span className="text-border">·</span>
       <div className="flex items-center gap-3">
         <span className={cn(
           'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
           healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
         )}>
-          {healthScore}
+          Health {healthScore}
         </span>
         {streak > 0 && (
           <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
             <Flame className="size-3" />
-            <span className="font-semibold tabular-nums">{streak}</span>
+            <span className="font-semibold tabular-nums">{streak}d</span>
           </span>
         )}
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
           <Clock className="size-3" />
           <span className="tabular-nums">{todayStr}</span>
-          <span>today</span>
         </span>
+      </div>
+      <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
+          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+        </button>
       </div>
     </div>
   );
@@ -739,7 +810,7 @@ function MobileFAB() {
       <motion.button
         onClick={() => setOpen((prev) => !prev)}
         whileTap={{ scale: 0.92 }}
-        className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg press-scale flex items-center justify-center"
+        className="h-12 w-12 rounded-full bg-primary text-primary-foreground fab-shadow press-scale flex items-center justify-center"
         aria-label={open ? 'Close quick actions' : 'Open quick actions'}
         style={{ rotate: open ? 45 : 0 }}
         transition={{ duration: 0.2 }}
