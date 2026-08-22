@@ -1,6 +1,6 @@
 'use client';
 
-import type { Assessment, AttendanceRecord, Subject, TimetableSlot } from './types';
+import type { Assessment, AttendanceRecord, Subject, StudySession, TimetableSlot } from './types';
 
 // ─── CSV Helper ───────────────────────────────────────────────────
 
@@ -164,4 +164,143 @@ export function exportAttendanceCSV(
     ]);
 
   downloadCSV(headers, rows, `attendance_export_${todayStamp()}.csv`);
+}
+
+// ─── Analytics Export ─────────────────────────────────────────────
+
+/** Export a comprehensive weekly study report as CSV with 3 sections. */
+export function exportAnalyticsCSV(
+  studySessions: StudySession[],
+  subjects: Subject[],
+): void {
+  const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
+
+  // Determine this week's range (Mon–Sun)
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const weekSessions = studySessions.filter((s) => {
+    const d = new Date(s.date + 'T00:00:00');
+    return d >= monday && d <= sunday;
+  });
+
+  // ── Section 1: Daily Summary (last 7 days) ──
+  const dailyHeaders = [
+    'Date',
+    'Day',
+    'Total Sessions',
+    'Total Study Minutes',
+    'Subjects Studied',
+    'Avg Session Length',
+  ];
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dailyRows: string[][] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    const dateStr = day.toISOString().slice(0, 10);
+    const daySessions = weekSessions.filter((s) => s.date === dateStr);
+    const totalMin = Math.round(daySessions.reduce((a, s) => a + s.duration, 0) / 60);
+    const subjectSet = new Set(daySessions.map((s) => s.subjectId));
+    const avgLen = daySessions.length > 0 ? Math.round(totalMin / daySessions.length) : 0;
+
+    dailyRows.push([
+      dateStr,
+      dayNames[i],
+      String(daySessions.length),
+      String(totalMin),
+      String(subjectSet.size),
+      `${avgLen}m`,
+    ]);
+  }
+
+  // ── Section 2: Subject Breakdown ──
+  const subjectHeaders = [
+    'Subject',
+    'Total Minutes This Week',
+    'Sessions This Week',
+    'Avg Session Length',
+    '% of Total Time',
+  ];
+
+  const totalWeekMin = Math.round(weekSessions.reduce((a, s) => a + s.duration, 0) / 60);
+
+  // Group by subject
+  const subjectData = new Map<string, { minutes: number; sessions: number }>();
+  for (const s of weekSessions) {
+    const existing = subjectData.get(s.subjectId) || { minutes: 0, sessions: 0 };
+    existing.minutes += Math.round(s.duration / 60);
+    existing.sessions += 1;
+    subjectData.set(s.subjectId, existing);
+  }
+
+  const subjectRows: string[][] = [...subjectData.entries()]
+    .sort((a, b) => b[1].minutes - a[1].minutes)
+    .map(([subjectId, data]) => {
+      const avgLen = data.sessions > 0 ? Math.round(data.minutes / data.sessions) : 0;
+      const pctOfTotal = totalWeekMin > 0 ? Math.round((data.minutes / totalWeekMin) * 100) : 0;
+      return [
+        subjectMap.get(subjectId) || 'Unknown Subject',
+        String(data.minutes),
+        String(data.sessions),
+        `${avgLen}m`,
+        `${pctOfTotal}%`,
+      ];
+    });
+
+  // ── Section 3: Session Log ──
+  const sessionHeaders = [
+    'Date',
+    'Subject',
+    'Duration (minutes)',
+    'Topic',
+  ];
+
+  const sessionRows: string[][] = [...weekSessions]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((s) => [
+      s.date,
+      subjectMap.get(s.subjectId) || 'Unknown Subject',
+      String(Math.round(s.duration / 60)),
+      s.topicName || '',
+    ]);
+
+  // ── Build combined CSV ──
+  const allHeaders = dailyHeaders;
+  const blankRow: string[] = [];
+  const allRows = [
+    ...dailyRows,
+    blankRow,
+    subjectHeaders,
+    ...subjectRows,
+    blankRow,
+    sessionHeaders,
+    ...sessionRows,
+  ];
+
+  const csvHeader = allHeaders.map(escapeField).join(',');
+  const csvBody = allRows
+    .map((row) => row.map(escapeField).join(','))
+    .join('\n');
+  const csvContent = `${csvHeader}\n${csvBody}`;
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `analytics_report_${todayStamp()}.csv`;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }

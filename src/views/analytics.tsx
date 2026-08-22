@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
-import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity } from 'lucide-react';
+import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity, Download } from 'lucide-react';
 import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import {
@@ -10,6 +10,8 @@ import {
   LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
 import { PageHeader, MetricCard, SectionHeader, EmptyState, InsightCard, CompactProgress } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { exportAnalyticsCSV } from '@/lib/csv-export';
 import { progressColorClass } from '@/components/shared';
 
 type SubjectSummary = { id: string; name: string; color: string; percentage: number };
@@ -178,20 +180,34 @@ export default function AnalyticsView() {
         title="Analytics"
         subtitle="Academic performance insights and trends"
         actions={
-          <div className="flex items-center bg-secondary rounded-lg p-0.5">
-            {(['week', 'month', 'semester'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  timeRange === range
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {range.charAt(0).toUpperCase() + range.slice(1)}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                const s = useStore.getState();
+                exportAnalyticsCSV(s.studySessions, s.subjects);
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Export Report
+            </Button>
+            <div className="flex items-center bg-secondary rounded-lg p-0.5">
+              {(['week', 'month', 'semester'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    timeRange === range
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {range.charAt(0).toUpperCase() + range.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
         }
       />

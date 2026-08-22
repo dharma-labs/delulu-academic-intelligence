@@ -201,12 +201,11 @@ function SidebarNavItem({
   return (
     <button
       onClick={() => navigate(item.id as ViewId)}
-      title={collapsed ? item.label : undefined}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+        'group relative flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
         collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
         isActive
-          ? 'bg-primary/[0.07] text-primary font-semibold border-l-primary'
+          ? 'sidebar-active'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
       )}
     >
@@ -215,6 +214,11 @@ function SidebarNavItem({
       {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
       {collapsed && badge !== undefined && badge > 0 && (
         <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+      )}
+      {collapsed && (
+        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity shadow-md z-50">
+          {item.label}
+        </span>
       )}
     </button>
   );
@@ -591,7 +595,10 @@ function DesktopSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-1.5 pt-1">
+      <nav className={cn(
+        'scrollbar-thin flex-1 px-1.5 pt-1',
+        collapsed ? 'overflow-visible' : 'overflow-y-auto'
+      )}>
         {NAV_GROUPS.map((group, gi) => (
           <div key={group.label}>
             {!collapsed && (

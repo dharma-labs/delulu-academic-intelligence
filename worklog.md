@@ -1377,3 +1377,274 @@ The Delulu 4.0 Academic Intelligence System is **production-quality with premium
 3. **MEDIUM**: Add data export for Analytics view (comprehensive study report)
 4. **MEDIUM**: Add achievement/gamification system (XP, levels, badges) — builds on streak glow foundation
 5. **LOW**: Add dashboard widget customization (reorder/hide cards per user preference)
+
+---
+Task ID: 18
+Agent: UI Polish Expert
+Task: Sparklines for all metric cards, dark mode polish, sidebar collapsed tooltip
+
+Work Log:
+- Added `sparklineColor?: string` prop to MetricCard component in shared.tsx — applies as inline `color` style on sparkline container, allowing per-card tinting of `bg-current` bars
+- Added `attendanceSparkline` useMemo in dashboard.tsx: computes 7-day attendance % per day by grouping attendance records by date, calculating present/total ratio
+- Added `syllabusSparkline` useMemo: computes cumulative completion % per day if topics have `completedAt` dates; falls back to `[avgSyllabus] × 7` for uniform bars
+- Added `cgpaSparkline` useMemo: shows last 7 assessment scores as percentages (reversed chronological), falls back to `[cgpa*10] × 7`
+- Passed sparklines to all 3 remaining MetricCards: Attendance (green #10B981), Syllabus (blue #3B82F6), CGPA (dynamic based on trend)
+- Dark mode polish in globals.css:
+  - `.dark .metric-card` background changed to `rgba(30, 41, 59, 0.5)` (semi-transparent slate-800)
+  - `.dark .metric-card:hover` adds subtle primary glow (`0 0 20px`)
+  - `.dark .card-hover-lift:hover` adds primary tint glow
+  - `.dark .recharts-cartesian-grid line` stroke reduced from 0.08 to 0.06
+  - Added `.dark .recharts-default-tooltip` with `#1e293b` background and subtle border
+  - `.dark input:focus/textarea:focus` box-shadow increased from 0.18 to 0.25
+  - Added `.dark .signal-healthy` (emerald-950/40, emerald-300) and `.dark .signal-critical` (red-950/40, red-300)
+  - `.sidebar-active` changed from `bg-primary/[0.07]` to `bg-primary/10` with inset left border glow
+  - Added `.dark .sidebar-active` with extra primary glow shadow
+- Sidebar collapsed tooltip in app-shell.tsx:
+  - Replaced `title` attribute with CSS-only tooltip: `group relative` on button, `absolute left-full ml-3` tooltip span with `opacity-0 → group-hover:opacity-100`
+  - Tooltip styled: `bg-popover text-popover-foreground rounded-md shadow-md z-50`
+  - Changed nav active state from inline classes to `.sidebar-active` utility class
+  - Set nav container to `overflow-visible` when collapsed so tooltip can escape
+
+Stage Summary:
+- All 4 desktop MetricCards now have 7-day sparklines with distinct colors
+- 7 dark mode polish improvements applied (surfaces, charts, tooltips, focus, badges, sidebar, card hover)
+- Sidebar collapsed tooltip shows view name on hover using pure CSS (no JS state)
+- ESLint: 0 errors
+- Dev server: Compiling successfully, GET / 200
+
+---
+Task ID: 19-a
+Agent: Feature Developer
+Task: Achievement/gamification system
+
+Work Log:
+- Read worklog.md (last 60 lines), store.ts, types.ts, globals.css, shared.tsx to understand codebase
+- Read dashboard.tsx to understand mobile and desktop Quick Actions sections
+- Created `/src/lib/achievements.ts`:
+  - Defined `AchievementState` interface with all data needed for condition checks
+  - Defined `Achievement` interface with id, name, description, icon (emoji), category, xpReward, and condition function
+  - Created 15 achievements across 5 categories:
+    - Study (5): First Session, Getting Started (5 sessions), 10 Sessions, Study Warrior (50), 100 Hour Club (6000 min), Deep Focus (>60 min session)
+    - Attendance (2): Perfect Week (7+ consecutive 100% days), Attendance Champion (>=95% overall)
+    - Academic (3): Straight A's (all >=90%), Scholar (CGPA >=9.0), Subject Master (100% syllabus)
+    - Streak (2): Week Warrior (7 day), Monthly Master (30 day)
+    - Productivity (3): Note Taker (5 notes), Prolific Writer (20 notes), Task Master (10 completed tasks)
+  - Exported `checkAchievements()`, `getTotalXP()`, `getLevel()`, `buildAchievementState()`, `CATEGORY_META`
+- Created `/src/components/achievements-dialog.tsx`:
+  - shadcn Dialog with `max-w-4xl`, scrollable, uses hero-card level progress, MetricCard stats row, category-grouped achievement grid
+  - Unlocked: full metric-card styling with glow; Locked: opacity-40 with Lock icon
+  - framer-motion stagger animations, computed on-the-fly from store data
+- Modified `/src/views/dashboard.tsx`:
+  - Added Trophy import, AchievementsDialog import, achievementsOpen state
+  - Desktop Quick Actions: 2x2 → 3-col grid with Achievements button
+  - Mobile Quick Actions: 4-col → 5-col grid with Achieve button
+  - Rendered AchievementsDialog at component bottom
+
+Stage Summary:
+- Achievement system: 15 achievements, XP/levels, dialog UI — fully functional
+- Achievements computed on-the-fly (no schema/persistence changes)
+- Desktop 3-col + mobile 5-col Quick Actions integration
+- ESLint: 0 errors, Build: Compiled successfully
+
+---
+Task ID: 19-b/c
+Agent: Feature Developer
+Task: Analytics export + dashboard widget customization
+
+Work Log:
+- Read worklog.md (last 60 lines), csv-export.ts, analytics.tsx, dashboard.tsx, types.ts to understand codebase
+- Read marks.tsx to understand Export CSV button pattern (Download icon, outline Button, exportMarksCSV call)
+- Confirmed shadcn Popover, Checkbox components available in src/components/ui/
+- **Sub-task 1 — Analytics CSV Export:**
+  - Added `StudySession` to types import in csv-export.ts
+  - Created `exportAnalyticsCSV(studySessions, subjects)` function with 3-section CSV:
+    - Section 1 (Daily Summary): 7 rows (Mon–Sun) with Date, Day, Total Sessions, Total Study Minutes, Subjects Studied, Avg Session Length
+    - Section 2 (Subject Breakdown): Per-subject rows with Total Minutes, Sessions, Avg Session Length, % of Total Time
+    - Section 3 (Session Log): All sessions sorted by date desc with Date, Subject, Duration (minutes), Topic
+    - Sections separated by blank rows (empty CSV rows)
+    - Filename: `analytics_report_YYYY-MM-DD.csv`
+  - Added `Download` icon import and `exportAnalyticsCSV` import to analytics.tsx
+  - Added `Button` import from shadcn
+  - Added "Export Report" button (outline variant, text-xs, Download icon) in PageHeader actions alongside time range toggle
+  - Button reads store state directly via `useStore.getState()` to get studySessions and subjects
+- **Sub-task 2 — Dashboard Widget Customization:**
+  - Added `Settings2` to lucide-react imports
+  - Added `Popover, PopoverTrigger, PopoverContent` and `Checkbox` imports from shadcn UI
+  - Defined `DESKTOP_WIDGETS` array (7 items: weekly-activity, todays-focus, academic-flow, study-patterns, insights, deadlines, quick-actions)
+  - Defined `MOBILE_WIDGETS` array (5 items: subject-progress, weekly-goal, study-sparkline, quick-actions, insight)
+  - Created `useHiddenWidgets()` custom hook: useState initialized from `localStorage.getItem('dashboard-hidden-widgets')` with JSON parse, useEffect syncs back to localStorage, returns `[hidden, toggle]`
+  - Mobile: Added Settings2 icon button (ghost, size-3) next to greeting in health ring area, triggers Popover with MOBILE_WIDGETS checklist
+  - Desktop: Added "Customize" button (ghost, text-xs, Settings2 icon) in header bar next to Semester badge, triggers Popover with DESKTOP_WIDGETS checklist
+  - Popover: "Customize Dashboard" header with section-label class, list of Checkbox+label items, w-52 p-3, align="end"
+  - Wrapped all 5 mobile sections with `{!hiddenWidgets.includes('id') && (…}` conditionals
+  - Wrapped all 7 desktop sections with `{!hiddenWidgets.includes('id') && (…}` conditionals
+  - Fixed JSX parsing error: removed `{/* comment */}` from inside conditional expressions (two sibling JSX expressions)
+
+Stage Summary:
+- Analytics CSV export: 3-section weekly report with daily summary, subject breakdown, session log
+- Export Report button in analytics PageHeader (next to time range toggle)
+- Dashboard widget customization: Popover-based toggle for 7 desktop + 5 mobile sections
+- Persistence via localStorage key `dashboard-hidden-widgets`
+- ESLint: 0 errors, Build: Compiled successfully
+
+---
+Task ID: 18
+Agent: UI Polish Expert
+Task: Sparklines for all metric cards, dark mode polish, sidebar collapsed tooltip
+
+Work Log:
+- Added sparklineColor prop to MetricCard in shared.tsx — applies as inline color style on sparkline container
+- Computed attendanceSparkline: 7-day per-day attendance % from attendance records (green #10B981)
+- Computed syllabusSparkline: cumulative syllabus completion % per day using topics' completedAt dates (blue #3B82F6), falls back to uniform bars
+- Computed cgpaSparkline: last 7 assessment scores as percentages, falls back to cgpa×10 repeated (dynamic color based on trend)
+- Passed sparklines to Attendance, Syllabus, CGPA MetricCards on desktop dashboard
+- Dark mode polish in globals.css:
+  - .dark .metric-card elevated surface: rgba(30,41,59,0.5)
+  - Chart grid lines: opacity reduced from 0.08 to 0.06
+  - Recharts tooltip: #1e293b bg, subtle border
+  - Input focus glow: alpha increased from 0.18 to 0.25
+  - Added .dark .signal-healthy (emerald-950/40 + emerald-300) and .dark .signal-critical (red-950/40 + red-300)
+  - Sidebar active: bg-primary/10 with dark primary glow
+  - Card hover: primary-tinted glow (0 0 24px) for .dark .card-hover-lift:hover and .dark .metric-card:hover
+- Sidebar collapsed tooltip: CSS-only tooltip using group/group-hover, positioned absolute left-full ml-3 with bg-popover shadow-md z-50
+- Nav container overflow-visible when collapsed for tooltip escape
+- ESLint: 0 errors, dev server compiling successfully
+
+Stage Summary:
+- All 4 desktop metric cards now have 7-day sparkline mini charts (colored per metric type)
+- Dark mode: 7 specific CSS improvements (elevated surfaces, chart grid, tooltips, input glow, badges, sidebar glow, hover glow)
+- Sidebar collapsed: CSS-only tooltips appear on hover showing view name
+- VLM final scores: Desktop 8.7/10, Mobile 8.6/10
+
+---
+Task ID: 19-a
+Agent: Feature Developer
+Task: Achievement/gamification system with XP, levels, and badges
+
+Work Log:
+- Created /src/lib/achievements.ts with 15 achievements across 5 categories
+- Achievement categories: Study (5), Attendance (2), Academic (3), Streak (2), Productivity (3)
+- Each achievement has: id, name, description, emoji icon, category, xpReward (25-300), condition function
+- checkAchievements() returns all currently unlocked achievements based on computed state
+- getLevel() uses progressive scaling: level N costs N×100 XP cumulative
+- buildAchievementState() computes all needed data from raw store (sessions, subjects, assessments, etc.)
+- Created /src/components/achievements-dialog.tsx: Dialog (max-w-4xl, max-h-85vh scrollable)
+  - Hero card with gradient level number, XP progress bar (33% to next level), total XP/unlock count
+  - 4 MetricCards stats row: Achievements unlocked, Study Hours, Streak, CGPA
+  - Category-grouped achievement grid (2 cols mobile, 3 tablet, 4 desktop)
+  - Unlocked: full metric-card styling + subtle primary glow
+  - Locked: opacity-40 + Lock icon replacing emoji
+  - framer-motion stagger-children animations
+- Modified dashboard.tsx:
+  - Desktop Quick Actions: 2×2 → 3-column grid with 5th Achievements button (Trophy icon)
+  - Mobile Quick Actions: 4-column → 5-column grid with 5th Achieve button
+  - Added achievementsOpen state + AchievementsDialog rendered at component bottom
+- ESLint: 0 errors
+
+Stage Summary:
+- 15 achievements across 5 categories with XP rewards (25-300 XP each)
+- Level system: progressive scaling, Level 2 at 100 XP, Level 3 at 300 XP, etc.
+- Achievements dialog accessible from dashboard Quick Actions (desktop + mobile)
+- Currently showing: Level 2, 400 XP, 5/16 achievements unlocked with seed data
+
+---
+Task ID: 19-b/c
+Agent: Feature Developer
+Task: Analytics data export + dashboard widget customization
+
+Work Log:
+- Added exportAnalyticsCSV() to csv-export.ts:
+  - Section 1: Daily Summary (7 days) — date, day, sessions, minutes, subjects, avg session
+  - Section 2: Subject Breakdown — per-subject minutes, sessions, avg, % of total
+  - Section 3: Session Log — all sessions sorted date-desc with subject and duration
+  - Sections separated by blank rows, filename: analytics_report_YYYY-MM-DD.csv
+- Added Export Report button to analytics.tsx PageHeader actions (outline, Download icon)
+- Dashboard widget customization in dashboard.tsx:
+  - useHiddenWidgets() hook reads/writes dashboard-hidden-widgets in localStorage
+  - 7 desktop widgets: weekly-activity, todays-focus, academic-flow, study-patterns, insights, deadlines, quick-actions
+  - 5 mobile widgets: subject-progress, weekly-goal, study-sparkline, quick-actions, insight
+  - Customize button: mobile gets Settings2 icon next to greeting; desktop gets ghost button in header
+  - Popover with Customize Dashboard header + Checkbox list
+  - All 12 sections wrapped with conditional rendering
+- ESLint: 0 errors
+
+Stage Summary:
+- Analytics CSV export: 3-section comprehensive weekly study report
+- Dashboard widget customization: 12 toggleable sections persisted in localStorage
+- Customize popover accessible from both mobile and desktop dashboard headers
+
+---
+Task ID: 20
+Agent: Main Orchestrator
+Task: Final QA, VLM assessment, comprehensive worklog handover
+
+Work Log:
+- agent-browser QA: Desktop 1440px — all 18 views navigated, zero console errors
+- agent-browser QA: Mobile 390px — all views via bottom nav + More sheet, zero errors
+- agent-browser QA: Dark mode toggle tested, zero errors
+- Verified new features via agent-browser:
+  - Customize Dashboard popover opens with 7 desktop widget checkboxes
+  - Achievements dialog shows Level 2, 400 XP, 5/16 achievements, category grid
+  - Analytics Export Report button visible
+  - Sidebar tooltip present (CSS-based, not in a11y tree)
+- VLM final assessment: Desktop 8.7/10, Mobile 8.6/10
+- ESLint: 0 errors, dev server: all compiles successful
+
+## Current Project Status
+
+### Assessment
+The Delulu 4.0 Academic Intelligence System is at **advanced production quality** with a comprehensive FlowTune-inspired design. The VLM quality scores stand at **Desktop 8.7/10** and **Mobile 8.6/10**. The application now includes: animated progress bars, 4-card sparkline system, achievement/gamification with XP levels, CSV data export on 3 views, Pomodoro presets, keyboard shortcuts, Quick Note dialog, dashboard widget customization, dark mode polish, sidebar tooltips, and 15+ micro-interaction CSS classes.
+
+### Completed This Session (Phase 17-20)
+
+**Phase 18 — Advanced Styling (3 items):**
+1. Sparklines on all 4 desktop metric cards (Attendance=green, Syllabus=blue, CGPA=trend-colored, Study Time=primary)
+2. Dark mode polish: 7 CSS improvements (elevated surfaces, subtle chart grids, tooltip styling, input glow, badge luminance, sidebar glow, hover glow)
+3. Sidebar collapsed tooltip: CSS-only hover tooltips showing view names
+
+**Phase 19 — New Features (3 major features):**
+1. Achievement/Gamification System: 15 achievements across 5 categories, XP/Level system (progressive scaling), Achievements Dialog with hero card + category grid + locked/unlocked states
+2. Analytics Data Export: 3-section comprehensive weekly study report CSV (Daily Summary, Subject Breakdown, Session Log)
+3. Dashboard Widget Customization: 12 toggleable sections (7 desktop, 5 mobile), persisted in localStorage, Popover with checkbox list
+
+**Cumulative Feature Count This Session:** 7 new features, 20+ styling improvements
+
+### Verification Results
+- ESLint: 0 errors (verified after each change)
+- Dev server: GET / 200 across all 18 views, all compiles successful
+- Console errors: 0 across all views (desktop, mobile, dark mode)
+- VLM Quality: Desktop 8.7/10, Mobile 8.6/10
+- All new features verified via agent-browser interaction testing
+
+### Files Created This Session
+- `/src/lib/achievements.ts` — Achievement system core (15 achievements, XP/level computation)
+- `/src/components/achievements-dialog.tsx` — Achievements Dialog UI
+- `/src/lib/csv-export.ts` — Reusable CSV export utility (4 export functions)
+- `/src/components/quick-note-dialog.tsx` — Quick Note dialog
+
+### Files Modified This Session
+- `/src/app/globals.css` — 20+ CSS utility classes, animations, dark mode polish
+- `/src/components/shared.tsx` — MetricCard sparklineColor prop, accent-top, hover-lift, progress-animate
+- `/src/views/dashboard.tsx` — Sparklines, gradient text, achievements button, customize button, widget toggles, FAB padding
+- `/src/views/marks.tsx` — Export CSV button
+- `/src/views/attendance.tsx` — Export CSV button
+- `/src/views/analytics.tsx` — Export Report button
+- `/src/views/focus.tsx` — Timer presets, session statistics
+- `/src/components/shortcuts-overlay.tsx` — 15 keyboard shortcuts
+- `/src/components/app-shell.tsx` — Keyboard handlers, FAB Quick Note, sidebar tooltip
+
+### Unresolved Issues / Risks
+1. Next.js Dev Tools badge overlaps mobile bottom nav in dev mode (production unaffected)
+2. AI Tutor streaming backend not load-tested under high concurrency
+3. Seed data uses fixed past dates — some achievements unlock immediately with seed data
+4. Dashboard widget customization uses localStorage (cleared on incognito/private browsing)
+5. Sidebar tooltip uses CSS-only approach — not accessible via screen reader (add aria-label as future improvement)
+
+### Priority Recommendations for Next Phase
+1. **HIGH**: Add dark mode VLM QA with proper dark mode screenshots (theme toggle via browser, not eval)
+2. **HIGH**: Add more achievements tied to real user actions (e.g., complete all syllabus for a subject, perfect attendance for a month)
+3. **MEDIUM**: Add data visualization to Analytics mobile (mini charts/sparklines)
+4. **MEDIUM**: Implement study session background ambient sounds (white noise, rain, lo-fi)
+5. **MEDIUM**: Add collaborative features (study groups, shared notes)
+6. **LOW**: Add widget drag-and-drop reordering on dashboard
+7. **LOW**: Add PWA support (service worker, offline mode, install prompt)

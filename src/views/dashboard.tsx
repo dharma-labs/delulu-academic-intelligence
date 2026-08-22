@@ -23,6 +23,8 @@ import {
   Zap,
   StickyNote,
   Bot,
+  Trophy,
+  Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -33,8 +35,47 @@ import { Button } from '@/components/ui/button';
 import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, progressColorClass } from '@/components/shared';
 import { useToast } from '@/components/toast';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
+import { AchievementsDialog } from '@/components/achievements-dialog';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { SignalStatus } from '@/lib/types';
+
+// -- Widget customization --
+const DESKTOP_WIDGETS = [
+  { id: 'weekly-activity', label: 'Weekly Activity' },
+  { id: 'todays-focus', label: "Today's Focus" },
+  { id: 'academic-flow', label: 'Academic Flow' },
+  { id: 'study-patterns', label: 'Study Patterns' },
+  { id: 'insights', label: 'Insights' },
+  { id: 'deadlines', label: 'Deadlines' },
+  { id: 'quick-actions', label: 'Quick Actions' },
+] as const;
+
+const MOBILE_WIDGETS = [
+  { id: 'subject-progress', label: 'Subject Progress' },
+  { id: 'weekly-goal', label: 'Weekly Goal' },
+  { id: 'study-sparkline', label: 'Study Sparkline' },
+  { id: 'quick-actions', label: 'Quick Actions' },
+  { id: 'insight', label: 'Insight' },
+] as const;
+
+function useHiddenWidgets(): [string[], (id: string) => void] {
+  const [hidden, setHidden] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem('dashboard-hidden-widgets');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    localStorage.setItem('dashboard-hidden-widgets', JSON.stringify(hidden));
+  }, [hidden]);
+  const toggle = (id: string) => {
+    setHidden((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+  return [hidden, toggle];
+}
 
 // -- Animation --
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
@@ -193,6 +234,8 @@ export default function DashboardView() {
   const selectSubject = useStore((s) => s.selectSubject);
 
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [hiddenWidgets, toggleWidget] = useHiddenWidgets();
 
   const activeSubjects = useMemo(() => subjects.filter((s) => !s.archived), [subjects]);
 
@@ -478,6 +521,73 @@ export default function DashboardView() {
     return data;
   }, [studySessions]);
 
+  // Attendance sparkline: 7-day attendance % per day
+  const attendanceSparkline = useMemo(() => {
+    const data: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayRecords = attendance.filter(a => a.date === dateStr);
+      if (dayRecords.length === 0) {
+        data.push(0);
+      } else {
+        const total = dayRecords.reduce((s, r) => s + r.totalClasses, 0);
+        const present = dayRecords.filter(r => r.present).reduce((s, r) => s + r.totalClasses, 0);
+        data.push(total > 0 ? Math.round((present / total) * 100) : 0);
+      }
+    }
+    return data;
+  }, [attendance]);
+
+  // Syllabus sparkline: cumulative completion % per day over last 7 days
+  const syllabusSparkline = useMemo(() => {
+    const data: number[] = [];
+    // Check if any topics have completion tracking with dates
+    const hasCompletionDates = syllabusUnits.some(u =>
+      u.topics.some(t => t.completed && ('completedAt' in t))
+    );
+    if (hasCompletionDates) {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        // Count topics completed by this date
+        let totalTopics = 0;
+        let completedByDate = 0;
+        for (const unit of syllabusUnits) {
+          for (const topic of unit.topics) {
+            totalTopics++;
+            if (topic.completed) {
+              const cDate = (topic as Record<string, unknown>).completedAt as string | undefined;
+              if (cDate && cDate <= dateStr) {
+                completedByDate++;
+              }
+            }
+          }
+        }
+        data.push(totalTopics > 0 ? Math.round((completedByDate / totalTopics) * 100) : 0);
+      }
+    } else {
+      // No completion dates — show current average repeated 7 times
+      return Array(7).fill(avgSyllabus);
+    }
+    return data;
+  }, [syllabusUnits, avgSyllabus]);
+
+  // CGPA sparkline: last 7 assessment scores as percentages, or CGPA*10 repeated
+  const cgpaSparkline = useMemo(() => {
+    if (assessments.length > 0) {
+      const recent = [...assessments]
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 7)
+        .reverse()
+        .map(a => Math.round((a.obtainedMarks / a.maxMarks) * 100));
+      return recent;
+    }
+    return Array(7).fill(Math.round(cgpa * 10));
+  }, [assessments, cgpa]);
+
   // -- Greeting --
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -508,7 +618,30 @@ export default function DashboardView() {
         <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
           <HealthRing score={healthScore} config={healthConfig} />
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground mb-1">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs text-muted-foreground">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground">
+                    <Settings2 className="size-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-52 p-3">
+                  <p className="section-label mb-2">Customize Dashboard</p>
+                  <div className="space-y-1.5">
+                    {MOBILE_WIDGETS.map((w) => (
+                      <label key={w.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={!hiddenWidgets.includes(w.id)}
+                          onCheckedChange={() => toggleWidget(w.id)}
+                        />
+                        <span className="text-sm">{w.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-1.5" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">{healthConfig.description}</p>
           </div>
@@ -551,6 +684,7 @@ export default function DashboardView() {
         )}
 
         {/* Compact Subject Flow */}
+        {!hiddenWidgets.includes('subject-progress') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
           <div className="flex items-center justify-between mb-2.5 px-1">
             <span className="section-label">Subject Progress</span>
@@ -581,8 +715,10 @@ export default function DashboardView() {
             ))}
           </div>
         </motion.div>
+        )}
 
         {/* Weekly Goal Mini Bar */}
+        {!hiddenWidgets.includes('weekly-goal') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -597,8 +733,9 @@ export default function DashboardView() {
             <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
           </div>
         </motion.div>
+        )}
 
-        {/* Weekly Study Sparkline */}
+        {!hiddenWidgets.includes('study-sparkline') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.22 }} className="metric-card">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2">
@@ -609,21 +746,24 @@ export default function DashboardView() {
           </div>
           <WeeklyMiniChart studySessions={studySessions} />
         </motion.div>
+        )}
 
         {/* Quick Actions */}
+        {!hiddenWidgets.includes('quick-actions') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {[
               { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
               { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
               { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
               { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
+              { label: 'Achieve', icon: Trophy, action: true, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
             ].map((a) => {
               const Icon = a.icon;
               return (
                 <button
-                  key={a.view}
-                  onClick={() => navigate(a.view)}
+                  key={'view' in a ? a.view : 'achievements'}
+                  onClick={() => 'view' in a ? navigate(a.view as import('@/lib/types').ViewId) : setAchievementsOpen(true)}
                   className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
                 >
                   <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
@@ -635,9 +775,10 @@ export default function DashboardView() {
             })}
           </div>
         </motion.div>
+        )}
 
         {/* First Insight Only */}
-        {insights.length > 0 && (
+        {!hiddenWidgets.includes('insight') && insights.length > 0 && (
           <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
             <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
           </motion.div>
@@ -657,6 +798,28 @@ export default function DashboardView() {
             <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-auto px-1.5 text-xs text-muted-foreground">
+                  <Settings2 className="size-3 mr-1" />
+                  Customize
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-52 p-3">
+                <p className="section-label mb-2">Customize Dashboard</p>
+                <div className="space-y-1.5">
+                  {DESKTOP_WIDGETS.map((w) => (
+                    <label key={w.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={!hiddenWidgets.includes(w.id)}
+                        onCheckedChange={() => toggleWidget(w.id)}
+                      />
+                      <span className="text-sm">{w.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
               Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
             </Badge>
@@ -697,6 +860,8 @@ export default function DashboardView() {
                 trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
                 icon={UserCheck}
                 valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
+                sparkline={attendanceSparkline}
+                sparklineColor="#10B981"
                 onClick={() => navigate('attendance')}
               />
               <MetricCard
@@ -704,6 +869,8 @@ export default function DashboardView() {
                 value={`${avgSyllabus}%`}
                 context="Average completion"
                 icon={BookOpen}
+                sparkline={syllabusSparkline}
+                sparklineColor="#3B82F6"
                 onClick={() => navigate('subjects')}
               />
               <MetricCard
@@ -713,6 +880,8 @@ export default function DashboardView() {
                 trend={cgpaTrend}
                 trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
                 icon={BarChart3}
+                sparkline={cgpaSparkline}
+                sparklineColor={cgpaTrend === 'up' ? '#10B981' : cgpaTrend === 'down' ? '#EF4444' : '#64748B'}
                 onClick={() => navigate('marks')}
               />
               <MetricCard
@@ -760,6 +929,7 @@ export default function DashboardView() {
         </motion.div>
 
         {/* ── Weekly Activity Heatmap ── */}
+        {!hiddenWidgets.includes('weekly-activity') && (
         <motion.div variants={fadeUp}>
           <Card>
             <CardHeader className="pb-3 pt-4 px-5">
@@ -776,11 +946,13 @@ export default function DashboardView() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
 
         {/* ── Main Content Grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Today's Focus + Recommendations */}
           <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+            {!hiddenWidgets.includes('todays-focus') && (
             <Card>
               <CardHeader className="pb-3 pt-4 px-5">
                 <div className="flex items-center justify-between">
@@ -829,8 +1001,10 @@ export default function DashboardView() {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Academic Flow */}
+            {!hiddenWidgets.includes('academic-flow') && (
             <Card>
               <CardHeader className="pb-3 pt-4 px-5">
                 <div className="flex items-center justify-between">
@@ -878,6 +1052,7 @@ export default function DashboardView() {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Signal Legend */}
             {activeSubjects.length > 0 && (
@@ -893,7 +1068,7 @@ export default function DashboardView() {
           {/* Right Column */}
           <motion.div variants={fadeUp} className="space-y-4">
             {/* Study Pattern Insights */}
-            {studyPatterns.length > 0 && (
+            {!hiddenWidgets.includes('study-patterns') && studyPatterns.length > 0 && (
               <Card>
                 <CardHeader className="pb-3 pt-4 px-5">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -946,7 +1121,7 @@ export default function DashboardView() {
               )}
             </div>
 
-            {/* Insights */}
+            {!hiddenWidgets.includes('insights') && (
             <Card>
               <CardHeader className="pb-3 pt-4 px-5">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -976,8 +1151,9 @@ export default function DashboardView() {
                 )}
               </CardContent>
             </Card>
+            )}
 
-            {/* Upcoming Deadlines */}
+            {!hiddenWidgets.includes('deadlines') && (
             <Card>
               <CardHeader className="pb-3 pt-4 px-5">
                 <div className="flex items-center justify-between">
@@ -1021,22 +1197,26 @@ export default function DashboardView() {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Quick Actions — desktop only */}
+            {!hiddenWidgets.includes('quick-actions') && (
             <Card className="hero-card">
               <CardContent className="p-4">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Focus', icon: Timer, view: 'focus' as const },
                     { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
                     { label: 'Notes', icon: BookOpen, view: 'notes' as const },
                     { label: 'Report', icon: BarChart3, view: 'report' as const },
+                    { label: 'Achievements', icon: Trophy, action: true },
                   ].map((a) => {
                     const Icon = a.icon;
+                    const handleClick = 'view' in a ? () => navigate(a.view) : () => setAchievementsOpen(true);
                     return (
                       <button
-                        key={a.view}
-                        onClick={() => navigate(a.view)}
+                        key={'view' in a ? a.view : 'achievements'}
+                        onClick={handleClick}
                         className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
                       >
                         <Icon className="size-3.5" />
@@ -1046,7 +1226,7 @@ export default function DashboardView() {
                   })}
                   <button
                     onClick={() => setQuickNoteOpen(true)}
-                    className="col-span-2 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
+                    className="col-span-3 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
                   >
                     <StickyNote className="size-3.5" />
                     Quick Note
@@ -1054,10 +1234,12 @@ export default function DashboardView() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </motion.div>
         </div>
       </motion.div>
 
+      <AchievementsDialog open={achievementsOpen} onOpenChange={setAchievementsOpen} />
       <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
     </>
   );

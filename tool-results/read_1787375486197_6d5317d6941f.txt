@@ -1,0 +1,1141 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo, useEffect, useRef } from 'react';
+     4→import { format, startOfWeek, addDays } from 'date-fns';
+     5→import {
+     6→  ArrowRight,
+     7→  BookOpen,
+     8→  Clock,
+     9→  TrendingUp,
+    10→  Target,
+    11→  Activity,
+    12→  CalendarClock,
+    13→  AlertTriangle,
+    14→  CheckCircle2,
+    15→  Info,
+    16→  BarChart3,
+    17→  UserCheck,
+    18→  Timer,
+    19→  BrainCircuit,
+    20→  ChevronRight,
+    21→  Sparkles,
+    22→  Flame,
+    23→  Zap,
+    24→  StickyNote,
+    25→  Bot,
+    26→  Trophy,
+    27→} from 'lucide-react';
+    28→import { motion } from 'framer-motion';
+    29→
+    30→import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSubjectProgress, getStudyTimeThisWeek, getStudyStreak, getStudyTimeToday, getDueRevisionItems, getSubjectSignal } from '@/lib/store';
+    31→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    32→import { Badge } from '@/components/ui/badge';
+    33→import { Button } from '@/components/ui/button';
+    34→import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, progressColorClass } from '@/components/shared';
+    35→import { useToast } from '@/components/toast';
+    36→import { QuickNoteDialog } from '@/components/quick-note-dialog';
+    37→import { AchievementsDialog } from '@/components/achievements-dialog';
+    38→import { cn } from '@/lib/utils';
+    39→import type { SignalStatus } from '@/lib/types';
+    40→
+    41→// -- Animation --
+    42→const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
+    43→const fadeUp = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } } };
+    44→const mobileFade = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } } };
+    45→
+    46→// -- Health status --
+    47→function getHealthConfig(score: number) {
+    48→   if (score >= 80) return { label: 'HEALTHY', status: 'healthy' as SignalStatus, description: 'Academics on track' };
+    49→  if (score >= 60) return { label: 'GOOD', status: 'improving' as SignalStatus, description: 'Solid progress' };
+    50→  if (score >= 40) return { label: 'NEEDS ATTENTION', status: 'attention' as SignalStatus, description: 'Some areas need focus' };
+    51→  if (score > 0) return { label: 'CRITICAL', status: 'critical' as SignalStatus, description: 'Immediate action required' };
+    52→  return { label: 'NO DATA', status: 'nodata' as SignalStatus, description: 'Add subjects to begin' };
+    53→}
+    54→
+    55→function formatStudyTime(seconds: number): string {
+    56→  const totalMinutes = Math.floor(seconds / 60);
+    57→  const h = Math.floor(totalMinutes / 60);
+    58→  const m = totalMinutes % 60;
+    59→  if (h === 0) return `${m}m`;
+    60→  if (m === 0) return `${h}h`;
+    61→  return `${h}h ${m}m`;
+    62→}
+    63→
+    64→function signalDotClass(signal: SignalStatus): string {
+    65→  const map: Record<SignalStatus, string> = {
+    66→    healthy: 'bg-emerald-500', improving: 'bg-blue-500', attention: 'bg-amber-500',
+    67→    critical: 'bg-red-500', upcoming: 'bg-purple-500', nodata: 'bg-muted-foreground/40',
+    68→  };
+    69→  return map[signal];
+    70→}
+    71→
+    72→// -- Health Ring Component (Mobile) --
+    73→function HealthRing({ score, config }: { score: number; config: ReturnType<typeof getHealthConfig> }) {
+    74→  const radius = 44;
+    75→  const circumference = 2 * Math.PI * radius;
+    76→  const offset = circumference - (score / 100) * circumference;
+    77→  const strokeColor = score >= 75 ? 'var(--delulu-success)' : score >= 50 ? 'var(--delulu-info)' : score >= 30 ? 'var(--delulu-warning)' : 'var(--delulu-danger)';
+    78→
+    79→  return (
+    80→    <div className="relative flex items-center justify-center">
+    81→      <svg width="112" height="112" viewBox="0 0 112 112" className="-rotate-90">
+    82→        <circle cx="56" cy="56" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="5" opacity="0.3" />
+    83→        <circle
+    84→          cx="56" cy="56" r={radius} fill="none" stroke={strokeColor} strokeWidth="5"
+    85→          strokeDasharray={circumference} strokeDashoffset={offset}
+    86→          strokeLinecap="round" className="transition-all duration-1000 ease-out"
+    87→        />
+    88→      </svg>
+    89→      <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+    90→        <span className="text-3xl font-extrabold tracking-tighter leading-none">{score}</span>
+    91→        <span className="text-[10px] text-muted-foreground font-medium mt-0.5">/ 100</span>
+    92→      </div>
+    93→    </div>
+    94→  );
+    95→}
+    96→
+    97→// -- Weekly Mini Chart (mobile sparkline) --
+    98→function WeeklyMiniChart({ studySessions }: { studySessions: { date: string; duration: number }[] }) {
+    99→  const bars = useMemo(() => {
+   100→    const days: { label: string; minutes: number; isToday: boolean }[] = [];
+   101→    for (let i = 6; i >= 0; i--) {
+   102→      const d = new Date();
+   103→      d.setDate(d.getDate() - i);
+   104→      const dateStr = d.toISOString().split('T')[0];
+   105→      const dayMinutes = Math.floor(studySessions
+   106→        .filter(s => s.date === dateStr)
+   107→        .reduce((sum, s) => sum + s.duration / 60, 0));
+   108→      days.push({
+   109→        label: format(d, 'EEE').charAt(0),
+   110→        minutes: dayMinutes,
+   111→        isToday: i === 0,
+   112→      });
+   113→    }
+   114→    return days;
+   115→  }, [studySessions]);
+   116→
+   117→  const maxMin = Math.max(...bars.map(b => b.minutes), 1);
+   118→
+   119→  return (
+   120→    <div className="flex items-end gap-1.5 h-12">
+   121→      {bars.map((b, i) => (
+   122→        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+   123→          <div className="w-full relative" style={{ height: '32px' }}>
+   124→            <div
+   125→              className={cn(
+   126→                'absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 rounded-t-sm transition-all duration-500',
+   127→                b.isToday ? 'bg-primary' : 'bg-primary/25',
+   128→              )}
+   129→              style={{ height: `${Math.max(4, (b.minutes / maxMin) * 100)}%` }}
+   130→            />
+   131→          </div>
+   132→          <span className={cn('text-[8px] tabular-nums', b.isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+   133→            {b.label}
+   134→          </span>
+   135→        </div>
+   136→      ))}
+   137→    </div>
+   138→  );
+   139→}
+   140→
+   141→// ════════════════════════════════════════════════════════════════════
+   142→// Dashboard
+   143→// ════════════════════════════════════════════════════════════════════
+   144→// ─── Weekly Heatmap ──────────────────────────────────────────────
+   145→function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; duration: number; subjectId: string }[] }) {
+   146→  const days = useMemo(() => {
+   147→    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+   148→    return Array.from({ length: 7 }, (_, i) => {
+   149→      const d = addDays(start, i);
+   150→      const dateStr = d.toISOString().split('T')[0];
+   151→      const daySessions = studySessions.filter((s) => s.date === dateStr);
+   152→      const totalMinutes = Math.floor(daySessions.reduce((sum, s) => sum + s.duration / 60, 0));
+   153→      return { date: d, dateStr, label: format(d, 'EEE'), totalMinutes, count: daySessions.length };
+   154→    });
+   155→  }, [studySessions]);
+   156→
+   157→  const maxMinutes = Math.max(...days.map((d) => d.totalMinutes), 1);
+   158→  const today = new Date().toISOString().split('T')[0];
+   159→
+   160→  return (
+   161→    <div className="grid grid-cols-7 gap-1.5">
+   162→      {days.map((d) => {
+   163→        const intensity = Math.min(d.totalMinutes / maxMinutes, 1);
+   164→        const isToday = d.dateStr === today;
+   165→        const bgOpacity = d.count === 0 ? 0.08 : Math.max(0.15, intensity);
+   166→        return (
+   167→          <div key={d.dateStr} className="flex flex-col items-center gap-1">
+   168→            <div
+   169→              className={cn('w-full aspect-square rounded-md transition-colors', isToday && 'ring-2 ring-primary/30', d.count === 0 && 'chart-empty-cell')}
+   170→              style={d.count > 0 ? { backgroundColor: `rgba(var(--primary-rgb), ${bgOpacity})` } : undefined}
+   171→            />
+   172→            <span className={cn('text-[10px]', isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
+   173→            {d.count > 0 && (
+   174→              <span className="text-[9px] text-muted-foreground tabular-nums">{d.totalMinutes}m</span>
+   175→            )}
+   176→          </div>
+   177→        );
+   178→      })}
+   179→    </div>
+   180→  );
+   181→}
+   182→
+   183→export default function DashboardView() {
+   184→  const profile = useStore((s) => s.profile);
+   185→  const subjects = useStore((s) => s.subjects);
+   186→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   187→  const attendance = useStore((s) => s.attendance);
+   188→  const assessments = useStore((s) => s.assessments);
+   189→  const studySessions = useStore((s) => s.studySessions);
+   190→  const revisionItems = useStore((s) => s.revisionItems);
+   191→  const exams = useStore((s) => s.exams);
+   192→  const assignments = useStore((s) => s.assignments);
+   193→  const tasks = useStore((s) => s.tasks);
+   194→  const navigate = useStore((s) => s.navigate);
+   195→  const selectSubject = useStore((s) => s.selectSubject);
+   196→
+   197→  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+   198→  const [achievementsOpen, setAchievementsOpen] = useState(false);
+   199→
+   200→  const activeSubjects = useMemo(() => subjects.filter((s) => !s.archived), [subjects]);
+   201→
+   202→  // -- Core metrics --
+   203→  const healthScore = useMemo(
+   204→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   205→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   206→  );
+   207→
+   208→  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments }), [subjects, assessments]);
+   209→
+   210→  const avgAttendance = useMemo(() => {
+   211→    if (activeSubjects.length === 0) return 0;
+   212→    const attState = { attendance };
+   213→    return Math.round(activeSubjects.reduce((sum, s) => sum + getSubjectAttendance(attState, s.id).percentage, 0) / activeSubjects.length);
+   214→  }, [activeSubjects, attendance]);
+   215→
+   216→  const avgSyllabus = useMemo(() => {
+   217→    if (activeSubjects.length === 0) return 0;
+   218→    const syllState = { syllabusUnits };
+   219→    return Math.round(activeSubjects.reduce((sum, s) => sum + getSubjectProgress(syllState, s.id), 0) / activeSubjects.length);
+   220→  }, [activeSubjects, syllabusUnits]);
+   221→
+   222→  const studyTimeThisWeek = useMemo(() => getStudyTimeThisWeek({ studySessions }), [studySessions]);
+   223→
+   224→  const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   225→
+   226→  // -- Streak milestone toast --
+   227→  const { toast } = useToast();
+   228→  const milestoneToastRef = useRef<Set<number> | null>(null);
+   229→
+   230→  useEffect(() => {
+   231→    const milestones = [3, 7, 14, 21, 30, 60, 90];
+   232→    const met = milestones.filter((m) => studyStreak >= m);
+   233→
+   234→    // First run: seed ref with already-reached milestones (no toast)
+   235→    if (milestoneToastRef.current === null) {
+   236→      milestoneToastRef.current = new Set(met);
+   237→      if (studyStreak >= 100) milestoneToastRef.current.add(100);
+   238→      return;
+   239→    }
+   240→
+   241→    const titleMap: Record<number, string> = {
+   242→      3: '3-day streak started!',
+   243→      7: 'One week streak!',
+   244→      14: 'Two weeks strong!',
+   245→      21: 'Three week streak!',
+   246→      30: 'Monthly milestone!',
+   247→      60: 'Two months of consistency!',
+   248→      90: 'Quarter-year streak!',
+   249→    };
+   250→
+   251→    // Check each milestone
+   252→    for (const m of met) {
+   253→      if (!milestoneToastRef.current.has(m)) {
+   254→        milestoneToastRef.current.add(m);
+   255→        toast({
+   256→          variant: 'success',
+   257→          title: titleMap[m] ?? `Incredible ${m}-day streak!`,
+   258→          description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+   259→        });
+   260→      }
+   261→    }
+   262→
+   263→    // 100+ milestone
+   264→    if (studyStreak >= 100 && !milestoneToastRef.current.has(100)) {
+   265→      milestoneToastRef.current.add(100);
+   266→      toast({
+   267→        variant: 'success',
+   268→        title: `Incredible ${studyStreak}-day streak!`,
+   269→        description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+   270→      });
+   271→    }
+   272→  }, [studyStreak, toast]);
+   273→
+   274→  const studyTimeToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   275→
+   276→  const weeklyGoalHours = profile.weeklyStudyGoalHours || 10;
+   277→  const weeklyGoalSeconds = weeklyGoalHours * 3600;
+   278→  const weeklyGoalProgress = weeklyGoalSeconds > 0 ? Math.min(100, Math.round((studyTimeThisWeek / weeklyGoalSeconds) * 100)) : 0;
+   279→  const weeklyHoursThisWeek = (studyTimeThisWeek / 3600).toFixed(1);
+   280→
+   281→  const dueRevisionCount = useMemo(() => getDueRevisionItems({ revisionItems }).length, [revisionItems]);
+   282→
+   283→  const healthConfig = useMemo(() => getHealthConfig(healthScore), [healthScore]);
+   284→
+   285→  // -- CGPA trend --
+   286→  const cgpaTrend = useMemo(() => {
+   287→    if (cgpa === 0) return 'neutral' as const;
+   288→    if (cgpa >= profile.targetCGPA) return 'up' as const;
+   289→    if (cgpa >= profile.targetCGPA - 1) return 'neutral' as const;
+   290→    return 'down' as const;
+   291→  }, [cgpa, profile.targetCGPA]);
+   292→
+   293→  // -- Subject health data for Academic Flow --
+   294→  const subjectHealthData = useMemo(() => {
+   295→    return activeSubjects.map((s) => {
+   296→      const progress = getSubjectProgress({ syllabusUnits }, s.id);
+   297→      const att = getSubjectAttendance({ attendance }, s.id);
+   298→      const signal = getSubjectSignal({ attendance, assessments, syllabusUnits, revisionItems, profile, subjects } as any, s.id);
+   299→      return { subject: s, progress, att, signal };
+   300→    }).sort((a, b) => a.progress - b.progress);
+   301→  }, [activeSubjects, syllabusUnits, attendance, assessments, revisionItems, profile, subjects]);
+   302→
+   303→  // -- Recommendations --
+   304→  const recommendations = useMemo(() => {
+   305→    const items: { title: string; description: string; priority: string; priorityColor: string; actionLabel: string; actionView: string; subjectId?: string; }[] = [];
+   306→
+   307→    const syllState = { syllabusUnits };
+   308→    const sortedByProgress = activeSubjects.map((s) => ({ subject: s, progress: getSubjectProgress(syllState, s.id) })).sort((a, b) => a.progress - b.progress);
+   309→
+   310→    for (const { subject, progress } of sortedByProgress) {
+   311→      if (progress >= 100) continue;
+   312→      const units = syllabusUnits.filter((u) => u.subjectId === subject.id);
+   313→      const incompleteTopic = units.flatMap((u) => u.topics).find((t) => !t.completed);
+   314→      if (incompleteTopic) {
+   315→        items.push({
+   316→          title: incompleteTopic.name, description: `${subject.name} — ${progress}% complete`,
+   317→          priority: 'HIGH IMPACT', priorityColor: 'signal-attention',
+   318→          actionLabel: 'STUDY', actionView: 'focus', subjectId: subject.id,
+   319→        });
+   320→        break;
+   321→      }
+   322→    }
+   323→
+   324→    const today = new Date().toISOString().split('T')[0];
+   325→    const upcomingExams = exams.filter((e) => e.status === 'upcoming' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+   326→    const upcomingAssignments = assignments.filter((a) => a.status !== 'completed' && a.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline));
+   327→
+   328→    const deadlineItem = upcomingExams[0] || upcomingAssignments[0];
+   329→    if (deadlineItem) {
+   330→      const dateStr = 'date' in deadlineItem ? deadlineItem.date : deadlineItem.deadline;
+   331→      const daysUntil = Math.ceil((new Date(dateStr).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+   332→      const sub = subjects.find((s) => s.id === deadlineItem.subjectId);
+   333→      items.push({
+   334→        title: deadlineItem.name || deadlineItem.title, description: `${sub?.name ?? ''} — ${daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil}d`}`,
+   335→        priority: 'DEADLINE', priorityColor: 'signal-critical',
+   336→        actionLabel: 'PREPARE', actionView: 'subject-detail', subjectId: deadlineItem.subjectId,
+   337→      });
+   338→    }
+   339→
+   340→    const attState = { attendance };
+   341→    const lowestAtt = activeSubjects.map((s) => ({ subject: s, att: getSubjectAttendance(attState, s.id) })).filter((x) => x.att.total > 0).sort((a, b) => a.att.percentage - b.att.percentage)[0];
+   342→    if (lowestAtt && lowestAtt.att.percentage < profile.attendanceThreshold) {
+   343→      items.push({
+   344→        title: `${lowestAtt.subject.name} Attendance`, description: `${lowestAtt.att.percentage}% — need ${profile.attendanceThreshold}%`,
+   345→        priority: 'ATTENTION', priorityColor: 'signal-attention',
+   346→        actionLabel: 'VIEW', actionView: 'attendance', subjectId: lowestAtt.subject.id,
+   347→      });
+   348→    }
+   349→
+   350→    return items;
+   351→  }, [activeSubjects, syllabusUnits, exams, assignments, subjects, attendance, profile]);
+   352→
+   353→  // -- Upcoming deadlines --
+   354→  const upcomingDeadlines = useMemo(() => {
+   355→    const today = new Date().toISOString().split('T')[0];
+   356→    const items: { title: string; subjectName: string; date: string; type: string; color: string }[] = [];
+   357→    exams.filter((e) => e.status === 'upcoming' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).forEach((e) => {
+   358→      const sub = subjects.find((s) => s.id === e.subjectId);
+   359→      items.push({ title: e.name, subjectName: sub?.name ?? '', date: e.date, type: 'exam', color: sub?.color ?? 'var(--delulu-info)' });
+   360→    });
+   361→    assignments.filter((a) => a.status !== 'completed' && a.deadline >= today).sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 3).forEach((a) => {
+   362→      const sub = subjects.find((s) => s.id === a.subjectId);
+   363→      items.push({ title: a.title, subjectName: sub?.name ?? '', date: a.deadline, type: 'assignment', color: sub?.color ?? 'var(--delulu-warning)' });
+   364→    });
+   365→    return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+   366→  }, [exams, assignments, subjects]);
+   367→
+   368→  // -- Insights --
+   369→  const insights = useMemo(() => {
+   370→    const result: { type: 'positive' | 'warning' | 'critical' | 'info'; title: string; description?: string }[] = [];
+   371→
+   372→    const atRisk = subjectHealthData.filter((s) => s.signal === 'critical' || s.signal === 'attention');
+   373→    if (atRisk.length > 0) {
+   374→      result.push({ type: 'warning', title: `${atRisk.length} subject${atRisk.length > 1 ? 's' : ''} need attention`, description: atRisk.map((s) => s.subject.name).join(', ') });
+   375→    }
+   376→
+   377→    if (dueRevisionCount > 0) {
+   378→      result.push({ type: 'info', title: `${dueRevisionCount} revision${dueRevisionCount > 1 ? 's' : ''} due`, description: 'Items in your SM-2 queue are ready for review' });
+   379→    }
+   380→
+   381→    const lowAttSubjects = subjectHealthData.filter((s) => s.att.total > 0 && s.att.percentage < profile.attendanceThreshold);
+   382→    if (lowAttSubjects.length > 0) {
+   383→      result.push({ type: lowAttSubjects.some((s) => s.att.percentage < profile.attendanceThreshold - 5) ? 'critical' : 'warning', title: 'Attendance below threshold', description: `${lowAttSubjects.map((s) => `${s.subject.name} (${s.att.percentage}%)`).join(', ')}` });
+   384→    }
+   385→
+   386→    const now = new Date();
+   387→    const startStr = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
+   388→    const weekSessions = studySessions.filter((s) => s.date >= startStr).length;
+   389→    if (weekSessions >= 5) {
+   390→      result.push({ type: 'positive', title: `${weekSessions} study sessions this week`, description: 'Consistent study pattern detected' });
+   391→    } else if (weekSessions === 0) {
+   392→      result.push({ type: 'warning', title: 'No study sessions this week', description: 'Start a focus session to build momentum' });
+   393→    }
+   394→
+   395→    if (cgpa > 0 && cgpa >= profile.targetCGPA) {
+   396→      result.push({ type: 'positive', title: `CGPA on target`, description: `${cgpa.toFixed(1)} meets your goal of ${profile.targetCGPA}` });
+   397→    }
+   398→
+   399→    return result.slice(0, 4);
+   400→  }, [subjectHealthData, dueRevisionCount, profile.attendanceThreshold, studySessions, cgpa, profile.targetCGPA]);
+   401→
+   402→  // -- Study Pattern Insights --
+   403→  const studyPatterns = useMemo(() => {
+   404→    const patterns: { type: 'positive' | 'warning' | 'info'; title: string; description: string }[] = [];
+   405→    const today = new Date().toISOString().split('T')[0];
+   406→    const ws = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+   407→    const weekSessions = studySessions.filter((s) => s.date >= ws);
+   408→    const todaySessions = studySessions.filter((s) => s.date === today);
+   409→    const totalWeekSec = weekSessions.reduce((a, s) => a + s.duration, 0);
+   410→    const avgSessionMin = weekSessions.length > 0 ? Math.round(totalWeekSec / weekSessions.length / 60) : 0;
+   411→
+   412→    // Best day
+   413→    const dayTotals: Record<string, number> = {};
+   414→    weekSessions.forEach((s) => { dayTotals[s.date] = (dayTotals[s.date] || 0) + s.duration; });
+   415→    const bestDay = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0];
+   416→    if (bestDay) {
+   417→      const dayName = format(new Date(bestDay[0] + 'T12:00:00'), 'EEEE');
+   418→      patterns.push({ type: 'info', title: `Most productive: ${dayName}`, description: `${Math.round(bestDay[1] / 60)}m total study time` });
+   419→    }
+   420→
+   421→    // Session length analysis
+   422→    if (avgSessionMin > 0 && avgSessionMin < 25) {
+   423→      patterns.push({ type: 'warning', title: 'Short sessions detected', description: `Average ${avgSessionMin}m — try 25+ min Pomodoro sessions for deeper focus` });
+   424→    } else if (avgSessionMin >= 45) {
+   425→      patterns.push({ type: 'positive', title: 'Great session length', description: `Average ${avgSessionMin}m — solid deep work sessions` });
+   426→    }
+   427→
+   428→    // Subject coverage
+   429→    const coveredSubjects = new Set(weekSessions.map((s) => s.subjectId)).size;
+   430→    if (coveredSubjects > 0 && coveredSubjects < activeSubjects.length) {
+   431→      const uncovered = activeSubjects.filter((s) => !weekSessions.some((ws) => ws.subjectId === s.id));
+   432→      patterns.push({ type: 'info', title: `${uncovered.length} subject${uncovered.length > 1 ? 's' : ''} not studied this week`, description: uncovered.map((s) => s.name).join(', ') });
+   433→    }
+   434→
+   435→    // Grade prediction
+   436→    if (assessments.length >= 2) {
+   437→      const recent = [...assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+   438→      const avgPct = recent.reduce((a, x) => a + (x.obtainedMarks / x.maxMarks) * 100, 0) / recent.length;
+   439→      const predictedGrade = avgPct >= 90 ? 'O' : avgPct >= 80 ? 'A+' : avgPct >= 70 ? 'A' : avgPct >= 60 ? 'B+' : avgPct >= 50 ? 'B' : 'C';
+   440→      patterns.push({ type: 'positive', title: 'Grade trend prediction', description: `Based on recent assessments: ${predictedGrade} (${avgPct.toFixed(0)}% average)` });
+   441→    }
+   442→
+   443→    return patterns;
+   444→  }, [studySessions, assessments, activeSubjects]);
+   445→
+   446→  // -- Weekly Study Distribution (per subject) --
+   447→  const weeklyDistribution = useMemo(() => {
+   448→    const now = new Date();
+   449→    const sevenDaysAgo = new Date(now);
+   450→    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+   451→    const cutoff = sevenDaysAgo.toISOString().split('T')[0];
+   452→
+   453→    const weekSessions = studySessions.filter((s) => s.date >= cutoff);
+   454→    const subjectMinutes: Record<string, number> = {};
+   455→
+   456→    for (const s of weekSessions) {
+   457→      subjectMinutes[s.subjectId] = (subjectMinutes[s.subjectId] || 0) + s.duration / 60;
+   458→    }
+   459→
+   460→    return Object.entries(subjectMinutes)
+   461→      .map(([subjectId, minutes]) => {
+   462→        const subject = subjects.find((s) => s.id === subjectId);
+   463→        return subject ? { subjectId: subject.id, name: subject.name, color: subject.color, minutes: Math.round(minutes) } : null;
+   464→      })
+   465→      .filter((x): x is NonNullable<typeof x> => x !== null)
+   466→      .sort((a, b) => b.minutes - a.minutes);
+   467→  }, [studySessions, subjects]);
+   468→
+   469→  // -- 7-day sparkline data for desktop metric cards --
+   470→  const studySparkline = useMemo(() => {
+   471→    const data: number[] = [];
+   472→    for (let i = 6; i >= 0; i--) {
+   473→      const d = new Date();
+   474→      d.setDate(d.getDate() - i);
+   475→      const dateStr = d.toISOString().split('T')[0];
+   476→      const dayMin = Math.floor(studySessions
+   477→        .filter(s => s.date === dateStr)
+   478→        .reduce((sum, s) => sum + s.duration / 60, 0));
+   479→      data.push(dayMin);
+   480→    }
+   481→    return data;
+   482→  }, [studySessions]);
+   483→
+   484→  // Attendance sparkline: 7-day attendance % per day
+   485→  const attendanceSparkline = useMemo(() => {
+   486→    const data: number[] = [];
+   487→    for (let i = 6; i >= 0; i--) {
+   488→      const d = new Date();
+   489→      d.setDate(d.getDate() - i);
+   490→      const dateStr = d.toISOString().split('T')[0];
+   491→      const dayRecords = attendance.filter(a => a.date === dateStr);
+   492→      if (dayRecords.length === 0) {
+   493→        data.push(0);
+   494→      } else {
+   495→        const total = dayRecords.reduce((s, r) => s + r.totalClasses, 0);
+   496→        const present = dayRecords.filter(r => r.present).reduce((s, r) => s + r.totalClasses, 0);
+   497→        data.push(total > 0 ? Math.round((present / total) * 100) : 0);
+   498→      }
+   499→    }
+   500→    return data;
+   501→  }, [attendance]);
+   502→
+   503→  // Syllabus sparkline: cumulative completion % per day over last 7 days
+   504→  const syllabusSparkline = useMemo(() => {
+   505→    const data: number[] = [];
+   506→    // Check if any topics have completion tracking with dates
+   507→    const hasCompletionDates = syllabusUnits.some(u =>
+   508→      u.topics.some(t => t.completed && ('completedAt' in t))
+   509→    );
+   510→    if (hasCompletionDates) {
+   511→      for (let i = 6; i >= 0; i--) {
+   512→        const d = new Date();
+   513→        d.setDate(d.getDate() - i);
+   514→        const dateStr = d.toISOString().split('T')[0];
+   515→        // Count topics completed by this date
+   516→        let totalTopics = 0;
+   517→        let completedByDate = 0;
+   518→        for (const unit of syllabusUnits) {
+   519→          for (const topic of unit.topics) {
+   520→            totalTopics++;
+   521→            if (topic.completed) {
+   522→              const cDate = (topic as Record<string, unknown>).completedAt as string | undefined;
+   523→              if (cDate && cDate <= dateStr) {
+   524→                completedByDate++;
+   525→              }
+   526→            }
+   527→          }
+   528→        }
+   529→        data.push(totalTopics > 0 ? Math.round((completedByDate / totalTopics) * 100) : 0);
+   530→      }
+   531→    } else {
+   532→      // No completion dates — show current average repeated 7 times
+   533→      return Array(7).fill(avgSyllabus);
+   534→    }
+   535→    return data;
+   536→  }, [syllabusUnits, avgSyllabus]);
+   537→
+   538→  // CGPA sparkline: last 7 assessment scores as percentages, or CGPA*10 repeated
+   539→  const cgpaSparkline = useMemo(() => {
+   540→    if (assessments.length > 0) {
+   541→      const recent = [...assessments]
+   542→        .sort((a, b) => b.date.localeCompare(a.date))
+   543→        .slice(0, 7)
+   544→        .reverse()
+   545→        .map(a => Math.round((a.obtainedMarks / a.maxMarks) * 100));
+   546→      return recent;
+   547→    }
+   548→    return Array(7).fill(Math.round(cgpa * 10));
+   549→  }, [assessments, cgpa]);
+   550→
+   551→  // -- Greeting --
+   552→  const hour = new Date().getHours();
+   553→  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+   554→  const formattedDate = format(new Date(), 'EEEE, d MMMM');
+   555→
+   556→  function handleAction(view: string, subjectId?: string) {
+   557→    if (subjectId) selectSubject(subjectId);
+   558→    navigate(view as never);
+   559→  }
+   560→
+   561→  // -- Mobile micro-metrics --
+   562→  const microMetrics = useMemo(() => [
+   563→    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
+   564→    { label: 'CGPA', value: cgpa.toFixed(1), color: cgpaTrend === 'up' ? 'text-[var(--delulu-success)]' : cgpaTrend === 'down' ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'marks' as const },
+   565→    { label: 'Syllabus', value: `${avgSyllabus}%`, color: 'text-foreground', view: 'subjects' as const },
+   566→    { label: 'Streak', value: `${studyStreak}d`, color: studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground', view: 'analytics' as const },
+   567→    { label: 'Week', value: `${weeklyHoursThisWeek}h`, color: weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground', view: 'analytics' as const },
+   568→    { label: 'Revision', value: `${dueRevisionCount}`, color: dueRevisionCount > 3 ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'revision' as const },
+   569→  ], [avgAttendance, profile.attendanceThreshold, cgpa, cgpaTrend, avgSyllabus, studyStreak, weeklyHoursThisWeek, weeklyGoalProgress, dueRevisionCount]);
+   570→
+   571→  return (
+   572→    <>
+   573→      {/* ══════════════════════════════════════════════════════════════
+   574→          MOBILE DASHBOARD — Intentionally minimal, action-oriented
+   575→          ══════════════════════════════════════════════════════════════ */}
+   576→      <div className="md:hidden space-y-4 fab-content-pad">
+   577→        {/* Health Ring + Status */}
+   578→        <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
+   579→          <HealthRing score={healthScore} config={healthConfig} />
+   580→          <div className="flex-1 min-w-0">
+   581→            <p className="text-xs text-muted-foreground mb-1">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+   582→            <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-1.5" />
+   583→            <p className="text-[11px] text-muted-foreground leading-relaxed">{healthConfig.description}</p>
+   584→          </div>
+   585→        </motion.div>
+   586→
+   587→        {/* Micro-Metrics Strip — Horizontal Scroll */}
+   588→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.05 }}>
+   589→          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-1">
+   590→            {microMetrics.map((m) => (
+   591→              <button
+   592→                key={m.label}
+   593→                onClick={() => navigate(m.view)}
+   594→                className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-card border border-border/50 min-w-[60px] active:scale-95 transition-transform"
+   595→              >
+   596→                <span className={cn('text-base font-bold tracking-tight leading-none tabular-nums', m.color)}>{m.value}</span>
+   597→                <span className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase">{m.label}</span>
+   598→              </button>
+   599→            ))}
+   600→          </div>
+   601→        </motion.div>
+   602→
+   603→        {/* Top Recommendation Card */}
+   604→        {recommendations.length > 0 && (
+   605→          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
+   606→            <div
+   607→              className="card-interactive p-3.5 flex items-center gap-3 border-l-[3px] border-l-primary"
+   608→              onClick={() => handleAction(recommendations[0].actionView, recommendations[0].subjectId)}
+   609→            >
+   610→              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+   611→                <Zap className="size-4 text-primary" />
+   612→              </div>
+   613→              <div className="flex-1 min-w-0">
+   614→                <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mb-0.5">Focus now</p>
+   615→                <p className="text-sm font-medium truncate">{recommendations[0].title}</p>
+   616→                <p className="text-[11px] text-muted-foreground truncate">{recommendations[0].description}</p>
+   617→              </div>
+   618→              <ArrowRight className="size-4 text-muted-foreground shrink-0" />
+   619→            </div>
+   620→          </motion.div>
+   621→        )}
+   622→
+   623→        {/* Compact Subject Flow */}
+   624→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+   625→          <div className="flex items-center justify-between mb-2.5 px-1">
+   626→            <span className="section-label">Subject Progress</span>
+   627→            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium px-2 py-1 -mx-2 -my-1 rounded-md hover:bg-primary/5 active:bg-primary/10 transition-colors">View all</button>
+   628→          </div>
+   629→          <div className="space-y-2">
+   630→            {subjectHealthData.slice(0, 4).map(({ subject, progress, signal }) => (
+   631→              <div
+   632→                key={subject.id}
+   633→                className="flex items-center gap-2.5 p-2 rounded-xl bg-card border border-border/40 active:bg-accent/50 transition-colors"
+   634→                onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+   635→              >
+   636→                <span className={cn('status-dot shrink-0', signalDotClass(signal))} />
+   637→                <div className="flex-1 min-w-0">
+   638→                  <div className="flex items-center justify-between mb-1">
+   639→                    <span className="text-xs font-medium truncate">{subject.name}</span>
+   640→                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
+   641→                  </div>
+   642→                  <div className="progress-thin progress-animate">
+   643→                    <div
+   644→                      className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+   645→                      style={{ width: `${Math.min(100, progress)}%` }}
+   646→                    />
+   647→                  </div>
+   648→                </div>
+   649→                <ChevronRight className="size-3.5 text-muted-foreground/50 shrink-0" />
+   650→              </div>
+   651→            ))}
+   652→          </div>
+   653→        </motion.div>
+   654→
+   655→        {/* Weekly Goal Mini Bar */}
+   656→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
+   657→          <div className="flex items-center justify-between mb-2">
+   658→            <div className="flex items-center gap-2">
+   659→              <Target className="size-3.5 text-primary" />
+   660→              <span className="text-xs font-medium">Weekly Goal</span>
+   661→            </div>
+   662→            <span className={cn('text-xs font-bold tabular-nums', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
+   663→              {weeklyHoursThisWeek}h / {weeklyGoalHours}h
+   664→            </span>
+   665→          </div>
+   666→          <div className="progress-thin progress-animate">
+   667→            <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
+   668→          </div>
+   669→        </motion.div>
+   670→
+   671→        {/* Weekly Study Sparkline */}
+   672→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.22 }} className="metric-card">
+   673→          <div className="flex items-center justify-between mb-2.5">
+   674→            <div className="flex items-center gap-2">
+   675→              <BarChart3 className="size-3.5 text-primary" />
+   676→              <span className="text-xs font-medium">Study This Week</span>
+   677→            </div>
+   678→            <span className="text-[10px] text-muted-foreground tabular-nums">{weeklyHoursThisWeek}h total</span>
+   679→          </div>
+   680→          <WeeklyMiniChart studySessions={studySessions} />
+   681→        </motion.div>
+   682→
+   683→        {/* Quick Actions */}
+   684→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
+   685→          <div className="grid grid-cols-4 gap-2">
+   686→            {[
+   687→              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
+   688→              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
+   689→              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+   690→              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
+   691→            ].map((a) => {
+   692→              const Icon = a.icon;
+   693→              return (
+   694→                <button
+   695→                  key={a.view}
+   696→                  onClick={() => navigate(a.view)}
+   697→                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
+   698→                >
+   699→                  <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
+   700→                    <Icon className="size-4" />
+   701→                  </div>
+   702→                  <span className="text-[10px] font-medium text-muted-foreground">{a.label}</span>
+   703→                </button>
+   704→              );
+   705→            })}
+   706→          </div>
+   707→        </motion.div>
+   708→
+   709→        {/* First Insight Only */}
+   710→        {insights.length > 0 && (
+   711→          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
+   712→            <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
+   713→          </motion.div>
+   714→        )}
+   715→      </div>
+   716→
+   717→      {/* ══════════════════════════════════════════════════════════════
+   718→          DESKTOP DASHBOARD — Information-rich analytical workspace
+   719→          ══════════════════════════════════════════════════════════════ */}
+   720→      <motion.div className="hidden md:block space-y-5" variants={container} initial="hidden" animate="show">
+   721→        {/* ── Header Bar ── */}
+   722→        <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+   723→          <div>
+   724→            <h1 className="text-lg font-semibold tracking-tight">
+   725→              {greeting}, {profile.name}
+   726→            </h1>
+   727→            <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
+   728→          </div>
+   729→          <div className="flex items-center gap-2">
+   730→            <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
+   731→              Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
+   732→            </Badge>
+   733→          </div>
+   734→        </motion.div>
+   735→
+   736→        {/* ── Academic Health + Metrics Row ── */}
+   737→        <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
+   738→          {/* Health Score */}
+   739→          <Card className="hero-card">
+   740→            <CardContent className="relative p-5 pt-6 overflow-hidden">
+   741→              <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
+   742→              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
+   743→              <div className="relative">
+   744→                <span className="section-label">Academic Health</span>
+   745→                <div className="mt-3 mb-2">
+   746→                  <span className="text-5xl font-extrabold tracking-tighter leading-none text-gradient">
+   747→                    {healthScore}
+   748→                  </span>
+   749→                  <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
+   750→                </div>
+   751→                <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
+   752→                <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
+   753→                <div className="mt-4">
+   754→                  <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+   755→                </div>
+   756→              </div>
+   757→            </CardContent>
+   758→          </Card>
+   759→
+   760→          {/* Metrics Grid */}
+   761→          <div className="space-y-4">
+   762→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   763→              <MetricCard
+   764→                label="Attendance"
+   765→                value={`${avgAttendance}%`}
+   766→                context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
+   767→                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
+   768→                icon={UserCheck}
+   769→                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
+   770→                sparkline={attendanceSparkline}
+   771→                sparklineColor="#10B981"
+   772→                onClick={() => navigate('attendance')}
+   773→              />
+   774→              <MetricCard
+   775→                label="Syllabus"
+   776→                value={`${avgSyllabus}%`}
+   777→                context="Average completion"
+   778→                icon={BookOpen}
+   779→                sparkline={syllabusSparkline}
+   780→                sparklineColor="#3B82F6"
+   781→                onClick={() => navigate('subjects')}
+   782→              />
+   783→              <MetricCard
+   784→                label="CGPA"
+   785→                value={cgpa.toFixed(1)}
+   786→                context={`Target: ${profile.targetCGPA}`}
+   787→                trend={cgpaTrend}
+   788→                trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
+   789→                icon={BarChart3}
+   790→                sparkline={cgpaSparkline}
+   791→                sparklineColor={cgpaTrend === 'up' ? '#10B981' : cgpaTrend === 'down' ? '#EF4444' : '#64748B'}
+   792→                onClick={() => navigate('marks')}
+   793→              />
+   794→              <MetricCard
+   795→                label="Study Time"
+   796→                value={formatStudyTime(studyTimeThisWeek)}
+   797→                context="This week"
+   798→                icon={Clock}
+   799→                sparkline={studySparkline}
+   800→                onClick={() => navigate('analytics')}
+   801→              />
+   802→            </div>
+   803→            <div className="grid grid-cols-2 gap-3">
+   804→              <MetricCard
+   805→                label="Streak"
+   806→                value={studyStreak}
+   807→                context={`${studyStreak} day streak`}
+   808→                icon={Flame}
+   809→                iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
+   810→                valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+   811→                className={studyStreak >= 7 ? 'streak-glow' : undefined}
+   812→              />
+   813→              <div className="metric-card">
+   814→                <div className="flex items-center justify-between mb-2 md:mb-3">
+   815→                  <span className="metric-label">Weekly Goal</span>
+   816→                  <Target className="size-3.5 md:size-4 text-muted-foreground" />
+   817→                </div>
+   818→                <div className="flex items-baseline gap-1.5">
+   819→                  <span className={cn(
+   820→                    'text-xl md:text-2xl font-bold tracking-tight leading-none',
+   821→                    weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
+   822→                  )}>{weeklyHoursThisWeek}h</span>
+   823→                  <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
+   824→                </div>
+   825→                <div className="mt-2">
+   826→                  <div className="progress-thin progress-animate">
+   827→                    <div
+   828→                      className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
+   829→                      style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
+   830→                    />
+   831→                  </div>
+   832→                </div>
+   833→              </div>
+   834→            </div>
+   835→          </div>
+   836→        </motion.div>
+   837→
+   838→        {/* ── Weekly Activity Heatmap ── */}
+   839→        <motion.div variants={fadeUp}>
+   840→          <Card>
+   841→            <CardHeader className="pb-3 pt-4 px-5">
+   842→              <div className="flex items-center justify-between">
+   843→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   844→                  <Clock className="size-4 text-primary" />
+   845→                  This Week
+   846→                </CardTitle>
+   847→                <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
+   848→              </div>
+   849→            </CardHeader>
+   850→            <CardContent className="px-5 pb-4">
+   851→              <WeeklyHeatmap studySessions={studySessions} />
+   852→            </CardContent>
+   853→          </Card>
+   854→        </motion.div>
+   855→
+   856→        {/* ── Main Content Grid ── */}
+   857→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   858→          {/* Today's Focus + Recommendations */}
+   859→          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+   860→            <Card>
+   861→              <CardHeader className="pb-3 pt-4 px-5">
+   862→                <div className="flex items-center justify-between">
+   863→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   864→                    <Target className="size-4 text-primary" />
+   865→                    Today's Focus
+   866→                  </CardTitle>
+   867→                  <span className="text-[10px] text-muted-foreground font-medium">{recommendations.length} action{recommendations.length !== 1 ? 's' : ''}</span>
+   868→                </div>
+   869→              </CardHeader>
+   870→              <CardContent className="px-5 pb-4">
+   871→                {recommendations.length === 0 ? (
+   872→                  <div className="flex flex-col items-center justify-center py-8 text-center">
+   873→                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-2.5 mb-2.5">
+   874→                      <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+   875→                    </div>
+   876→                    <p className="text-sm font-medium">All caught up</p>
+   877→                    <p className="text-xs text-muted-foreground mt-0.5">No pending actions right now</p>
+   878→                  </div>
+   879→                ) : (
+   880→                  <div className="space-y-2.5">
+   881→                    {recommendations.map((rec, i) => (
+   882→                      <div
+   883→                        key={i}
+   884→                        className="card-interactive flex items-center gap-3 p-3 group"
+   885→                        onClick={() => handleAction(rec.actionView, rec.subjectId)}
+   886→                      >
+   887→                        <div className="flex-1 min-w-0">
+   888→                          <div className="flex items-center gap-2 mb-0.5">
+   889→                            <p className="text-sm font-medium truncate">{rec.title}</p>
+   890→                            <StatusBadge
+   891→                              status={rec.priorityColor === 'signal-critical' ? 'critical' : 'attention'}
+   892→                              label={rec.priority}
+   893→                              className="text-[9px] shrink-0"
+   894→                            />
+   895→                          </div>
+   896→                          <p className="text-xs text-muted-foreground truncate">{rec.description}</p>
+   897→                        </div>
+   898→                        <Button size="sm" variant="ghost" className="shrink-0 text-xs font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+   899→                          {rec.actionLabel}
+   900→                          <ArrowRight className="size-3 ml-1" />
+   901→                        </Button>
+   902→                      </div>
+   903→                    ))}
+   904→                  </div>
+   905→                )}
+   906→              </CardContent>
+   907→            </Card>
+   908→
+   909→            {/* Academic Flow */}
+   910→            <Card>
+   911→              <CardHeader className="pb-3 pt-4 px-5">
+   912→                <div className="flex items-center justify-between">
+   913→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   914→                    <Activity className="size-4 text-primary" />
+   915→                    Academic Flow
+   916→                  </CardTitle>
+   917→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('subjects')}>
+   918→                    View all <ChevronRight className="size-3 ml-0.5" />
+   919→                  </Button>
+   920→                </div>
+   921→              </CardHeader>
+   922→              <CardContent className="px-5 pb-4">
+   923→                {activeSubjects.length === 0 ? (
+   924→                  <p className="text-xs text-muted-foreground py-4 text-center">No subjects added yet</p>
+   925→                ) : (
+   926→                  <div className="space-y-2.5">
+   927→                    {subjectHealthData.map(({ subject, progress, att, signal }) => (
+   928→                      <div
+   929→                        key={subject.id}
+   930→                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+   931→                        onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+   932→                      >
+   933→                        <span className={cn('status-dot', signalDotClass(signal))} />
+   934→                        <div className="flex-1 min-w-0">
+   935→                          <div className="flex items-center justify-between mb-1">
+   936→                            <span className="text-sm font-medium truncate">{subject.name}</span>
+   937→                            <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
+   938→                          </div>
+   939→                          <div className="progress-thin progress-animate">
+   940→                            <div
+   941→                              className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+   942→                              style={{ width: `${Math.min(100, progress)}%` }}
+   943→                            />
+   944→                          </div>
+   945→                          <div className="flex items-center gap-3 mt-1">
+   946→                            <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
+   947→                            <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
+   948→                          </div>
+   949→                        </div>
+   950→                        <ChevronRight className="size-3.5 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" />
+   951→                      </div>
+   952→                    ))}
+   953→                  </div>
+   954→                )}
+   955→              </CardContent>
+   956→            </Card>
+   957→
+   958→            {/* Signal Legend */}
+   959→            {activeSubjects.length > 0 && (
+   960→              <div className="signal-legend px-1">
+   961→                <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
+   962→                <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
+   963→                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+   964→                <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
+   965→              </div>
+   966→            )}
+   967→          </motion.div>
+   968→
+   969→          {/* Right Column */}
+   970→          <motion.div variants={fadeUp} className="space-y-4">
+   971→            {/* Study Pattern Insights */}
+   972→            {studyPatterns.length > 0 && (
+   973→              <Card>
+   974→                <CardHeader className="pb-3 pt-4 px-5">
+   975→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   976→                    <Sparkles className="size-4 text-[var(--delulu-purple)]" />
+   977→                    Study Patterns
+   978→                  </CardTitle>
+   979→                </CardHeader>
+   980→                <CardContent className="px-5 pb-4">
+   981→                  <div className="space-y-2.5">
+   982→                    {studyPatterns.map((p, i) => (
+   983→                      <InsightCard key={i} type={p.type} icon={p.type === 'positive' ? TrendingUp : p.type === 'warning' ? AlertTriangle : Info} title={p.title} description={p.description} />
+   984→                    ))}
+   985→                  </div>
+   986→                </CardContent>
+   987→              </Card>
+   988→            )}
+   989→
+   990→            {/* Study Distribution */}
+   991→            <div className="metric-card">
+   992→              <SectionHeader title="This Week's Focus" />
+   993→              {weeklyDistribution.length === 0 ? (
+   994→                <EmptyState
+   995→                  icon={BarChart3}
+   996→                  title="No study sessions"
+   997→                  description="Start a focus session to see your weekly study distribution"
+   998→                />
+   999→              ) : (
+  1000→                <div className="space-y-3">
+  1001→                  {weeklyDistribution.map((d) => {
+  1002→                    const maxMin = weeklyDistribution[0].minutes;
+  1003→                    const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
+  1004→                    return (
+  1005→                      <div key={d.subjectId} className="flex items-center gap-3 group">
+  1006→                        <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
+  1007→                          {d.name}
+  1008→                        </span>
+  1009→                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+  1010→                          <div
+  1011→                            className="h-full rounded-full transition-all duration-500 group-hover:opacity-100"
+  1012→                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)', opacity: 0.65 }}
+  1013→                          />
+  1014→                        </div>
+  1015→                        <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
+  1016→                          {d.minutes}m
+  1017→                        </span>
+  1018→                      </div>
+  1019→                    );
+  1020→                  })}
+  1021→                </div>
+  1022→              )}
+  1023→            </div>
+  1024→
+  1025→            {/* Insights */}
+  1026→            <Card>
+  1027→              <CardHeader className="pb-3 pt-4 px-5">
+  1028→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1029→                  <Activity className="size-4 text-[var(--delulu-purple)]" />
+  1030→                  Insights
+  1031→                </CardTitle>
+  1032→              </CardHeader>
+  1033→              <CardContent className="px-5 pb-4">
+  1034→                {insights.length === 0 ? (
+  1035→                  <p className="text-xs text-muted-foreground py-4 text-center">No insights yet</p>
+  1036→                ) : (
+  1037→                  <div className="space-y-2.5">
+  1038→                    {insights.map((insight, i) => {
+  1039→                      const iconMap = { positive: CheckCircle2, warning: AlertTriangle, critical: AlertTriangle, info: Info };
+  1040→                      const Icon = iconMap[insight.type];
+  1041→                      return (
+  1042→                        <InsightCard
+  1043→                          key={i}
+  1044→                          type={insight.type}
+  1045→                          icon={Icon}
+  1046→                          title={insight.title}
+  1047→                          description={insight.description}
+  1048→                        />
+  1049→                      );
+  1050→                    })}
+  1051→                  </div>
+  1052→                )}
+  1053→              </CardContent>
+  1054→            </Card>
+  1055→
+  1056→            {/* Upcoming Deadlines */}
+  1057→            <Card>
+  1058→              <CardHeader className="pb-3 pt-4 px-5">
+  1059→                <div className="flex items-center justify-between">
+  1060→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1061→                    <CalendarClock className="size-4 text-[var(--delulu-warning)]" />
+  1062→                    Deadlines
+  1063→                  </CardTitle>
+  1064→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('calendar')}>
+  1065→                    Calendar <ChevronRight className="size-3 ml-0.5" />
+  1066→                  </Button>
+  1067→                </div>
+  1068→              </CardHeader>
+  1069→              <CardContent className="px-5 pb-4">
+  1070→                {upcomingDeadlines.length === 0 ? (
+  1071→                  <p className="text-xs text-muted-foreground py-4 text-center">No upcoming deadlines</p>
+  1072→                ) : (
+  1073→                  <div className="space-y-2">
+  1074→                    {upcomingDeadlines.map((d, i) => {
+  1075→                      const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  1076→                      return (
+  1077→                        <div
+  1078→                          key={i}
+  1079→                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+  1080→                          onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
+  1081→                        >
+  1082→                          <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+  1083→                          <div className="flex-1 min-w-0">
+  1084→                            <p className="text-sm font-medium truncate">{d.title}</p>
+  1085→                            <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
+  1086→                          </div>
+  1087→                          <Badge
+  1088→                            variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
+  1089→                            className="text-[10px] px-1.5 py-0 shrink-0"
+  1090→                          >
+  1091→                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
+  1092→                          </Badge>
+  1093→                        </div>
+  1094→                      );
+  1095→                    })}
+  1096→                  </div>
+  1097→                )}
+  1098→              </CardContent>
+  1099→            </Card>
+  1100→
+  1101→            {/* Quick Actions — desktop only */}
+  1102→            <Card className="hero-card">
+  1103→              <CardContent className="p-4">
+  1104→                <div className="grid grid-cols-2 gap-2">
+  1105→                  {[
+  1106→                    { label: 'Focus', icon: Timer, view: 'focus' as const },
+  1107→                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
+  1108→                    { label: 'Notes', icon: BookOpen, view: 'notes' as const },
+  1109→                    { label: 'Report', icon: BarChart3, view: 'report' as const },
+  1110→                  ].map((a) => {
+  1111→                    const Icon = a.icon;
+  1112→                    return (
+  1113→                      <button
+  1114→                        key={a.view}
+  1115→                        onClick={() => navigate(a.view)}
+  1116→                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+  1117→                      >
+  1118→                        <Icon className="size-3.5" />
+  1119→                        {a.label}
+  1120→                      </button>
+  1121→                    );
+  1122→                  })}
+  1123→                  <button
+  1124→                    onClick={() => setQuickNoteOpen(true)}
+  1125→                    className="col-span-2 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
+  1126→                  >
+  1127→                    <StickyNote className="size-3.5" />
+  1128→                    Quick Note
+  1129→                  </button>
+  1130→                </div>
+  1131→              </CardContent>
+  1132→            </Card>
+  1133→          </motion.div>
+  1134→        </div>
+  1135→      </motion.div>
+  1136→
+  1137→      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
+  1138→    </>
+  1139→  );
+  1140→}
+  1141→

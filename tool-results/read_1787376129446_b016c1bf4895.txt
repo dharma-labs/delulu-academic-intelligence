@@ -1,0 +1,549 @@
+   682→            </div>
+   683→          </motion.div>
+   684→        )}
+   685→
+   686→        {/* Compact Subject Flow */}
+   687→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+   688→          <div className="flex items-center justify-between mb-2.5 px-1">
+   689→            <span className="section-label">Subject Progress</span>
+   690→            <button onClick={() => navigate('subjects')} className="text-[10px] text-primary font-medium px-2 py-1 -mx-2 -my-1 rounded-md hover:bg-primary/5 active:bg-primary/10 transition-colors">View all</button>
+   691→          </div>
+   692→          <div className="space-y-2">
+   693→            {subjectHealthData.slice(0, 4).map(({ subject, progress, signal }) => (
+   694→              <div
+   695→                key={subject.id}
+   696→                className="flex items-center gap-2.5 p-2 rounded-xl bg-card border border-border/40 active:bg-accent/50 transition-colors"
+   697→                onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+   698→              >
+   699→                <span className={cn('status-dot shrink-0', signalDotClass(signal))} />
+   700→                <div className="flex-1 min-w-0">
+   701→                  <div className="flex items-center justify-between mb-1">
+   702→                    <span className="text-xs font-medium truncate">{subject.name}</span>
+   703→                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
+   704→                  </div>
+   705→                  <div className="progress-thin progress-animate">
+   706→                    <div
+   707→                      className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+   708→                      style={{ width: `${Math.min(100, progress)}%` }}
+   709→                    />
+   710→                  </div>
+   711→                </div>
+   712→                <ChevronRight className="size-3.5 text-muted-foreground/50 shrink-0" />
+   713→              </div>
+   714→            ))}
+   715→          </div>
+   716→        </motion.div>
+   717→
+   718→        {/* Weekly Goal Mini Bar */}
+   719→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
+   720→          <div className="flex items-center justify-between mb-2">
+   721→            <div className="flex items-center gap-2">
+   722→              <Target className="size-3.5 text-primary" />
+   723→              <span className="text-xs font-medium">Weekly Goal</span>
+   724→            </div>
+   725→            <span className={cn('text-xs font-bold tabular-nums', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
+   726→              {weeklyHoursThisWeek}h / {weeklyGoalHours}h
+   727→            </span>
+   728→          </div>
+   729→          <div className="progress-thin progress-animate">
+   730→            <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
+   731→          </div>
+   732→        </motion.div>
+   733→
+   734→        {/* Weekly Study Sparkline */}
+   735→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.22 }} className="metric-card">
+   736→          <div className="flex items-center justify-between mb-2.5">
+   737→            <div className="flex items-center gap-2">
+   738→              <BarChart3 className="size-3.5 text-primary" />
+   739→              <span className="text-xs font-medium">Study This Week</span>
+   740→            </div>
+   741→            <span className="text-[10px] text-muted-foreground tabular-nums">{weeklyHoursThisWeek}h total</span>
+   742→          </div>
+   743→          <WeeklyMiniChart studySessions={studySessions} />
+   744→        </motion.div>
+   745→
+   746→        {/* Quick Actions */}
+   747→        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
+   748→          <div className="grid grid-cols-5 gap-2">
+   749→            {[
+   750→              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
+   751→              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
+   752→              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+   753→              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
+   754→              { label: 'Achieve', icon: Trophy, action: true, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+   755→            ].map((a) => {
+   756→              const Icon = a.icon;
+   757→              return (
+   758→                <button
+   759→                  key={'view' in a ? a.view : 'achievements'}
+   760→                  onClick={() => 'view' in a ? navigate(a.view as import('@/lib/types').ViewId) : setAchievementsOpen(true)}
+   761→                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
+   762→                >
+   763→                  <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
+   764→                    <Icon className="size-4" />
+   765→                  </div>
+   766→                  <span className="text-[10px] font-medium text-muted-foreground">{a.label}</span>
+   767→                </button>
+   768→              );
+   769→            })}
+   770→          </div>
+   771→        </motion.div>
+   772→
+   773→        {/* First Insight Only */}
+   774→        {insights.length > 0 && (
+   775→          <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
+   776→            <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
+   777→          </motion.div>
+   778→        )}
+   779→      </div>
+   780→
+   781→      {/* ══════════════════════════════════════════════════════════════
+   782→          DESKTOP DASHBOARD — Information-rich analytical workspace
+   783→          ══════════════════════════════════════════════════════════════ */}
+   784→      <motion.div className="hidden md:block space-y-5" variants={container} initial="hidden" animate="show">
+   785→        {/* ── Header Bar ── */}
+   786→        <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+   787→          <div>
+   788→            <h1 className="text-lg font-semibold tracking-tight">
+   789→              {greeting}, {profile.name}
+   790→            </h1>
+   791→            <p className="text-xs text-muted-foreground mt-0.5">{formattedDate}</p>
+   792→          </div>
+   793→          <div className="flex items-center gap-2">
+   794→            <Popover>
+   795→              <PopoverTrigger asChild>
+   796→                <Button variant="ghost" size="sm" className="h-6 w-auto px-1.5 text-xs text-muted-foreground">
+   797→                  <Settings2 className="size-3 mr-1" />
+   798→                  Customize
+   799→                </Button>
+   800→              </PopoverTrigger>
+   801→              <PopoverContent align="end" className="w-52 p-3">
+   802→                <p className="section-label mb-2">Customize Dashboard</p>
+   803→                <div className="space-y-1.5">
+   804→                  {DESKTOP_WIDGETS.map((w) => (
+   805→                    <label key={w.id} className="flex items-center gap-2 text-sm cursor-pointer">
+   806→                      <Checkbox
+   807→                        checked={!hiddenWidgets.includes(w.id)}
+   808→                        onCheckedChange={() => toggleWidget(w.id)}
+   809→                      />
+   810→                      <span className="text-sm">{w.label}</span>
+   811→                    </label>
+   812→                  ))}
+   813→                </div>
+   814→              </PopoverContent>
+   815→            </Popover>
+   816→            <Badge variant="outline" className="text-[10px] font-medium tracking-wider uppercase px-2 py-0.5">
+   817→              Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''}
+   818→            </Badge>
+   819→          </div>
+   820→        </motion.div>
+   821→
+   822→        {/* ── Academic Health + Metrics Row ── */}
+   823→        <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
+   824→          {/* Health Score */}
+   825→          <Card className="hero-card">
+   826→            <CardContent className="relative p-5 pt-6 overflow-hidden">
+   827→              <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
+   828→              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
+   829→              <div className="relative">
+   830→                <span className="section-label">Academic Health</span>
+   831→                <div className="mt-3 mb-2">
+   832→                  <span className="text-5xl font-extrabold tracking-tighter leading-none text-gradient">
+   833→                    {healthScore}
+   834→                  </span>
+   835→                  <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
+   836→                </div>
+   837→                <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
+   838→                <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
+   839→                <div className="mt-4">
+   840→                  <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+   841→                </div>
+   842→              </div>
+   843→            </CardContent>
+   844→          </Card>
+   845→
+   846→          {/* Metrics Grid */}
+   847→          <div className="space-y-4">
+   848→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   849→              <MetricCard
+   850→                label="Attendance"
+   851→                value={`${avgAttendance}%`}
+   852→                context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
+   853→                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
+   854→                icon={UserCheck}
+   855→                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
+   856→                sparkline={attendanceSparkline}
+   857→                sparklineColor="#10B981"
+   858→                onClick={() => navigate('attendance')}
+   859→              />
+   860→              <MetricCard
+   861→                label="Syllabus"
+   862→                value={`${avgSyllabus}%`}
+   863→                context="Average completion"
+   864→                icon={BookOpen}
+   865→                sparkline={syllabusSparkline}
+   866→                sparklineColor="#3B82F6"
+   867→                onClick={() => navigate('subjects')}
+   868→              />
+   869→              <MetricCard
+   870→                label="CGPA"
+   871→                value={cgpa.toFixed(1)}
+   872→                context={`Target: ${profile.targetCGPA}`}
+   873→                trend={cgpaTrend}
+   874→                trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
+   875→                icon={BarChart3}
+   876→                sparkline={cgpaSparkline}
+   877→                sparklineColor={cgpaTrend === 'up' ? '#10B981' : cgpaTrend === 'down' ? '#EF4444' : '#64748B'}
+   878→                onClick={() => navigate('marks')}
+   879→              />
+   880→              <MetricCard
+   881→                label="Study Time"
+   882→                value={formatStudyTime(studyTimeThisWeek)}
+   883→                context="This week"
+   884→                icon={Clock}
+   885→                sparkline={studySparkline}
+   886→                onClick={() => navigate('analytics')}
+   887→              />
+   888→            </div>
+   889→            <div className="grid grid-cols-2 gap-3">
+   890→              <MetricCard
+   891→                label="Streak"
+   892→                value={studyStreak}
+   893→                context={`${studyStreak} day streak`}
+   894→                icon={Flame}
+   895→                iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
+   896→                valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+   897→                className={studyStreak >= 7 ? 'streak-glow' : undefined}
+   898→              />
+   899→              <div className="metric-card">
+   900→                <div className="flex items-center justify-between mb-2 md:mb-3">
+   901→                  <span className="metric-label">Weekly Goal</span>
+   902→                  <Target className="size-3.5 md:size-4 text-muted-foreground" />
+   903→                </div>
+   904→                <div className="flex items-baseline gap-1.5">
+   905→                  <span className={cn(
+   906→                    'text-xl md:text-2xl font-bold tracking-tight leading-none',
+   907→                    weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
+   908→                  )}>{weeklyHoursThisWeek}h</span>
+   909→                  <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
+   910→                </div>
+   911→                <div className="mt-2">
+   912→                  <div className="progress-thin progress-animate">
+   913→                    <div
+   914→                      className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
+   915→                      style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
+   916→                    />
+   917→                  </div>
+   918→                </div>
+   919→              </div>
+   920→            </div>
+   921→          </div>
+   922→        </motion.div>
+   923→
+   924→        {/* ── Weekly Activity Heatmap ── */}
+   925→        <motion.div variants={fadeUp}>
+   926→          <Card>
+   927→            <CardHeader className="pb-3 pt-4 px-5">
+   928→              <div className="flex items-center justify-between">
+   929→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   930→                  <Clock className="size-4 text-primary" />
+   931→                  This Week
+   932→                </CardTitle>
+   933→                <span className="text-[10px] text-muted-foreground font-medium">Study sessions</span>
+   934→              </div>
+   935→            </CardHeader>
+   936→            <CardContent className="px-5 pb-4">
+   937→              <WeeklyHeatmap studySessions={studySessions} />
+   938→            </CardContent>
+   939→          </Card>
+   940→        </motion.div>
+   941→
+   942→        {/* ── Main Content Grid ── */}
+   943→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   944→          {/* Today's Focus + Recommendations */}
+   945→          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+   946→            <Card>
+   947→              <CardHeader className="pb-3 pt-4 px-5">
+   948→                <div className="flex items-center justify-between">
+   949→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   950→                    <Target className="size-4 text-primary" />
+   951→                    Today's Focus
+   952→                  </CardTitle>
+   953→                  <span className="text-[10px] text-muted-foreground font-medium">{recommendations.length} action{recommendations.length !== 1 ? 's' : ''}</span>
+   954→                </div>
+   955→              </CardHeader>
+   956→              <CardContent className="px-5 pb-4">
+   957→                {recommendations.length === 0 ? (
+   958→                  <div className="flex flex-col items-center justify-center py-8 text-center">
+   959→                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-2.5 mb-2.5">
+   960→                      <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+   961→                    </div>
+   962→                    <p className="text-sm font-medium">All caught up</p>
+   963→                    <p className="text-xs text-muted-foreground mt-0.5">No pending actions right now</p>
+   964→                  </div>
+   965→                ) : (
+   966→                  <div className="space-y-2.5">
+   967→                    {recommendations.map((rec, i) => (
+   968→                      <div
+   969→                        key={i}
+   970→                        className="card-interactive flex items-center gap-3 p-3 group"
+   971→                        onClick={() => handleAction(rec.actionView, rec.subjectId)}
+   972→                      >
+   973→                        <div className="flex-1 min-w-0">
+   974→                          <div className="flex items-center gap-2 mb-0.5">
+   975→                            <p className="text-sm font-medium truncate">{rec.title}</p>
+   976→                            <StatusBadge
+   977→                              status={rec.priorityColor === 'signal-critical' ? 'critical' : 'attention'}
+   978→                              label={rec.priority}
+   979→                              className="text-[9px] shrink-0"
+   980→                            />
+   981→                          </div>
+   982→                          <p className="text-xs text-muted-foreground truncate">{rec.description}</p>
+   983→                        </div>
+   984→                        <Button size="sm" variant="ghost" className="shrink-0 text-xs font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+   985→                          {rec.actionLabel}
+   986→                          <ArrowRight className="size-3 ml-1" />
+   987→                        </Button>
+   988→                      </div>
+   989→                    ))}
+   990→                  </div>
+   991→                )}
+   992→              </CardContent>
+   993→            </Card>
+   994→
+   995→            {/* Academic Flow */}
+   996→            <Card>
+   997→              <CardHeader className="pb-3 pt-4 px-5">
+   998→                <div className="flex items-center justify-between">
+   999→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1000→                    <Activity className="size-4 text-primary" />
+  1001→                    Academic Flow
+  1002→                  </CardTitle>
+  1003→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('subjects')}>
+  1004→                    View all <ChevronRight className="size-3 ml-0.5" />
+  1005→                  </Button>
+  1006→                </div>
+  1007→              </CardHeader>
+  1008→              <CardContent className="px-5 pb-4">
+  1009→                {activeSubjects.length === 0 ? (
+  1010→                  <p className="text-xs text-muted-foreground py-4 text-center">No subjects added yet</p>
+  1011→                ) : (
+  1012→                  <div className="space-y-2.5">
+  1013→                    {subjectHealthData.map(({ subject, progress, att, signal }) => (
+  1014→                      <div
+  1015→                        key={subject.id}
+  1016→                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+  1017→                        onClick={() => { selectSubject(subject.id); navigate('subject-detail'); }}
+  1018→                      >
+  1019→                        <span className={cn('status-dot', signalDotClass(signal))} />
+  1020→                        <div className="flex-1 min-w-0">
+  1021→                          <div className="flex items-center justify-between mb-1">
+  1022→                            <span className="text-sm font-medium truncate">{subject.name}</span>
+  1023→                            <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
+  1024→                          </div>
+  1025→                          <div className="progress-thin progress-animate">
+  1026→                            <div
+  1027→                              className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
+  1028→                              style={{ width: `${Math.min(100, progress)}%` }}
+  1029→                            />
+  1030→                          </div>
+  1031→                          <div className="flex items-center gap-3 mt-1">
+  1032→                            <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
+  1033→                            <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
+  1034→                          </div>
+  1035→                        </div>
+  1036→                        <ChevronRight className="size-3.5 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" />
+  1037→                      </div>
+  1038→                    ))}
+  1039→                  </div>
+  1040→                )}
+  1041→              </CardContent>
+  1042→            </Card>
+  1043→
+  1044→            {/* Signal Legend */}
+  1045→            {activeSubjects.length > 0 && (
+  1046→              <div className="signal-legend px-1">
+  1047→                <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
+  1048→                <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
+  1049→                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+  1050→                <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
+  1051→              </div>
+  1052→            )}
+  1053→          </motion.div>
+  1054→
+  1055→          {/* Right Column */}
+  1056→          <motion.div variants={fadeUp} className="space-y-4">
+  1057→            {/* Study Pattern Insights */}
+  1058→            {studyPatterns.length > 0 && (
+  1059→              <Card>
+  1060→                <CardHeader className="pb-3 pt-4 px-5">
+  1061→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1062→                    <Sparkles className="size-4 text-[var(--delulu-purple)]" />
+  1063→                    Study Patterns
+  1064→                  </CardTitle>
+  1065→                </CardHeader>
+  1066→                <CardContent className="px-5 pb-4">
+  1067→                  <div className="space-y-2.5">
+  1068→                    {studyPatterns.map((p, i) => (
+  1069→                      <InsightCard key={i} type={p.type} icon={p.type === 'positive' ? TrendingUp : p.type === 'warning' ? AlertTriangle : Info} title={p.title} description={p.description} />
+  1070→                    ))}
+  1071→                  </div>
+  1072→                </CardContent>
+  1073→              </Card>
+  1074→            )}
+  1075→
+  1076→            {/* Study Distribution */}
+  1077→            <div className="metric-card">
+  1078→              <SectionHeader title="This Week's Focus" />
+  1079→              {weeklyDistribution.length === 0 ? (
+  1080→                <EmptyState
+  1081→                  icon={BarChart3}
+  1082→                  title="No study sessions"
+  1083→                  description="Start a focus session to see your weekly study distribution"
+  1084→                />
+  1085→              ) : (
+  1086→                <div className="space-y-3">
+  1087→                  {weeklyDistribution.map((d) => {
+  1088→                    const maxMin = weeklyDistribution[0].minutes;
+  1089→                    const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
+  1090→                    return (
+  1091→                      <div key={d.subjectId} className="flex items-center gap-3 group">
+  1092→                        <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
+  1093→                          {d.name}
+  1094→                        </span>
+  1095→                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+  1096→                          <div
+  1097→                            className="h-full rounded-full transition-all duration-500 group-hover:opacity-100"
+  1098→                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)', opacity: 0.65 }}
+  1099→                          />
+  1100→                        </div>
+  1101→                        <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
+  1102→                          {d.minutes}m
+  1103→                        </span>
+  1104→                      </div>
+  1105→                    );
+  1106→                  })}
+  1107→                </div>
+  1108→              )}
+  1109→            </div>
+  1110→
+  1111→            {/* Insights */}
+  1112→            <Card>
+  1113→              <CardHeader className="pb-3 pt-4 px-5">
+  1114→                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1115→                  <Activity className="size-4 text-[var(--delulu-purple)]" />
+  1116→                  Insights
+  1117→                </CardTitle>
+  1118→              </CardHeader>
+  1119→              <CardContent className="px-5 pb-4">
+  1120→                {insights.length === 0 ? (
+  1121→                  <p className="text-xs text-muted-foreground py-4 text-center">No insights yet</p>
+  1122→                ) : (
+  1123→                  <div className="space-y-2.5">
+  1124→                    {insights.map((insight, i) => {
+  1125→                      const iconMap = { positive: CheckCircle2, warning: AlertTriangle, critical: AlertTriangle, info: Info };
+  1126→                      const Icon = iconMap[insight.type];
+  1127→                      return (
+  1128→                        <InsightCard
+  1129→                          key={i}
+  1130→                          type={insight.type}
+  1131→                          icon={Icon}
+  1132→                          title={insight.title}
+  1133→                          description={insight.description}
+  1134→                        />
+  1135→                      );
+  1136→                    })}
+  1137→                  </div>
+  1138→                )}
+  1139→              </CardContent>
+  1140→            </Card>
+  1141→
+  1142→            {/* Upcoming Deadlines */}
+  1143→            <Card>
+  1144→              <CardHeader className="pb-3 pt-4 px-5">
+  1145→                <div className="flex items-center justify-between">
+  1146→                  <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+  1147→                    <CalendarClock className="size-4 text-[var(--delulu-warning)]" />
+  1148→                    Deadlines
+  1149→                  </CardTitle>
+  1150→                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate('calendar')}>
+  1151→                    Calendar <ChevronRight className="size-3 ml-0.5" />
+  1152→                  </Button>
+  1153→                </div>
+  1154→              </CardHeader>
+  1155→              <CardContent className="px-5 pb-4">
+  1156→                {upcomingDeadlines.length === 0 ? (
+  1157→                  <p className="text-xs text-muted-foreground py-4 text-center">No upcoming deadlines</p>
+  1158→                ) : (
+  1159→                  <div className="space-y-2">
+  1160→                    {upcomingDeadlines.map((d, i) => {
+  1161→                      const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  1162→                      return (
+  1163→                        <div
+  1164→                          key={i}
+  1165→                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+  1166→                          onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
+  1167→                        >
+  1168→                          <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+  1169→                          <div className="flex-1 min-w-0">
+  1170→                            <p className="text-sm font-medium truncate">{d.title}</p>
+  1171→                            <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
+  1172→                          </div>
+  1173→                          <Badge
+  1174→                            variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
+  1175→                            className="text-[10px] px-1.5 py-0 shrink-0"
+  1176→                          >
+  1177→                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
+  1178→                          </Badge>
+  1179→                        </div>
+  1180→                      );
+  1181→                    })}
+  1182→                  </div>
+  1183→                )}
+  1184→              </CardContent>
+  1185→            </Card>
+  1186→
+  1187→            {/* Quick Actions — desktop only */}
+  1188→            <Card className="hero-card">
+  1189→              <CardContent className="p-4">
+  1190→                <div className="grid grid-cols-3 gap-2">
+  1191→                  {[
+  1192→                    { label: 'Focus', icon: Timer, view: 'focus' as const },
+  1193→                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
+  1194→                    { label: 'Notes', icon: BookOpen, view: 'notes' as const },
+  1195→                    { label: 'Report', icon: BarChart3, view: 'report' as const },
+  1196→                    { label: 'Achievements', icon: Trophy, action: true },
+  1197→                  ].map((a) => {
+  1198→                    const Icon = a.icon;
+  1199→                    const handleClick = 'view' in a ? () => navigate(a.view) : () => setAchievementsOpen(true);
+  1200→                    return (
+  1201→                      <button
+  1202→                        key={'view' in a ? a.view : 'achievements'}
+  1203→                        onClick={handleClick}
+  1204→                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+  1205→                      >
+  1206→                        <Icon className="size-3.5" />
+  1207→                        {a.label}
+  1208→                      </button>
+  1209→                    );
+  1210→                  })}
+  1211→                  <button
+  1212→                    onClick={() => setQuickNoteOpen(true)}
+  1213→                    className="col-span-3 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
+  1214→                  >
+  1215→                    <StickyNote className="size-3.5" />
+  1216→                    Quick Note
+  1217→                  </button>
+  1218→                </div>
+  1219→              </CardContent>
+  1220→            </Card>
+  1221→          </motion.div>
+  1222→        </div>
+  1223→      </motion.div>
+  1224→
+  1225→      <AchievementsDialog open={achievementsOpen} onOpenChange={setAchievementsOpen} />
+  1226→      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
+  1227→    </>
+  1228→  );
+  1229→}
+  1230→

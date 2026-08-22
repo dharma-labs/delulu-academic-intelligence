@@ -28,6 +28,7 @@ interface MetricCardProps {
   valueColor?: string;
   accent?: MetricAccent;
   sparkline?: number[];
+  sparklineColor?: string;
   className?: string;
   onClick?: () => void;
 }
@@ -43,6 +44,7 @@ export function MetricCard({
   valueColor,
   accent,
   sparkline,
+  sparklineColor,
   className,
   onClick,
 }: MetricCardProps) {
@@ -80,7 +82,10 @@ export function MetricCard({
         )}
       </div>
       {sparkline && sparkline.length > 0 && (
-        <div className="flex items-end gap-px h-4 mt-2 opacity-50 group-hover:opacity-80 transition-opacity">
+        <div
+          className="flex items-end gap-px h-4 mt-2 opacity-50 group-hover:opacity-80 transition-opacity"
+          style={sparklineColor ? { color: sparklineColor } : undefined}
+        >
           {sparkline.map((v, i) => (
             <div
               key={i}
