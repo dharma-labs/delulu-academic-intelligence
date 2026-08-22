@@ -56,6 +56,7 @@ export default function NotesView() {
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'alpha'>('recent');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -102,10 +103,16 @@ export default function NotesView() {
       result = result.filter((n) => n.subjectId === subjectFilter);
     }
 
-    result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    if (sortBy === 'recent') {
+      result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    } else if (sortBy === 'oldest') {
+      result.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+    } else if (sortBy === 'alpha') {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
 
     return result;
-  }, [notes, searchQuery, subjectFilter]);
+  }, [notes, searchQuery, subjectFilter, sortBy]);
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedNoteId) ?? null,
@@ -224,23 +231,34 @@ export default function NotesView() {
         title='Notes'
         subtitle={`${notes.length} total note${notes.length !== 1 ? 's' : ''}`}
         actions={
-          <div className='flex items-center gap-2'>
-            <div className='relative'>
-              <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
-              <Input
-                placeholder='Search...'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className='pl-8 h-8 w-48 sm:w-56 text-xs'
-              />
-            </div>
+          <Button size='sm' onClick={handleNewNote} className='h-8'>
+            <Plus className='mr-1.5 h-3.5 w-3.5' />
+            <span className='hidden sm:inline'>New Note</span>
+          </Button>
+        }
+      />
 
+      {/* --- Search, Filter, Sort --- */}
+      <div className='metric-card p-2.5 mb-4'>
+        <div className='flex flex-col gap-2'>
+          {/* Search — full width */}
+          <div className='relative'>
+            <Search className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
+            <Input
+              placeholder='Search notes...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className='pl-8 h-8 text-xs'
+            />
+          </div>
+          {/* Filter + Sort row */}
+          <div className='flex gap-2'>
             <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-              <SelectTrigger className='w-[120px] h-8 text-xs'>
-                <SelectValue placeholder='Subject' />
+              <SelectTrigger className='flex-1 h-8 text-xs'>
+                <SelectValue placeholder='All Subjects' />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='all'>All</SelectItem>
+                <SelectItem value='all'>All Subjects</SelectItem>
                 {activeSubjects.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -249,13 +267,19 @@ export default function NotesView() {
               </SelectContent>
             </Select>
 
-            <Button size='sm' onClick={handleNewNote} className='h-8'>
-              <Plus className='mr-1.5 h-3.5 w-3.5' />
-              <span className='hidden sm:inline'>New Note</span>
-            </Button>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'recent' | 'oldest' | 'alpha')}>
+              <SelectTrigger className='w-[130px] h-8 text-xs'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='recent'>Recent</SelectItem>
+                <SelectItem value='oldest'>Oldest</SelectItem>
+                <SelectItem value='alpha'>Alphabetical</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {/* --- Main Content --- */}
       <div className='flex-1 flex flex-col md:flex-row gap-4 min-h-0'>

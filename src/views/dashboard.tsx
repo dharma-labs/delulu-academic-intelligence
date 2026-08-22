@@ -852,7 +852,7 @@ export default function DashboardView() {
 
           {/* Metrics Grid */}
           <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <MetricCard
                 label="Attendance"
                 value={`${avgAttendance}%`}
@@ -949,9 +949,9 @@ export default function DashboardView() {
         )}
 
         {/* ── Main Content Grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Today's Focus + Recommendations */}
-          <motion.div variants={fadeUp} className="lg:col-span-2 space-y-4">
+          <motion.div variants={fadeUp} className="md:col-span-2 space-y-4">
             {!hiddenWidgets.includes('todays-focus') && (
             <Card>
               <CardHeader className="pb-3 pt-4 px-5">
@@ -1066,7 +1066,7 @@ export default function DashboardView() {
           </motion.div>
 
           {/* Right Column */}
-          <motion.div variants={fadeUp} className="space-y-4">
+          <motion.div variants={fadeUp} className="md:col-span-2 lg:col-span-1 space-y-4">
             {/* Study Pattern Insights */}
             {!hiddenWidgets.includes('study-patterns') && studyPatterns.length > 0 && (
               <Card>

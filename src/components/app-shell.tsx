@@ -365,12 +365,54 @@ function MobileMoreSheet({
   );
 }
 
+// ─── View meta for command palette recent views ──────────────────
+
+const _recentViews: string[] = [];
+let _lastTrackedView = '';
+
+function trackRecentView(viewId: string) {
+  if (viewId === _lastTrackedView) return;
+  _lastTrackedView = viewId;
+  const idx = _recentViews.indexOf(viewId);
+  if (idx !== -1) _recentViews.splice(idx, 1);
+  _recentViews.unshift(viewId);
+  if (_recentViews.length > 3) _recentViews.length = 3;
+}
+
+const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
+  'dashboard': { label: 'Dashboard', icon: LayoutDashboard },
+  'subjects': { label: 'Subjects', icon: BookOpen },
+  'subject-detail': { label: 'Subject Detail', icon: BookOpen },
+  'syllabus': { label: 'Syllabus', icon: BookOpen },
+  'marks': { label: 'Marks & CA', icon: BarChart3 },
+  'attendance': { label: 'Attendance', icon: UserCheck },
+  'focus': { label: 'Focus', icon: Timer },
+  'revision': { label: 'Revision', icon: BrainCircuit },
+  'notes': { label: 'Notes', icon: StickyNote },
+  'calendar': { label: 'Calendar', icon: CalendarDays },
+  'timetable': { label: 'Timetable', icon: Clock },
+  'tasks': { label: 'Tasks', icon: CheckSquare },
+  'analytics': { label: 'Analytics', icon: TrendingUp },
+  'er-center': { label: 'ER Center', icon: FileSearch },
+  'exams': { label: 'Exams', icon: FileText },
+  'assignments': { label: 'Assignments', icon: ClipboardList },
+  'settings': { label: 'Settings', icon: Settings },
+  'ai-tutor': { label: 'AI Tutor', icon: Bot },
+  'report': { label: 'Report', icon: GraduationCap },
+};
+
 // ─── Command palette ─────────────────────────────────────────────────
 
 function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
   const commandOpen = useStore((s) => s.commandOpen);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const navigate = useStore((s) => s.navigate);
+  // Track navigation into recent views
+  const currentView = useStore((s) => s.currentView);
+  trackRecentView(currentView);
+  const recentViewsSnapshot = useMemo(() => {
+    return _recentViews.filter((v) => v !== currentView);
+  }, [currentView]);
   const subjects = useStore((s) => s.subjects);
   const tasks = useStore((s) => s.tasks);
   const notes = useStore((s) => s.notes);
@@ -387,11 +429,38 @@ function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
 
   if (!commandOpen) return null;
 
+  const filteredRecents = recentViewsSnapshot;
+
   return (
     <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
       <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
+
+        {/* Recent Views */}
+        {filteredRecents.length > 0 && (
+          <>
+            <CommandGroup heading="Recent Views">
+              {filteredRecents.map((viewId) => {
+                const meta = VIEW_META[viewId];
+                if (!meta) return null;
+                const Icon = meta.icon;
+                return (
+                  <CommandItem
+                    key={`recent-${viewId}`}
+                    onSelect={() => handleSelect(() => navigate(viewId as ViewId))}
+                    className="bg-secondary/50"
+                  >
+                    <Icon className="size-4" />
+                    <span>{meta.label}</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground font-medium tracking-wide">RECENT</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         <CommandGroup heading="Commands">
           <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
@@ -530,6 +599,12 @@ function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
           </CommandItem>
         </CommandGroup>
       </CommandList>
+      {/* Footer with keyboard hints */}
+      <div className="border-t border-border/50 px-3 py-2 flex items-center justify-center gap-3">
+        <span className="text-[10px] text-muted-foreground/60">↑↓ Navigate</span>
+        <span className="text-[10px] text-muted-foreground/60">↵ Select</span>
+        <span className="text-[10px] text-muted-foreground/60">Esc Close</span>
+      </div>
     </CommandDialog>
   );
 }
@@ -680,7 +755,7 @@ function DesktopTopBar() {
   const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
 
   return (
-    <div className="top-bar hidden lg:flex items-center gap-3 px-6 py-1.5">
+    <div className="top-bar hidden md:flex items-center gap-3 px-4 lg:px-6 py-1.5">
       <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
       <span className="text-border">·</span>
       <div className="flex items-center gap-3">
@@ -849,6 +924,22 @@ export function AppShell() {
     setCommandOpen(false);
     setShortcutsOpen(true);
   }, [setCommandOpen]);
+
+  // ── Auto-collapse sidebar on tablet (768–1024) ──
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px) and (max-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        useStore.setState({ sidebarCollapsed: true });
+      }
+    };
+    // Collapse immediately if already in tablet range
+    if (mql.matches) {
+      useStore.setState({ sidebarCollapsed: true });
+    }
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     const NUMBER_KEY_VIEWS: Record<string, ViewId> = {

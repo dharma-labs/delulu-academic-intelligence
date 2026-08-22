@@ -1,0 +1,952 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+     4→     4→import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+     5→     5→import type { ViewId } from '@/lib/types';
+     6→     6→import { ViewRouter } from '@/components/view-router';
+     7→     7→import { format } from 'date-fns';
+     8→     8→import {
+     9→     9→  CommandDialog,
+    10→    10→  CommandInput,
+    11→    11→  CommandList,
+    12→    12→  CommandEmpty,
+    13→    13→  CommandGroup,
+    14→    14→  CommandItem,
+    15→    15→  CommandSeparator,
+    16→    16→} from '@/components/ui/command';
+    17→    17→import {
+    18→    18→  Sheet,
+    19→    19→  SheetContent,
+    20→    20→  SheetHeader,
+    21→    21→  SheetTitle,
+    22→    22→  SheetDescription,
+    23→    23→} from '@/components/ui/sheet';
+    24→    24→import {
+    25→    25→  LayoutDashboard,
+    26→    26→  BookOpen,
+    27→    27→  BarChart3,
+    28→    28→  UserCheck,
+    29→    29→  FileText,
+    30→    30→  Timer,
+    31→    31→  BrainCircuit,
+    32→    32→  StickyNote,
+    33→    33→  CalendarDays,
+    34→    34→  Clock,
+    35→    35→  CheckSquare,
+    36→    36→  TrendingUp,
+    37→    37→  FileSearch,
+    38→    38→  Bot,
+    39→    39→  Settings,
+    40→    40→  Search,
+    41→    41→  PanelLeftClose,
+    42→    42→  PanelLeftOpen,
+    43→    43→  GraduationCap,
+    44→    44→  MoreHorizontal,
+    45→    45→  ClipboardList,
+    46→    46→  Flame,
+    47→    47→  Keyboard,
+    48→    48→  ArrowRight,
+    49→    49→  Sun,
+    50→    50→  Moon,
+    51→    51→  Plus,
+    52→    52→  type LucideIcon,
+    53→    53→} from 'lucide-react';
+    54→    54→import { useTheme } from 'next-themes';
+    55→    55→import { cn } from '@/lib/utils';
+    56→    56→import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
+    57→    57→import { Onboarding } from '@/components/onboarding';
+    58→    58→import { QuickNoteDialog } from '@/components/quick-note-dialog';
+    59→    59→import { ToastProvider } from '@/components/toast';
+    60→    60→import { motion, AnimatePresence } from 'framer-motion';
+    61→    61→
+    62→    62→// ─── Notification badges hook ──────────────────────────────────────
+    63→    63→
+    64→    64→function useNavBadges() {
+    65→    65→  const tasks = useStore((s) => s.tasks);
+    66→    66→  const revisionItems = useStore((s) => s.revisionItems);
+    67→    67→  const exams = useStore((s) => s.exams);
+    68→    68→  const assignments = useStore((s) => s.assignments);
+    69→    69→
+    70→    70→  return useMemo(() => {
+    71→    71→    const badges: Partial<Record<ViewId, number>> = {};
+    72→    72→
+    73→    73→    // Overdue tasks
+    74→    74→    const today = new Date().toISOString().split('T')[0];
+    75→    75→    const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+    76→    76→    if (overdueTasks.length > 0) badges['tasks'] = overdueTasks.length;
+    77→    77→
+    78→    78→    // Due revisions
+    79→    79→    const dueRevisions = revisionItems.filter(r => {
+    80→    80→      const nextReview = new Date(r.nextReview);
+    81→    81→      return nextReview <= new Date();
+    82→    82→    });
+    83→    83→    if (dueRevisions.length > 0) badges['revision'] = dueRevisions.length;
+    84→    84→
+    85→    85→    // Upcoming exams (within 7 days)
+    86→    86→    const weekFromNow = new Date();
+    87→    87→    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    88→    88→    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= weekFromNow.toISOString().split('T')[0]);
+    89→    89→    if (upcomingExams.length > 0) badges['exams'] = upcomingExams.length;
+    90→    90→
+    91→    91→    // Upcoming assignments (within 3 days)
+    92→    92→    const threeDays = new Date();
+    93→    93→    threeDays.setDate(threeDays.getDate() + 3);
+    94→    94→    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= threeDays.toISOString().split('T')[0]);
+    95→    95→    if (upcomingAssign.length > 0) badges['assignments'] = upcomingAssign.length;
+    96→    96→
+    97→    97→    return badges;
+    98→    98→  }, [tasks, revisionItems, exams, assignments]);
+    99→    99→}
+   100→   100→
+   101→   101→// ─── Nav badge component ──────────────────────────────────────────
+   102→   102→
+   103→   103→function NavBadge({ count }: { count: number }) {
+   104→   104→  if (count <= 0) return null;
+   105→   105→  const display = count > 9 ? '9+' : String(count);
+   106→   106→  return (
+   107→   107→    <span className="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none animate-badge-pop">
+   108→   108→      {display}
+   109→   109→    </span>
+   110→   110→  );
+   111→   111→}
+   112→   112→
+   113→   113→// ─── Nav item types ─────────────────────────────────────────────────
+   114→   114→
+   115→   115→interface NavItem {
+   116→   116→  id: ViewId | 'more';
+   117→   117→  label: string;
+   118→   118→  icon: LucideIcon;
+   119→   119→}
+   120→   120→
+   121→   121→interface NavGroup {
+   122→   122→  label: string;
+   123→   123→  items: NavItem[];
+   124→   124→}
+   125→   125→
+   126→   126→// ─── Navigation structure ────────────────────────────────────────────
+   127→   127→
+   128→   128→const NAV_GROUPS: NavGroup[] = [
+   129→   129→  {
+   130→   130→    label: 'Overview',
+   131→   131→    items: [
+   132→   132→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+   133→   133→    ],
+   134→   134→  },
+   135→   135→  {
+   136→   136→    label: 'Academic',
+   137→   137→    items: [
+   138→   138→      { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   139→   139→      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
+   140→   140→      { id: 'attendance', label: 'Attendance', icon: UserCheck },
+   141→   141→      { id: 'exams', label: 'Exams', icon: FileText },
+   142→   142→      { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+   143→   143→    ],
+   144→   144→  },
+   145→   145→  {
+   146→   146→    label: 'Study',
+   147→   147→    items: [
+   148→   148→      { id: 'focus', label: 'Focus', icon: Timer },
+   149→   149→      { id: 'revision', label: 'Revision', icon: BrainCircuit },
+   150→   150→      { id: 'notes', label: 'Notes', icon: StickyNote },
+   151→   151→      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+   152→   152→    ],
+   153→   153→  },
+   154→   154→  {
+   155→   155→    label: 'Planning',
+   156→   156→    items: [
+   157→   157→      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+   158→   158→      { id: 'timetable', label: 'Timetable', icon: Clock },
+   159→   159→    ],
+   160→   160→  },
+   161→   161→  {
+   162→   162→    label: 'Intelligence',
+   163→   163→    items: [
+   164→   164→      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+   165→   165→      { id: 'er-center', label: 'ER Center', icon: FileSearch },
+   166→   166→      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+   167→   167→      { id: 'report', label: 'Report', icon: GraduationCap },
+   168→   168→    ],
+   169→   169→  },
+   170→   170→];
+   171→   171→
+   172→   172→const BOTTOM_NAV_ITEMS: NavItem[] = [
+   173→   173→  { id: 'settings', label: 'Settings', icon: Settings },
+   174→   174→];
+   175→   175→
+   176→   176→// Mobile bottom nav items
+   177→   177→const MOBILE_NAV_ITEMS: NavItem[] = [
+   178→   178→  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+   179→   179→  { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   180→   180→  { id: 'focus', label: 'Study', icon: Timer },
+   181→   181→  { id: 'calendar', label: 'Plan', icon: CalendarDays },
+   182→   182→  { id: 'more', label: 'More', icon: MoreHorizontal },
+   183→   183→];
+   184→   184→
+   185→   185→// ─── Sidebar nav item component ──────────────────────────────────────
+   186→   186→
+   187→   187→function SidebarNavItem({
+   188→   188→  item,
+   189→   189→  collapsed,
+   190→   190→  badge,
+   191→   191→}: {
+   192→   192→  item: NavItem;
+   193→   193→  collapsed: boolean;
+   194→   194→  badge?: number;
+   195→   195→}) {
+   196→   196→  const currentView = useStore((s) => s.currentView);
+   197→   197→  const navigate = useStore((s) => s.navigate);
+   198→   198→  const isActive = currentView === item.id;
+   199→   199→  const Icon = item.icon;
+   200→   200→
+   201→   201→  return (
+   202→   202→    <button
+   203→   203→      onClick={() => navigate(item.id as ViewId)}
+   204→   204→      className={cn(
+   205→   205→        'group relative flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+   206→   206→        collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+   207→   207→        isActive
+   208→   208→          ? 'sidebar-active'
+   209→   209→          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
+   210→   210→      )}
+   211→   211→    >
+   212→   212→      <Icon className="size-[16px] shrink-0" />
+   213→   213→      {!collapsed && <span className="truncate">{item.label}</span>}
+   214→   214→      {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
+   215→   215→      {collapsed && badge !== undefined && badge > 0 && (
+   216→   216→        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+   217→   217→      )}
+   218→   218→      {collapsed && (
+   219→   219→        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity shadow-md z-50">
+   220→   220→          {item.label}
+   221→   221→        </span>
+   222→   222→      )}
+   223→   223→    </button>
+   224→   224→  );
+   225→   225→}
+   226→   226→
+   227→   227→// ─── Mobile bottom nav ───────────────────────────────────────────────
+   228→   228→
+   229→   229→function MobileBottomNav({
+   230→   230→  onMoreOpen,
+   231→   231→}: {
+   232→   232→  onMoreOpen: () => void;
+   233→   233→}) {
+   234→   234→  const currentView = useStore((s) => s.currentView);
+   235→   235→  const navigate = useStore((s) => s.navigate);
+   236→   236→  const badges = useNavBadges();
+   237→   237→  const totalBadges = Object.values(badges).reduce((s, v) => s + (v || 0), 0);
+   238→   238→
+   239→   239→  return (
+   240→   240→    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+   241→   241→      <div className="flex h-[60px] items-center justify-around px-1">
+   242→   242→        {MOBILE_NAV_ITEMS.map((item) => {
+   243→   243→          const Icon = item.icon;
+   244→   244→          const isActive = item.id === 'more' ? false : currentView === item.id;
+   245→   245→
+   246→   246→          return (
+   247→   247→            <button
+   248→   248→              key={item.id}
+   249→   249→              onClick={() => {
+   250→   250→                if (item.id === 'more') {
+   251→   251→                  onMoreOpen();
+   252→   252→                } else {
+   253→   253→                  navigate(item.id as ViewId);
+   254→   254→                }
+   255→   255→              }}
+   256→   256→              className={cn(
+   257→   257→                'bottom-nav-item relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+   258→   258→                isActive ? 'active text-primary' : 'text-muted-foreground active:scale-95'
+   259→   259→              )}
+   260→   260→            >
+   261→   261→              <Icon className={cn('bottom-nav-icon size-[18px] mb-0.5 transition-transform duration-200')} />
+   262→   262→              <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
+   263→   263→              {item.id === 'more' && totalBadges > 0 && (
+   264→   264→                <span className="absolute top-1 right-1/2 translate-x-3 flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-red-500 text-[8px] font-bold text-white leading-none">
+   265→   265→                  {totalBadges > 9 ? '9+' : totalBadges}
+   266→   266→                </span>
+   267→   267→              )}
+   268→   268→              {isActive && (
+   269→   269→                <span className="bottom-nav-indicator" />
+   270→   270→              )}
+   271→   271→            </button>
+   272→   272→          );
+   273→   273→        })}
+   274→   274→      </div>
+   275→   275→    </nav>
+   276→   276→  );
+   277→   277→}
+   278→   278→
+   279→   279→// ─── Mobile more sheet ───────────────────────────────────────────────
+   280→   280→
+   281→   281→function MobileMoreSheet({
+   282→   282→  open,
+   283→   283→  onOpenChange,
+   284→   284→}: {
+   285→   285→  open: boolean;
+   286→   286→  onOpenChange: (open: boolean) => void;
+   287→   287→}) {
+   288→   288→  const currentView = useStore((s) => s.currentView);
+   289→   289→  const navigate = useStore((s) => s.navigate);
+   290→   290→  const badges = useNavBadges();
+   291→   291→
+   292→   292→  return (
+   293→   293→    <Sheet open={open} onOpenChange={onOpenChange}>
+   294→   294→      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+   295→   295→        <SheetHeader className="mb-2">
+   296→   296→          <SheetTitle className="text-base">Navigation</SheetTitle>
+   297→   297→          <SheetDescription className="text-xs">
+   298→   298→            Jump to any section
+   299→   299→          </SheetDescription>
+   300→   300→        </SheetHeader>
+   301→   301→        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
+   302→   302→          {NAV_GROUPS.map((group) => (
+   303→   303→            <div key={group.label} className="mb-3">
+   304→   304→              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
+   305→   305→                {group.label}
+   306→   306→              </p>
+   307→   307→              <div className="grid grid-cols-2 gap-1.5">
+   308→   308→                {group.items.map((item) => {
+   309→   309→                  const Icon = item.icon;
+   310→   310→                  const isActive = currentView === item.id;
+   311→   311→                  return (
+   312→   312→                    <button
+   313→   313→                      key={item.id}
+   314→   314→                      onClick={() => {
+   315→   315→                        navigate(item.id as ViewId);
+   316→   316→                        onOpenChange(false);
+   317→   317→                      }}
+   318→   318→                      className={cn(
+   319→   319→                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
+   320→   320→                        isActive
+   321→   321→                          ? 'bg-primary/10 text-primary font-medium'
+   322→   322→                          : 'text-foreground hover:bg-accent'
+   323→   323→                      )}
+   324→   324→                    >
+   325→   325→                      <Icon className="size-4 shrink-0" />
+   326→   326→                      <span className="truncate">{item.label}</span>
+   327→   327→                      {badges[item.id as ViewId] !== undefined && badges[item.id as ViewId]! > 0 && (
+   328→   328→                        <span className="ml-auto flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-semibold tabular-nums">
+   329→   329→                          {badges[item.id as ViewId]}
+   330→   330→                        </span>
+   331→   331→                      )}
+   332→   332→                    </button>
+   333→   333→                  );
+   334→   334→                })}
+   335→   335→              </div>
+   336→   336→            </div>
+   337→   337→          ))}
+   338→   338→          <div className="border-t border-border pt-3 mt-2">
+   339→   339→            {BOTTOM_NAV_ITEMS.map((item) => {
+   340→   340→              const Icon = item.icon;
+   341→   341→              const isActive = currentView === item.id;
+   342→   342→              return (
+   343→   343→                <button
+   344→   344→                  key={item.id}
+   345→   345→                  onClick={() => {
+   346→   346→                    navigate(item.id as ViewId);
+   347→   347→                    onOpenChange(false);
+   348→   348→                  }}
+   349→   349→                  className={cn(
+   350→   350→                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+   351→   351→                    isActive
+   352→   352→                      ? 'bg-primary/10 text-primary font-medium'
+   353→   353→                      : 'text-foreground hover:bg-accent'
+   354→   354→                  )}
+   355→   355→                >
+   356→   356→                  <Icon className="size-4 shrink-0" />
+   357→   357→                  <span>{item.label}</span>
+   358→   358→                </button>
+   359→   359→              );
+   360→   360→            })}
+   361→   361→          </div>
+   362→   362→        </div>
+   363→   363→      </SheetContent>
+   364→   364→    </Sheet>
+   365→   365→  );
+   366→   366→}
+   367→   367→
+   368→   368→// ─── Command palette ─────────────────────────────────────────────────
+   369→   369→
+   370→   370→function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+   371→   371→  const commandOpen = useStore((s) => s.commandOpen);
+   372→   372→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   373→   373→  const navigate = useStore((s) => s.navigate);
+   374→   374→  const subjects = useStore((s) => s.subjects);
+   375→   375→  const tasks = useStore((s) => s.tasks);
+   376→   376→  const notes = useStore((s) => s.notes);
+   377→   377→  const exams = useStore((s) => s.exams);
+   378→   378→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   379→   379→
+   380→   380→  const handleSelect = useCallback(
+   381→   381→    (action: () => void) => {
+   382→   382→      setCommandOpen(false);
+   383→   383→      action();
+   384→   384→    },
+   385→   385→    [setCommandOpen]
+   386→   386→  );
+   387→   387→
+   388→   388→  if (!commandOpen) return null;
+   389→   389→
+   390→   390→  return (
+   391→   391→    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+   392→   392→      <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
+   393→   393→      <CommandList>
+   394→   394→        <CommandEmpty>No results found.</CommandEmpty>
+   395→   395→
+   396→   396→        <CommandGroup heading="Commands">
+   397→   397→          <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
+   398→   398→            <CheckSquare className="size-4" />
+   399→   399→            <span>Add Task</span>
+   400→   400→          </CommandItem>
+   401→   401→          <CommandItem onSelect={() => handleSelect(() => navigate('focus'))}>
+   402→   402→            <Timer className="size-4" />
+   403→   403→            <span>Start Focus</span>
+   404→   404→          </CommandItem>
+   405→   405→          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
+   406→   406→            <BarChart3 className="size-4" />
+   407→   407→            <span>Go to Marks</span>
+   408→   408→          </CommandItem>
+   409→   409→          <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
+   410→   410→            <UserCheck className="size-4" />
+   411→   411→            <span>Go to Attendance</span>
+   412→   412→          </CommandItem>
+   413→   413→        </CommandGroup>
+   414→   414→
+   415→   415→        <CommandSeparator />
+   416→   416→
+   417→   417→        {subjects.length > 0 && (
+   418→   418→          <CommandGroup heading="Subjects">
+   419→   419→            {subjects.map((s) => (
+   420→   420→              <CommandItem
+   421→   421→                key={s.id}
+   422→   422→                onSelect={() =>
+   423→   423→                  handleSelect(() => {
+   424→   424→                    useStore.getState().selectSubject(s.id);
+   425→   425→                    navigate('subject-detail');
+   426→   426→                  })
+   427→   427→                }
+   428→   428→              >
+   429→   429→                <BookOpen className="size-4" />
+   430→   430→                <span>
+   431→   431→                  {s.name}
+   432→   432→                  <span className="ml-2 text-muted-foreground">{s.code}</span>
+   433→   433→                </span>
+   434→   434→              </CommandItem>
+   435→   435→            ))}
+   436→   436→          </CommandGroup>
+   437→   437→        )}
+   438→   438→
+   439→   439→        {tasks.length > 0 && (
+   440→   440→          <CommandGroup heading="Tasks">
+   441→   441→            {tasks
+   442→   442→              .filter((t) => !t.completed)
+   443→   443→              .slice(0, 5)
+   444→   444→              .map((t) => (
+   445→   445→                <CommandItem
+   446→   446→                  key={t.id}
+   447→   447→                  onSelect={() => handleSelect(() => navigate('tasks'))}
+   448→   448→                >
+   449→   449→                  <CheckSquare className="size-4" />
+   450→   450→                  <span>{t.title}</span>
+   451→   451→                </CommandItem>
+   452→   452→              ))}
+   453→   453→          </CommandGroup>
+   454→   454→        )}
+   455→   455→
+   456→   456→        {notes.length > 0 && (
+   457→   457→          <CommandGroup heading="Notes">
+   458→   458→            {notes.slice(0, 5).map((n) => (
+   459→   459→              <CommandItem
+   460→   460→                key={n.id}
+   461→   461→                onSelect={() => handleSelect(() => navigate('notes'))}
+   462→   462→              >
+   463→   463→                <StickyNote className="size-4" />
+   464→   464→                <span>{n.title}</span>
+   465→   465→              </CommandItem>
+   466→   466→            ))}
+   467→   467→          </CommandGroup>
+   468→   468→        )}
+   469→   469→
+   470→   470→        {exams.length > 0 && (
+   471→   471→          <CommandGroup heading="Exams">
+   472→   472→            {exams
+   473→   473→              .filter((e) => e.status === 'upcoming')
+   474→   474→              .slice(0, 5)
+   475→   475→              .map((e) => (
+   476→   476→                <CommandItem
+   477→   477→                  key={e.id}
+   478→   478→                  onSelect={() => handleSelect(() => navigate('exams'))}
+   479→   479→                >
+   480→   480→                  <FileText className="size-4" />
+   481→   481→                  <span>{e.name}</span>
+   482→   482→                </CommandItem>
+   483→   483→              ))}
+   484→   484→          </CommandGroup>
+   485→   485→        )}
+   486→   486→
+   487→   487→        {syllabusUnits.length > 0 && (
+   488→   488→          <CommandGroup heading="Syllabus Topics">
+   489→   489→            {syllabusUnits
+   490→   490→              .flatMap((u) =>
+   491→   491→                u.topics.map((t) => ({
+   492→   492→                  ...t,
+   493→   493→                  unitName: u.name,
+   494→   494→                  subjectId: u.subjectId,
+   495→   495→                }))
+   496→   496→              )
+   497→   497→              .slice(0, 5)
+   498→   498→              .map((t) => (
+   499→   499→                <CommandItem
+   500→   500→                  key={t.id}
+   501→   501→                  onSelect={() =>
+   502→   502→                    handleSelect(() => {
+   503→   503→                      useStore.getState().selectSubject(t.subjectId);
+   504→   504→                      navigate('subject-detail');
+   505→   505→                    })
+   506→   506→                  }
+   507→   507→                >
+   508→   508→                  <BookOpen className="size-4" />
+   509→   509→                  <span>
+   510→   510→                    {t.name}
+   511→   511→                    <span className="ml-2 text-muted-foreground">
+   512→   512→                      {t.unitName}
+   513→   513→                    </span>
+   514→   514→                  </span>
+   515→   515→                </CommandItem>
+   516→   516→              ))}
+   517→   517→          </CommandGroup>
+   518→   518→        )}
+   519→   519→
+   520→   520→        <CommandSeparator />
+   521→   521→
+   522→   522→        <CommandGroup heading="Help">
+   523→   523→          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+   524→   524→            <Keyboard className="size-4" />
+   525→   525→            <span>Show all shortcuts</span>
+   526→   526→            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+   527→   527→            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   528→   528→              ?
+   529→   529→            </kbd>
+   530→   530→          </CommandItem>
+   531→   531→        </CommandGroup>
+   532→   532→      </CommandList>
+   533→   533→    </CommandDialog>
+   534→   534→  );
+   535→   535→}
+   536→   536→
+   537→   537→// ─── Desktop Sidebar ─────────────────────────────────────────────────
+   538→   538→
+   539→   539→function DesktopSidebar() {
+   540→   540→  const collapsed = useStore((s) => s.sidebarCollapsed);
+   541→   541→  const toggleSidebar = useStore((s) => s.toggleSidebar);
+   542→   542→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   543→   543→  const badges = useNavBadges();
+   544→   544→
+   545→   545→  return (
+   546→   546→    <aside
+   547→   547→      className={cn(
+   548→   548→        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+   549→   549→        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
+   550→   550→      )}
+   551→   551→    >
+   552→   552→      {/* Brand */}
+   553→   553→      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
+   554→   554→        {!collapsed && (
+   555→   555→          <span className="text-sm font-bold tracking-tight text-foreground select-none">
+   556→   556→            DELULU
+   557→   557→          </span>
+   558→   558→        )}
+   559→   559→        <button
+   560→   560→          onClick={toggleSidebar}
+   561→   561→          className={cn(
+   562→   562→            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+   563→   563→            collapsed ? 'mx-auto' : 'ml-auto'
+   564→   564→          )}
+   565→   565→          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+   566→   566→        >
+   567→   567→          {collapsed ? (
+   568→   568→            <PanelLeftOpen className="size-3.5" />
+   569→   569→          ) : (
+   570→   570→            <PanelLeftClose className="size-3.5" />
+   571→   571→          )}
+   572→   572→        </button>
+   573→   573→      </div>
+   574→   574→
+   575→   575→      {/* Search */}
+   576→   576→      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
+   577→   577→        <button
+   578→   578→          onClick={() => setCommandOpen(true)}
+   579→   579→          className={cn(
+   580→   580→            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+   581→   581→            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+   582→   582→          )}
+   583→   583→          aria-label="Open command palette"
+   584→   584→        >
+   585→   585→          <Search className="size-3.5 shrink-0" />
+   586→   586→          {!collapsed && (
+   587→   587→            <span className="flex-1 text-left text-xs">Search...</span>
+   588→   588→          )}
+   589→   589→          {!collapsed && (
+   590→   590→            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   591→   591→              ⌘K
+   592→   592→            </kbd>
+   593→   593→          )}
+   594→   594→        </button>
+   595→   595→      </div>
+   596→   596→
+   597→   597→      {/* Nav */}
+   598→   598→      <nav className={cn(
+   599→   599→        'scrollbar-thin flex-1 px-1.5 pt-1',
+   600→   600→        collapsed ? 'overflow-visible' : 'overflow-y-auto'
+   601→   601→      )}>
+   602→   602→        {NAV_GROUPS.map((group, gi) => (
+   603→   603→          <div key={group.label}>
+   604→   604→            {!collapsed && (
+   605→   605→              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
+   606→   606→            )}
+   607→   607→            {collapsed && gi > 0 && (
+   608→   608→              <div className="border-t border-border/50 my-2 mx-2" />
+   609→   609→            )}
+   610→   610→            {group.items.map((item) => (
+   611→   611→              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   612→   612→            ))}
+   613→   613→          </div>
+   614→   614→        ))}
+   615→   615→      </nav>
+   616→   616→
+   617→   617→      {/* Bottom */}
+   618→   618→      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+   619→   619→        {BOTTOM_NAV_ITEMS.map((item) => (
+   620→   620→          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   621→   621→        ))}
+   622→   622→      </div>
+   623→   623→    </aside>
+   624→   624→  );
+   625→   625→}
+   626→   626→
+   627→   627→// ─── Theme Toggle (mobile) ─────────────────────────────────────
+   628→   628→
+   629→   629→function ThemeToggle() {
+   630→   630→  const { theme, setTheme } = useTheme();
+   631→   631→  return (
+   632→   632→    <button
+   633→   633→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   634→   634→      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   635→   635→      aria-label="Toggle theme"
+   636→   636→    >
+   637→   637→      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+   638→   638→    </button>
+   639→   639→  );
+   640→   640→}
+   641→   641→
+   642→   642→// ─── Mobile Streak Badge ─────────────────────────────────────────
+   643→   643→
+   644→   644→function MobileStreakBadge() {
+   645→   645→  const studySessions = useStore((s) => s.studySessions);
+   646→   646→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   647→   647→
+   648→   648→  if (streak <= 0) return null;
+   649→   649→
+   650→   650→  return (
+   651→   651→    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+   652→   652→      <Flame className="size-3" />
+   653→   653→      {streak}
+   654→   654→    </span>
+   655→   655→  );
+   656→   656→}
+   657→   657→
+   658→   658→// ─── Desktop Top Bar ───────────────────────────────────────────────
+   659→   659→
+   660→   660→function DesktopTopBar() {
+   661→   661→  const { theme, setTheme } = useTheme();
+   662→   662→  const studySessions = useStore((s) => s.studySessions);
+   663→   663→  const subjects = useStore((s) => s.subjects);
+   664→   664→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   665→   665→  const assessments = useStore((s) => s.assessments);
+   666→   666→  const attendance = useStore((s) => s.attendance);
+   667→   667→  const revisionItems = useStore((s) => s.revisionItems);
+   668→   668→  const profile = useStore((s) => s.profile);
+   669→   669→
+   670→   670→  const healthScore = useMemo(
+   671→   671→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   672→   672→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   673→   673→  );
+   674→   674→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   675→   675→  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   676→   676→
+   677→   677→  const todayMinutes = Math.floor(studyToday / 60);
+   678→   678→  const todayH = Math.floor(todayMinutes / 60);
+   679→   679→  const todayM = todayMinutes % 60;
+   680→   680→  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+   681→   681→
+   682→   682→  return (
+   683→   683→    <div className="top-bar hidden lg:flex items-center gap-3 px-6 py-1.5">
+   684→   684→      <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+   685→   685→      <span className="text-border">·</span>
+   686→   686→      <div className="flex items-center gap-3">
+   687→   687→        <span className={cn(
+   688→   688→          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+   689→   689→          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+   690→   690→        )}>
+   691→   691→          Health {healthScore}
+   692→   692→        </span>
+   693→   693→        {streak > 0 && (
+   694→   694→          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+   695→   695→            <Flame className="size-3" />
+   696→   696→            <span className="font-semibold tabular-nums">{streak}d</span>
+   697→   697→          </span>
+   698→   698→        )}
+   699→   699→        <span className="inline-flex items-center gap-1 text-muted-foreground">
+   700→   700→          <Clock className="size-3" />
+   701→   701→          <span className="tabular-nums">{todayStr}</span>
+   702→   702→        </span>
+   703→   703→      </div>
+   704→   704→      <div className="flex-1" />
+   705→   705→      <div className="flex items-center gap-2">
+   706→   706→        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
+   707→   707→          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   708→   708→        </button>
+   709→   709→      </div>
+   710→   710→    </div>
+   711→   711→  );
+   712→   712→}
+   713→   713→
+   714→   714→// ─── Mobile FAB ──────────────────────────────────────────────────
+   715→   715→
+   716→   716→const FAB_ACTIONS: ({ label: string; icon: LucideIcon; view?: ViewId; color: string; customAction?: string })[] = [
+   717→   717→  { label: 'Quick Note', icon: StickyNote, color: 'bg-amber-500 dark:bg-amber-400', customAction: 'quick-note' },
+   718→   718→  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+   719→   719→  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+   720→   720→  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+   721→   721→];
+   722→   722→
+   723→   723→function MobileFAB() {
+   724→   724→  const [open, setOpen] = useState(false);
+   725→   725→  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+   726→   726→  const navigate = useStore((s) => s.navigate);
+   727→   727→  const currentView = useStore((s) => s.currentView);
+   728→   728→  const fabRef = useRef<HTMLDivElement>(null);
+   729→   729→
+   730→   730→  // Auto-close when navigating away (store currentView is external state)
+   731→   731→  const prevViewRef = useRef(currentView);
+   732→   732→  /* eslint-disable react-hooks/set-state-in-effect */
+   733→   733→  useEffect(() => {
+   734→   734→    if (prevViewRef.current !== currentView) {
+   735→   735→      prevViewRef.current = currentView;
+   736→   736→      setOpen(false);
+   737→   737→    }
+   738→   738→  }, [currentView]);
+   739→   739→  /* eslint-enable react-hooks/set-state-in-effect */
+   740→   740→
+   741→   741→  const handleClose = useCallback(() => setOpen(false), []);
+   742→   742→
+   743→   743→  // Close on outside click
+   744→   744→  useEffect(() => {
+   745→   745→    if (!open) return;
+   746→   746→    const handleClick = (e: MouseEvent) => {
+   747→   747→      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+   748→   748→        setOpen(false);
+   749→   749→      }
+   750→   750→    };
+   751→   751→    // Delay to avoid immediate close from the toggle click
+   752→   752→    const timer = setTimeout(() => {
+   753→   753→      document.addEventListener('mousedown', handleClick);
+   754→   754→    }, 0);
+   755→   755→    return () => {
+   756→   756→      clearTimeout(timer);
+   757→   757→      document.removeEventListener('mousedown', handleClick);
+   758→   758→    };
+   759→   759→  }, [open]);
+   760→   760→
+   761→   761→  const handleAction = (action: typeof FAB_ACTIONS[number]) => {
+   762→   762→    setOpen(false);
+   763→   763→    if (action.customAction === 'quick-note') {
+   764→   764→      setQuickNoteOpen(true);
+   765→   765→    } else if (action.view) {
+   766→   766→      navigate(action.view);
+   767→   767→    }
+   768→   768→  };
+   769→   769→
+   770→   770→  return (
+   771→   771→    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+   772→   772→      {/* Backdrop overlay when open */}
+   773→   773→      <AnimatePresence>
+   774→   774→        {open && (
+   775→   775→          <motion.div
+   776→   776→            initial={{ opacity: 0 }}
+   777→   777→            animate={{ opacity: 1 }}
+   778→   778→            exit={{ opacity: 0 }}
+   779→   779→            transition={{ duration: 0.15 }}
+   780→   780→            className="fixed inset-0 z-[-1]"
+   781→   781→            onClick={() => setOpen(false)}
+   782→   782→          />
+   783→   783→        )}
+   784→   784→      </AnimatePresence>
+   785→   785→
+   786→   786→      {/* Radial menu items */}
+   787→   787→      <AnimatePresence>
+   788→   788→        {open && (
+   789→   789→          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+   790→   790→            {FAB_ACTIONS.map((action, i) => {
+   791→   791→              const Icon = action.icon;
+   792→   792→              return (
+   793→   793→                <motion.div
+   794→   794→                  key={action.label}
+   795→   795→                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   796→   796→                  animate={{ opacity: 1, scale: 1, y: 0 }}
+   797→   797→                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+   798→   798→                  transition={{ duration: 0.2, delay: i * 0.04 }}
+   799→   799→                  className="flex items-center gap-2.5"
+   800→   800→                >
+   801→   801→                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+   802→   802→                    {action.label}
+   803→   803→                  </span>
+   804→   804→                  <button
+   805→   805→                    onClick={() => handleAction(action)}
+   806→   806→                    className={cn(
+   807→   807→                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+   808→   808→                      action.color,
+   809→   809→                      'text-white'
+   810→   810→                    )}
+   811→   811→                    aria-label={action.label}
+   812→   812→                  >
+   813→   813→                    <Icon className="size-4" />
+   814→   814→                  </button>
+   815→   815→                </motion.div>
+   816→   816→              );
+   817→   817→            })}
+   818→   818→          </div>
+   819→   819→        )}
+   820→   820→      </AnimatePresence>
+   821→   821→
+   822→   822→      {/* Main FAB button */}
+   823→   823→      <motion.button
+   824→   824→        onClick={() => setOpen((prev) => !prev)}
+   825→   825→        whileTap={{ scale: 0.92 }}
+   826→   826→        className="h-12 w-12 rounded-full bg-primary text-primary-foreground fab-shadow press-scale flex items-center justify-center"
+   827→   827→        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+   828→   828→        style={{ rotate: open ? 45 : 0 }}
+   829→   829→        transition={{ duration: 0.2 }}
+   830→   830→      >
+   831→   831→        <Plus className="size-5" />
+   832→   832→      </motion.button>
+   833→   833→
+   834→   834→      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
+   835→   835→    </div>
+   836→   836→  );
+   837→   837→}
+   838→   838→
+   839→   839→// ─── App Shell ───────────────────────────────────────────────────────
+   840→   840→
+   841→   841→export function AppShell() {
+   842→   842→  const subjects = useStore((s) => s.subjects);
+   843→   843→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   844→   844→  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+   845→   845→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   846→   846→  const { theme, setTheme } = useTheme();
+   847→   847→
+   848→   848→  const showShortcuts = useCallback(() => {
+   849→   849→    setCommandOpen(false);
+   850→   850→    setShortcutsOpen(true);
+   851→   851→  }, [setCommandOpen]);
+   852→   852→
+   853→   853→  useEffect(() => {
+   854→   854→    const NUMBER_KEY_VIEWS: Record<string, ViewId> = {
+   855→   855→      '1': 'dashboard',
+   856→   856→      '2': 'subjects',
+   857→   857→      '3': 'marks',
+   858→   858→      '4': 'attendance',
+   859→   859→      '5': 'exams',
+   860→   860→      '6': 'focus',
+   861→   861→      '7': 'revision',
+   862→   862→      '8': 'notes',
+   863→   863→      '9': 'tasks',
+   864→   864→    };
+   865→   865→
+   866→   866→    const handleKeyDown = (e: KeyboardEvent) => {
+   867→   867→      // Don't capture when typing in inputs
+   868→   868→      const tag = (e.target as HTMLElement)?.tagName;
+   869→   869→      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+   870→   870→      const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+   871→   871→
+   872→   872→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   873→   873→        e.preventDefault();
+   874→   874→        setCommandOpen(true);
+   875→   875→      }
+   876→   876→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+   877→   877→        e.preventDefault();
+   878→   878→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   879→   879→      }
+   880→   880→      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+   881→   881→        e.preventDefault();
+   882→   882→        useStore.getState().navigate('settings');
+   883→   883→      }
+   884→   884→      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+   885→   885→        e.preventDefault();
+   886→   886→        setShortcutsOpen((prev) => !prev);
+   887→   887→      }
+   888→   888→      // Number keys 1-9 for view navigation (no modifiers, not in input)
+   889→   889→      if (!isInput && !hasModifier && !e.shiftKey && NUMBER_KEY_VIEWS[e.key]) {
+   890→   890→        e.preventDefault();
+   891→   891→        useStore.getState().navigate(NUMBER_KEY_VIEWS[e.key]);
+   892→   892→      }
+   893→   893→      // D key for theme toggle (no modifiers, not in input)
+   894→   894→      if (!isInput && !hasModifier && e.key === 'd') {
+   895→   895→        e.preventDefault();
+   896→   896→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   897→   897→      }
+   898→   898→      // N key for context-sensitive new action (no modifiers, not in input)
+   899→   899→      if (!isInput && !hasModifier && e.key === 'n') {
+   900→   900→        e.preventDefault();
+   901→   901→        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
+   902→   902→      }
+   903→   903→    };
+   904→   904→    document.addEventListener('keydown', handleKeyDown);
+   905→   905→    return () => document.removeEventListener('keydown', handleKeyDown);
+   906→   906→  }, [setCommandOpen, theme, setTheme]);
+   907→   907→
+   908→   908→  return (
+   909→   909→    <ToastProvider>
+   910→   910→    <MobileFAB />
+   911→   911→    <div className="flex min-h-screen">
+   912→   912→      <DesktopSidebar />
+   913→   913→
+   914→   914→      <main className="flex-1 min-w-0 flex flex-col">
+   915→   915→        <DesktopTopBar />
+   916→   916→        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
+   917→   917→          {/* Mobile header */}
+   918→   918→          <div className="flex items-center justify-between mb-5 md:mb-0">
+   919→   919→            <div className="flex items-center gap-2">
+   920→   920→              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+   921→   921→                DELULU
+   922→   922→              </span>
+   923→   923→              <MobileStreakBadge />
+   924→   924→            </div>
+   925→   925→            <div className="flex items-center gap-1.5 ml-auto">
+   926→   926→              <ThemeToggle />
+   927→   927→              <button
+   928→   928→                onClick={() => setCommandOpen(true)}
+   929→   929→                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   930→   930→                aria-label="Search"
+   931→   931→              >
+   932→   932→                <Search className="size-4" />
+   933→   933→              </button>
+   934→   934→            </div>
+   935→   935→          </div>
+   936→   936→
+   937→   937→          {/* Onboarding — shows when no subjects exist */}
+   938→   938→          {subjects.length === 0 && <Onboarding />}
+   939→   939→
+   940→   940→          <ViewRouter />
+   941→   941→        </div>
+   942→   942→      </main>
+   943→   943→
+   944→   944→      <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
+   945→   945→      <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
+   946→   946→      <CommandPalette onShowShortcuts={showShortcuts} />
+   947→   947→      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+   948→   948→    </div>
+   949→   949→    </ToastProvider>
+   950→   950→  );
+   951→   951→}
+   952→   952→

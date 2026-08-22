@@ -102,6 +102,7 @@ import {
   EmptyState,
   CompactProgress,
 } from '@/components/shared';
+import { cn } from '@/lib/utils';
 
 // -- Helpers ------------------------------------------------------------
 
@@ -347,6 +348,121 @@ function OverviewTab({ subjectId }: { subjectId: string }) {
           )}
         </div>
       </motion.div>
+
+      {/* Weekly Study Time Trend + Attendance Trend */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Weekly Study Time Trend */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <div className="metric-card p-3.5">
+            <span className="section-label">Weekly Study Time</span>
+            <WeeklyStudyMiniChart studySessions={studySessions} />
+          </div>
+        </motion.div>
+
+        {/* Attendance Trend */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <div className="metric-card p-3.5">
+            <span className="section-label">Attendance Trend</span>
+            <AttendanceDotChart attendance={attendance} />
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// --- Mini chart: Weekly study time bars (subject-filtered) ---
+function WeeklyStudyMiniChart({ studySessions }: { studySessions: { date: string; duration: number }[] }) {
+  const bars = useMemo(() => {
+    const days: { label: string; minutes: number; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayMinutes = Math.floor(studySessions
+        .filter((s) => s.date === dateStr)
+        .reduce((sum, s) => sum + s.duration / 60, 0));
+      days.push({
+        label: format(d, 'EEE').charAt(0),
+        minutes: dayMinutes,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  }, [studySessions]);
+
+  const maxMin = Math.max(...bars.map((b) => b.minutes), 1);
+
+  return (
+    <div className="flex items-end gap-1.5 h-12 mt-2">
+      {bars.map((b, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <div className="w-full relative" style={{ height: '32px' }}>
+            <div
+              className={cn(
+                'absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 rounded-t-sm transition-all duration-500',
+                b.isToday ? 'bg-primary' : 'bg-primary/25',
+              )}
+              style={{ height: `${Math.max(4, (b.minutes / maxMin) * 100)}%` }}
+            />
+          </div>
+          <span className={cn('text-[8px] tabular-nums', b.isToday ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+            {b.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// --- Mini chart: Attendance trend dot chart ---
+function AttendanceDotChart({ attendance }: { attendance: { date: string; present: boolean }[] }) {
+  const dots = useMemo(() => {
+    // Get last 7 attendance records sorted by date
+    const sorted = [...attendance].sort((a, b) => a.date.localeCompare(b.date));
+    return sorted.slice(-7);
+  }, [attendance]);
+
+  if (dots.length === 0) {
+    return <p className="text-xs text-muted-foreground mt-2">No records</p>;
+  }
+
+  return (
+    <div className="mt-2">
+      <svg viewBox="0 0 100 28" className="w-full h-7">
+        {/* Connecting line */}
+        {dots.length > 1 && (
+          <polyline
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth="0.5"
+            points={dots.map((d, i) => `${(i / (dots.length - 1)) * 90 + 5},14`).join(' ')}
+          />
+        )}
+        {/* Dots */}
+        {dots.map((d, i) => {
+          const cx = dots.length > 1 ? (i / (dots.length - 1)) * 90 + 5 : 50;
+          const color = d.present ? 'var(--delulu-success)' : 'var(--delulu-danger)';
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={14}
+              r={3}
+              fill={color}
+            />
+          );
+        })}
+      </svg>
+      {/* Date labels */}
+      <div className="flex justify-between">
+        <span className="text-[7px] text-muted-foreground tabular-nums">
+          {dots[0]?.date.slice(5)}
+        </span>
+        <span className="text-[7px] text-muted-foreground tabular-nums">
+          {dots[dots.length - 1]?.date.slice(5)}
+        </span>
+      </div>
     </div>
   );
 }

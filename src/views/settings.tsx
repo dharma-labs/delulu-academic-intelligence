@@ -1,19 +1,70 @@
 'use client';
 
-import { useStore, exportData as storeExportData, importData as storeImportData, resetData as storeResetData } from '@/lib/store';
+import { useStore } from '@/lib/store';
 import { useTheme } from 'next-themes';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useRef } from 'react';
-import { User, Palette, Database, Info, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle } from 'lucide-react';
+import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader, SectionHeader, InsightCard } from '@/components/shared';
+import { PageHeader, InsightCard } from '@/components/shared';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/toast';
+import { cn } from '@/lib/utils';
+
+// ─── Section Wrapper ─────────────────────────────────────────────
+
+function SettingsSection({
+  icon: Icon,
+  title,
+  children,
+  className,
+}: {
+  icon: typeof User;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={cn('metric-card', className)}
+    >
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
+          <Icon className="size-3.5 text-primary" />
+        </div>
+        <span className="section-label">{title}</span>
+      </div>
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── Settings Input ──────────────────────────────────────────────
+
+function SettingsInput({
+  label,
+  ...props
+}: { label: string } & React.ComponentProps<typeof Input>) {
+  return (
+    <div className="space-y-1.5">
+      <span className="section-label">{label}</span>
+      <Input
+        {...props}
+        className={cn(
+          'bg-secondary/50 border-input focus:ring-primary/20',
+          props.className
+        )}
+      />
+    </div>
+  );
+}
 
 export default function SettingsView() {
   const { profile, updateProfile } = useStore();
@@ -29,7 +80,7 @@ export default function SettingsView() {
 
   const handleSave = () => {
     updateProfile(localProfile);
-    toast.success('Profile saved');
+    showToast({ title: 'Settings saved', description: 'Your profile has been updated.', variant: 'success' });
   };
 
   const handleExport = () => {
@@ -100,268 +151,214 @@ export default function SettingsView() {
         subtitle="Manage your profile, appearance, and data"
       />
 
-      {/* Profile Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-4"
-      >
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <SectionHeader title="Profile" subtitle="Your academic information" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <div className="space-y-1.5">
-                <span className="section-label">Name</span>
-                <Input
-                  value={localProfile.name}
-                  onChange={(e) => setLocalProfile({ ...localProfile, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">Semester</span>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={localProfile.semester}
-                  onChange={(e) => setLocalProfile({ ...localProfile, semester: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">Branch</span>
-                <Input
-                  placeholder="e.g. Computer Science"
-                  value={localProfile.branch}
-                  onChange={(e) => setLocalProfile({ ...localProfile, branch: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">College</span>
-                <Input
-                  placeholder="Your college name"
-                  value={localProfile.college}
-                  onChange={(e) => setLocalProfile({ ...localProfile, college: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">Target CGPA</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={10}
-                  step={0.1}
-                  value={localProfile.targetCGPA}
-                  onChange={(e) => setLocalProfile({ ...localProfile, targetCGPA: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">Attendance Threshold (%)</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={localProfile.attendanceThreshold}
-                  onChange={(e) => setLocalProfile({ ...localProfile, attendanceThreshold: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="section-label">Weekly Study Goal (hours)</span>
-                <Input
-                  type="number"
-                  min={1}
-                  max={80}
-                  value={localProfile.weeklyStudyGoalHours ?? 10}
-                  onChange={(e) => setLocalProfile({ ...localProfile, weeklyStudyGoalHours: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="mt-5">
-              <Button onClick={handleSave} size="sm">
-                <Save className="w-3.5 h-3.5 mr-1.5" />Save Profile
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* ── PROFILE ── */}
+      <SettingsSection icon={User} title="PROFILE" className="mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <SettingsInput
+            label="Name"
+            value={localProfile.name}
+            onChange={(e) => setLocalProfile({ ...localProfile, name: e.target.value })}
+          />
+          <SettingsInput
+            label="Semester"
+            type="number"
+            min={1}
+            max={12}
+            value={localProfile.semester}
+            onChange={(e) => setLocalProfile({ ...localProfile, semester: Number(e.target.value) })}
+          />
+          <SettingsInput
+            label="Branch"
+            placeholder="e.g. Computer Science"
+            value={localProfile.branch}
+            onChange={(e) => setLocalProfile({ ...localProfile, branch: e.target.value })}
+          />
+          <SettingsInput
+            label="College"
+            placeholder="Your college name"
+            value={localProfile.college}
+            onChange={(e) => setLocalProfile({ ...localProfile, college: e.target.value })}
+          />
+          <SettingsInput
+            label="Target CGPA"
+            type="number"
+            min={0}
+            max={10}
+            step={0.1}
+            value={localProfile.targetCGPA}
+            onChange={(e) => setLocalProfile({ ...localProfile, targetCGPA: Number(e.target.value) })}
+          />
+          <SettingsInput
+            label="Attendance Threshold (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={localProfile.attendanceThreshold}
+            onChange={(e) => setLocalProfile({ ...localProfile, attendanceThreshold: Number(e.target.value) })}
+          />
+        </div>
+      </SettingsSection>
 
-      {/* Appearance Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="mb-4"
-      >
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <SectionHeader title="Appearance" subtitle="Customize how Delulu looks" />
-            <div className="flex gap-3 mt-4">
-              {themeOptions.map((opt) => {
-                const Icon = opt.icon;
-                const active = theme === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setTheme(opt.value)}
-                    className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors min-h-[72px] justify-center ${
-                      active ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:border-primary/25 text-muted-foreground'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* ── STUDY PREFERENCES ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Clock} title="STUDY PREFERENCES" className="mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SettingsInput
+              label="Weekly Study Goal (hours)"
+              type="number"
+              min={1}
+              max={80}
+              value={localProfile.weeklyStudyGoalHours ?? 10}
+              onChange={(e) => setLocalProfile({ ...localProfile, weeklyStudyGoalHours: Number(e.target.value) })}
+            />
+          </div>
+        </SettingsSection>
+      </div>
 
-      {/* Data Management Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="mb-4"
-      >
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <SectionHeader title="Data Management" subtitle="Export, import, or reset your data" />
-            <div className="flex flex-col sm:flex-row gap-2 mt-4">
-              <Button variant="outline" onClick={handleExport} className="flex-1" size="sm">
-                <Download className="w-3.5 h-3.5 mr-1.5" />Export JSON Backup
-              </Button>
-              <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportFile(null); }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1" size="sm">
-                    <Upload className="w-3.5 h-3.5 mr-1.5" />Import Backup
+      {/* ── APPEARANCE ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Palette} title="APPEARANCE" className="mb-4">
+          <div className="flex gap-3">
+            {themeOptions.map((opt) => {
+              const Icon = opt.icon;
+              const active = theme === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setTheme(opt.value)}
+                  className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors min-h-[72px] justify-center ${
+                    active ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:border-primary/25 text-muted-foreground'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs font-medium">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </SettingsSection>
+      </div>
+
+      {/* ── DATA MANAGEMENT ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Database} title="DATA MANAGEMENT" className="mb-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleExport} className="flex-1" size="sm">
+              <Download className="w-3.5 h-3.5 mr-1.5" />Export JSON Backup
+            </Button>
+            <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportFile(null); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1" size="sm">
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />Import Backup
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Import Backup</DialogTitle>
+                  <DialogDescription>
+                    This will <strong>overwrite all existing data</strong> with the contents of {importFile?.name || 'the selected file'}. This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" size="sm" onClick={() => { setImportDialogOpen(false); setImportFile(null); }}>Cancel</Button>
+                  <Button size="sm" onClick={confirmImport} disabled={!importFile}>
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />Confirm Import
                   </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Import Backup</DialogTitle>
-                    <DialogDescription>
-                      This will <strong>overwrite all existing data</strong> with the contents of {importFile?.name || 'the selected file'}. This action cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" size="sm" onClick={() => { setImportDialogOpen(false); setImportFile(null); }}>Cancel</Button>
-                    <Button size="sm" onClick={confirmImport} disabled={!importFile}>
-                      <Upload className="w-3.5 h-3.5 mr-1.5" />Confirm Import
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportPick} />
+          </div>
+          <Separator className="my-4" />
+          <div className="space-y-3">
+            <InsightCard
+              type="warning"
+              icon={Trash2}
+              title="Reset all data to defaults"
+              description="This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data."
+              action={
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />Reset All Data
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportPick} />
-            </div>
-            <Separator className="my-4" />
-            <div className="space-y-3">
-              <InsightCard
-                type="warning"
-                icon={Trash2}
-                title="Reset all data to defaults"
-                description="This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data."
-                action={
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />Reset All Data
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data. Type <strong>RESET</strong> to confirm.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <Input
-                        placeholder='Type "RESET" to confirm'
-                        value={resetText}
-                        onChange={(e) => setResetText(e.target.value)}
-                        className="my-4"
-                      />
-                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setResetText('')}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleReset}
-                          disabled={resetText !== 'RESET'}
-                          className="bg-destructive text-white hover:bg-destructive/90"
-                        >
-                          Reset Everything
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data. Type <strong>RESET</strong> to confirm.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Input
+                      placeholder='Type "RESET" to confirm'
+                      value={resetText}
+                      onChange={(e) => setResetText(e.target.value)}
+                      className="my-4 bg-secondary/50 border-input focus:ring-primary/20"
+                    />
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setResetText('')}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleReset}
+                        disabled={resetText !== 'RESET'}
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                      >
+                        Reset Everything
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              }
+            />
+          </div>
+        </SettingsSection>
+      </div>
 
-      {/* AI Tutor Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.15 }}
-        className="mb-4"
-      >
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <SectionHeader title="AI Tutor" subtitle="Configure the optional AI assistant" />
-            <div className="mt-4 space-y-2">
-              <InsightCard
-                type="info"
-                icon={Bot}
-                title="No configuration needed"
-                description="AI Tutor uses the built-in LLM skill. It works out of the box when online. The app works fully offline without it."
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* ── AI TUTOR ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Bot} title="AI TUTOR" className="mb-4">
+          <InsightCard
+            type="info"
+            icon={Bot}
+            title="No configuration needed"
+            description="AI Tutor uses the built-in LLM skill. It works out of the box when online. The app works fully offline without it."
+          />
+        </SettingsSection>
+      </div>
 
-      {/* About Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-      >
-        <Card className="border border-border">
-          <CardContent className="p-5">
-            <SectionHeader title="About" />
-            <div className="mt-3 space-y-2.5">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">App</span>
-                <span className="text-xs font-medium">Delulu 4.0</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Version</span>
-                <span className="text-xs font-medium">4.0.0</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Data Storage</span>
-                <span className="text-xs font-medium">Local (your device only)</span>
-              </div>
-              <Separator className="my-1" />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                An Academic Operating System for serious students. Fun brand. Serious product.
-              </p>
+      {/* ── ABOUT ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Info} title="ABOUT" className="mb-4">
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">App</span>
+              <span className="text-xs font-medium">Delulu 4.0</span>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Version</span>
+              <span className="text-xs font-medium">4.0.0</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Data Storage</span>
+              <span className="text-xs font-medium">Local (your device only)</span>
+            </div>
+            <Separator className="my-1" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              An Academic Operating System for serious students. Fun brand. Serious product.
+            </p>
+          </div>
+        </SettingsSection>
+      </div>
 
-      {/* Danger Zone */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.25 }}
-        className="mt-4 mb-8"
-      >
-        <SectionHeader title="Danger Zone" />
-        <div className="metric-card metric-card-accent-danger mt-3 !border-l-red-500 dark:!border-l-red-400">
+      {/* ── DANGER ZONE ── */}
+      <div className="border-t border-border/50 pt-4 mt-4 mb-4">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center justify-center size-7 rounded-lg bg-red-500/10">
+            <AlertTriangle className="size-3.5 text-red-500 dark:text-red-400" />
+          </div>
+          <span className="section-label">DANGER ZONE</span>
+        </div>
+        <div className="metric-card metric-card-accent-danger">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -397,7 +394,7 @@ export default function SettingsView() {
                     placeholder='Type "DELETE" to confirm'
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    className="text-center"
+                    className="text-center bg-secondary/50 border-input focus:ring-primary/20"
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
@@ -421,7 +418,14 @@ export default function SettingsView() {
             </Dialog>
           </div>
         </div>
-      </motion.div>
+      </div>
+
+      {/* ── SAVE BUTTON ── */}
+      <Button onClick={handleSave} className="w-full" size="default">
+        <Save className="w-4 h-4 mr-2" />Save Changes
+      </Button>
+
+      <div className="h-8" />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { ToastProviderInner, useToastContext, type ToastOptions, type ToastVariant } from '@/lib/toast-store';
-import { CheckCircle, AlertTriangle, XCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 
 // ─── Variant config ─────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ const VARIANT_CONFIG: Record<
     progressClass: 'bg-primary',
   },
   success: {
-    icon: CheckCircle,
+    icon: CheckCircle2,
     borderClass: 'metric-card-accent-success',
     iconClass: 'text-emerald-500 dark:text-emerald-400',
     titleClass: 'text-foreground',
@@ -38,6 +38,13 @@ const VARIANT_CONFIG: Record<
     iconClass: 'text-red-500 dark:text-red-400',
     titleClass: 'text-foreground',
     progressClass: 'bg-red-500 dark:bg-red-400',
+  },
+  info: {
+    icon: Info,
+    borderClass: 'metric-card-accent-info',
+    iconClass: 'text-blue-500 dark:text-blue-400',
+    titleClass: 'text-foreground',
+    progressClass: 'bg-blue-500 dark:bg-blue-400',
   },
 };
 
@@ -82,7 +89,7 @@ function ToastItem({
   return (
     <div
       className={cn(
-        'metric-card w-80 max-w-[calc(100vw-2rem)] flex flex-col gap-0 overflow-hidden',
+        'metric-card w-80 max-w-[calc(100vw-2rem)] flex flex-col gap-0 overflow-hidden shadow-lg',
         config.borderClass,
         t.dismissing ? 'toast-exit' : 'toast-enter'
       )}

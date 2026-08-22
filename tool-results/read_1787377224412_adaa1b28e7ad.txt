@@ -1,0 +1,952 @@
+     1→'use client';
+     2→
+     3→import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+     4→import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+     5→import type { ViewId } from '@/lib/types';
+     6→import { ViewRouter } from '@/components/view-router';
+     7→import { format } from 'date-fns';
+     8→import {
+     9→  CommandDialog,
+    10→  CommandInput,
+    11→  CommandList,
+    12→  CommandEmpty,
+    13→  CommandGroup,
+    14→  CommandItem,
+    15→  CommandSeparator,
+    16→} from '@/components/ui/command';
+    17→import {
+    18→  Sheet,
+    19→  SheetContent,
+    20→  SheetHeader,
+    21→  SheetTitle,
+    22→  SheetDescription,
+    23→} from '@/components/ui/sheet';
+    24→import {
+    25→  LayoutDashboard,
+    26→  BookOpen,
+    27→  BarChart3,
+    28→  UserCheck,
+    29→  FileText,
+    30→  Timer,
+    31→  BrainCircuit,
+    32→  StickyNote,
+    33→  CalendarDays,
+    34→  Clock,
+    35→  CheckSquare,
+    36→  TrendingUp,
+    37→  FileSearch,
+    38→  Bot,
+    39→  Settings,
+    40→  Search,
+    41→  PanelLeftClose,
+    42→  PanelLeftOpen,
+    43→  GraduationCap,
+    44→  MoreHorizontal,
+    45→  ClipboardList,
+    46→  Flame,
+    47→  Keyboard,
+    48→  ArrowRight,
+    49→  Sun,
+    50→  Moon,
+    51→  Plus,
+    52→  type LucideIcon,
+    53→} from 'lucide-react';
+    54→import { useTheme } from 'next-themes';
+    55→import { cn } from '@/lib/utils';
+    56→import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
+    57→import { Onboarding } from '@/components/onboarding';
+    58→import { QuickNoteDialog } from '@/components/quick-note-dialog';
+    59→import { ToastProvider } from '@/components/toast';
+    60→import { motion, AnimatePresence } from 'framer-motion';
+    61→
+    62→// ─── Notification badges hook ──────────────────────────────────────
+    63→
+    64→function useNavBadges() {
+    65→  const tasks = useStore((s) => s.tasks);
+    66→  const revisionItems = useStore((s) => s.revisionItems);
+    67→  const exams = useStore((s) => s.exams);
+    68→  const assignments = useStore((s) => s.assignments);
+    69→
+    70→  return useMemo(() => {
+    71→    const badges: Partial<Record<ViewId, number>> = {};
+    72→
+    73→    // Overdue tasks
+    74→    const today = new Date().toISOString().split('T')[0];
+    75→    const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+    76→    if (overdueTasks.length > 0) badges['tasks'] = overdueTasks.length;
+    77→
+    78→    // Due revisions
+    79→    const dueRevisions = revisionItems.filter(r => {
+    80→      const nextReview = new Date(r.nextReview);
+    81→      return nextReview <= new Date();
+    82→    });
+    83→    if (dueRevisions.length > 0) badges['revision'] = dueRevisions.length;
+    84→
+    85→    // Upcoming exams (within 7 days)
+    86→    const weekFromNow = new Date();
+    87→    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    88→    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= weekFromNow.toISOString().split('T')[0]);
+    89→    if (upcomingExams.length > 0) badges['exams'] = upcomingExams.length;
+    90→
+    91→    // Upcoming assignments (within 3 days)
+    92→    const threeDays = new Date();
+    93→    threeDays.setDate(threeDays.getDate() + 3);
+    94→    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= threeDays.toISOString().split('T')[0]);
+    95→    if (upcomingAssign.length > 0) badges['assignments'] = upcomingAssign.length;
+    96→
+    97→    return badges;
+    98→  }, [tasks, revisionItems, exams, assignments]);
+    99→}
+   100→
+   101→// ─── Nav badge component ──────────────────────────────────────────
+   102→
+   103→function NavBadge({ count }: { count: number }) {
+   104→  if (count <= 0) return null;
+   105→  const display = count > 9 ? '9+' : String(count);
+   106→  return (
+   107→    <span className="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white leading-none animate-badge-pop">
+   108→      {display}
+   109→    </span>
+   110→  );
+   111→}
+   112→
+   113→// ─── Nav item types ─────────────────────────────────────────────────
+   114→
+   115→interface NavItem {
+   116→  id: ViewId | 'more';
+   117→  label: string;
+   118→  icon: LucideIcon;
+   119→}
+   120→
+   121→interface NavGroup {
+   122→  label: string;
+   123→  items: NavItem[];
+   124→}
+   125→
+   126→// ─── Navigation structure ────────────────────────────────────────────
+   127→
+   128→const NAV_GROUPS: NavGroup[] = [
+   129→  {
+   130→    label: 'Overview',
+   131→    items: [
+   132→      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+   133→    ],
+   134→  },
+   135→  {
+   136→    label: 'Academic',
+   137→    items: [
+   138→      { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   139→      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
+   140→      { id: 'attendance', label: 'Attendance', icon: UserCheck },
+   141→      { id: 'exams', label: 'Exams', icon: FileText },
+   142→      { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+   143→    ],
+   144→  },
+   145→  {
+   146→    label: 'Study',
+   147→    items: [
+   148→      { id: 'focus', label: 'Focus', icon: Timer },
+   149→      { id: 'revision', label: 'Revision', icon: BrainCircuit },
+   150→      { id: 'notes', label: 'Notes', icon: StickyNote },
+   151→      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+   152→    ],
+   153→  },
+   154→  {
+   155→    label: 'Planning',
+   156→    items: [
+   157→      { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+   158→      { id: 'timetable', label: 'Timetable', icon: Clock },
+   159→    ],
+   160→  },
+   161→  {
+   162→    label: 'Intelligence',
+   163→    items: [
+   164→      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+   165→      { id: 'er-center', label: 'ER Center', icon: FileSearch },
+   166→      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+   167→      { id: 'report', label: 'Report', icon: GraduationCap },
+   168→    ],
+   169→  },
+   170→];
+   171→
+   172→const BOTTOM_NAV_ITEMS: NavItem[] = [
+   173→  { id: 'settings', label: 'Settings', icon: Settings },
+   174→];
+   175→
+   176→// Mobile bottom nav items
+   177→const MOBILE_NAV_ITEMS: NavItem[] = [
+   178→  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+   179→  { id: 'subjects', label: 'Subjects', icon: BookOpen },
+   180→  { id: 'focus', label: 'Study', icon: Timer },
+   181→  { id: 'calendar', label: 'Plan', icon: CalendarDays },
+   182→  { id: 'more', label: 'More', icon: MoreHorizontal },
+   183→];
+   184→
+   185→// ─── Sidebar nav item component ──────────────────────────────────────
+   186→
+   187→function SidebarNavItem({
+   188→  item,
+   189→  collapsed,
+   190→  badge,
+   191→}: {
+   192→  item: NavItem;
+   193→  collapsed: boolean;
+   194→  badge?: number;
+   195→}) {
+   196→  const currentView = useStore((s) => s.currentView);
+   197→  const navigate = useStore((s) => s.navigate);
+   198→  const isActive = currentView === item.id;
+   199→  const Icon = item.icon;
+   200→
+   201→  return (
+   202→    <button
+   203→      onClick={() => navigate(item.id as ViewId)}
+   204→      className={cn(
+   205→        'group relative flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+   206→        collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+   207→        isActive
+   208→          ? 'sidebar-active'
+   209→          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
+   210→      )}
+   211→    >
+   212→      <Icon className="size-[16px] shrink-0" />
+   213→      {!collapsed && <span className="truncate">{item.label}</span>}
+   214→      {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
+   215→      {collapsed && badge !== undefined && badge > 0 && (
+   216→        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+   217→      )}
+   218→      {collapsed && (
+   219→        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity shadow-md z-50">
+   220→          {item.label}
+   221→        </span>
+   222→      )}
+   223→    </button>
+   224→  );
+   225→}
+   226→
+   227→// ─── Mobile bottom nav ───────────────────────────────────────────────
+   228→
+   229→function MobileBottomNav({
+   230→  onMoreOpen,
+   231→}: {
+   232→  onMoreOpen: () => void;
+   233→}) {
+   234→  const currentView = useStore((s) => s.currentView);
+   235→  const navigate = useStore((s) => s.navigate);
+   236→  const badges = useNavBadges();
+   237→  const totalBadges = Object.values(badges).reduce((s, v) => s + (v || 0), 0);
+   238→
+   239→  return (
+   240→    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+   241→      <div className="flex h-[60px] items-center justify-around px-1">
+   242→        {MOBILE_NAV_ITEMS.map((item) => {
+   243→          const Icon = item.icon;
+   244→          const isActive = item.id === 'more' ? false : currentView === item.id;
+   245→
+   246→          return (
+   247→            <button
+   248→              key={item.id}
+   249→              onClick={() => {
+   250→                if (item.id === 'more') {
+   251→                  onMoreOpen();
+   252→                } else {
+   253→                  navigate(item.id as ViewId);
+   254→                }
+   255→              }}
+   256→              className={cn(
+   257→                'bottom-nav-item relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+   258→                isActive ? 'active text-primary' : 'text-muted-foreground active:scale-95'
+   259→              )}
+   260→            >
+   261→              <Icon className={cn('bottom-nav-icon size-[18px] mb-0.5 transition-transform duration-200')} />
+   262→              <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
+   263→              {item.id === 'more' && totalBadges > 0 && (
+   264→                <span className="absolute top-1 right-1/2 translate-x-3 flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-red-500 text-[8px] font-bold text-white leading-none">
+   265→                  {totalBadges > 9 ? '9+' : totalBadges}
+   266→                </span>
+   267→              )}
+   268→              {isActive && (
+   269→                <span className="bottom-nav-indicator" />
+   270→              )}
+   271→            </button>
+   272→          );
+   273→        })}
+   274→      </div>
+   275→    </nav>
+   276→  );
+   277→}
+   278→
+   279→// ─── Mobile more sheet ───────────────────────────────────────────────
+   280→
+   281→function MobileMoreSheet({
+   282→  open,
+   283→  onOpenChange,
+   284→}: {
+   285→  open: boolean;
+   286→  onOpenChange: (open: boolean) => void;
+   287→}) {
+   288→  const currentView = useStore((s) => s.currentView);
+   289→  const navigate = useStore((s) => s.navigate);
+   290→  const badges = useNavBadges();
+   291→
+   292→  return (
+   293→    <Sheet open={open} onOpenChange={onOpenChange}>
+   294→      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+   295→        <SheetHeader className="mb-2">
+   296→          <SheetTitle className="text-base">Navigation</SheetTitle>
+   297→          <SheetDescription className="text-xs">
+   298→            Jump to any section
+   299→          </SheetDescription>
+   300→        </SheetHeader>
+   301→        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
+   302→          {NAV_GROUPS.map((group) => (
+   303→            <div key={group.label} className="mb-3">
+   304→              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
+   305→                {group.label}
+   306→              </p>
+   307→              <div className="grid grid-cols-2 gap-1.5">
+   308→                {group.items.map((item) => {
+   309→                  const Icon = item.icon;
+   310→                  const isActive = currentView === item.id;
+   311→                  return (
+   312→                    <button
+   313→                      key={item.id}
+   314→                      onClick={() => {
+   315→                        navigate(item.id as ViewId);
+   316→                        onOpenChange(false);
+   317→                      }}
+   318→                      className={cn(
+   319→                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
+   320→                        isActive
+   321→                          ? 'bg-primary/10 text-primary font-medium'
+   322→                          : 'text-foreground hover:bg-accent'
+   323→                      )}
+   324→                    >
+   325→                      <Icon className="size-4 shrink-0" />
+   326→                      <span className="truncate">{item.label}</span>
+   327→                      {badges[item.id as ViewId] !== undefined && badges[item.id as ViewId]! > 0 && (
+   328→                        <span className="ml-auto flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-semibold tabular-nums">
+   329→                          {badges[item.id as ViewId]}
+   330→                        </span>
+   331→                      )}
+   332→                    </button>
+   333→                  );
+   334→                })}
+   335→              </div>
+   336→            </div>
+   337→          ))}
+   338→          <div className="border-t border-border pt-3 mt-2">
+   339→            {BOTTOM_NAV_ITEMS.map((item) => {
+   340→              const Icon = item.icon;
+   341→              const isActive = currentView === item.id;
+   342→              return (
+   343→                <button
+   344→                  key={item.id}
+   345→                  onClick={() => {
+   346→                    navigate(item.id as ViewId);
+   347→                    onOpenChange(false);
+   348→                  }}
+   349→                  className={cn(
+   350→                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+   351→                    isActive
+   352→                      ? 'bg-primary/10 text-primary font-medium'
+   353→                      : 'text-foreground hover:bg-accent'
+   354→                  )}
+   355→                >
+   356→                  <Icon className="size-4 shrink-0" />
+   357→                  <span>{item.label}</span>
+   358→                </button>
+   359→              );
+   360→            })}
+   361→          </div>
+   362→        </div>
+   363→      </SheetContent>
+   364→    </Sheet>
+   365→  );
+   366→}
+   367→
+   368→// ─── Command palette ─────────────────────────────────────────────────
+   369→
+   370→function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+   371→  const commandOpen = useStore((s) => s.commandOpen);
+   372→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   373→  const navigate = useStore((s) => s.navigate);
+   374→  const subjects = useStore((s) => s.subjects);
+   375→  const tasks = useStore((s) => s.tasks);
+   376→  const notes = useStore((s) => s.notes);
+   377→  const exams = useStore((s) => s.exams);
+   378→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   379→
+   380→  const handleSelect = useCallback(
+   381→    (action: () => void) => {
+   382→      setCommandOpen(false);
+   383→      action();
+   384→    },
+   385→    [setCommandOpen]
+   386→  );
+   387→
+   388→  if (!commandOpen) return null;
+   389→
+   390→  return (
+   391→    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+   392→      <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
+   393→      <CommandList>
+   394→        <CommandEmpty>No results found.</CommandEmpty>
+   395→
+   396→        <CommandGroup heading="Commands">
+   397→          <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
+   398→            <CheckSquare className="size-4" />
+   399→            <span>Add Task</span>
+   400→          </CommandItem>
+   401→          <CommandItem onSelect={() => handleSelect(() => navigate('focus'))}>
+   402→            <Timer className="size-4" />
+   403→            <span>Start Focus</span>
+   404→          </CommandItem>
+   405→          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
+   406→            <BarChart3 className="size-4" />
+   407→            <span>Go to Marks</span>
+   408→          </CommandItem>
+   409→          <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
+   410→            <UserCheck className="size-4" />
+   411→            <span>Go to Attendance</span>
+   412→          </CommandItem>
+   413→        </CommandGroup>
+   414→
+   415→        <CommandSeparator />
+   416→
+   417→        {subjects.length > 0 && (
+   418→          <CommandGroup heading="Subjects">
+   419→            {subjects.map((s) => (
+   420→              <CommandItem
+   421→                key={s.id}
+   422→                onSelect={() =>
+   423→                  handleSelect(() => {
+   424→                    useStore.getState().selectSubject(s.id);
+   425→                    navigate('subject-detail');
+   426→                  })
+   427→                }
+   428→              >
+   429→                <BookOpen className="size-4" />
+   430→                <span>
+   431→                  {s.name}
+   432→                  <span className="ml-2 text-muted-foreground">{s.code}</span>
+   433→                </span>
+   434→              </CommandItem>
+   435→            ))}
+   436→          </CommandGroup>
+   437→        )}
+   438→
+   439→        {tasks.length > 0 && (
+   440→          <CommandGroup heading="Tasks">
+   441→            {tasks
+   442→              .filter((t) => !t.completed)
+   443→              .slice(0, 5)
+   444→              .map((t) => (
+   445→                <CommandItem
+   446→                  key={t.id}
+   447→                  onSelect={() => handleSelect(() => navigate('tasks'))}
+   448→                >
+   449→                  <CheckSquare className="size-4" />
+   450→                  <span>{t.title}</span>
+   451→                </CommandItem>
+   452→              ))}
+   453→          </CommandGroup>
+   454→        )}
+   455→
+   456→        {notes.length > 0 && (
+   457→          <CommandGroup heading="Notes">
+   458→            {notes.slice(0, 5).map((n) => (
+   459→              <CommandItem
+   460→                key={n.id}
+   461→                onSelect={() => handleSelect(() => navigate('notes'))}
+   462→              >
+   463→                <StickyNote className="size-4" />
+   464→                <span>{n.title}</span>
+   465→              </CommandItem>
+   466→            ))}
+   467→          </CommandGroup>
+   468→        )}
+   469→
+   470→        {exams.length > 0 && (
+   471→          <CommandGroup heading="Exams">
+   472→            {exams
+   473→              .filter((e) => e.status === 'upcoming')
+   474→              .slice(0, 5)
+   475→              .map((e) => (
+   476→                <CommandItem
+   477→                  key={e.id}
+   478→                  onSelect={() => handleSelect(() => navigate('exams'))}
+   479→                >
+   480→                  <FileText className="size-4" />
+   481→                  <span>{e.name}</span>
+   482→                </CommandItem>
+   483→              ))}
+   484→          </CommandGroup>
+   485→        )}
+   486→
+   487→        {syllabusUnits.length > 0 && (
+   488→          <CommandGroup heading="Syllabus Topics">
+   489→            {syllabusUnits
+   490→              .flatMap((u) =>
+   491→                u.topics.map((t) => ({
+   492→                  ...t,
+   493→                  unitName: u.name,
+   494→                  subjectId: u.subjectId,
+   495→                }))
+   496→              )
+   497→              .slice(0, 5)
+   498→              .map((t) => (
+   499→                <CommandItem
+   500→                  key={t.id}
+   501→                  onSelect={() =>
+   502→                    handleSelect(() => {
+   503→                      useStore.getState().selectSubject(t.subjectId);
+   504→                      navigate('subject-detail');
+   505→                    })
+   506→                  }
+   507→                >
+   508→                  <BookOpen className="size-4" />
+   509→                  <span>
+   510→                    {t.name}
+   511→                    <span className="ml-2 text-muted-foreground">
+   512→                      {t.unitName}
+   513→                    </span>
+   514→                  </span>
+   515→                </CommandItem>
+   516→              ))}
+   517→          </CommandGroup>
+   518→        )}
+   519→
+   520→        <CommandSeparator />
+   521→
+   522→        <CommandGroup heading="Help">
+   523→          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+   524→            <Keyboard className="size-4" />
+   525→            <span>Show all shortcuts</span>
+   526→            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+   527→            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   528→              ?
+   529→            </kbd>
+   530→          </CommandItem>
+   531→        </CommandGroup>
+   532→      </CommandList>
+   533→    </CommandDialog>
+   534→  );
+   535→}
+   536→
+   537→// ─── Desktop Sidebar ─────────────────────────────────────────────────
+   538→
+   539→function DesktopSidebar() {
+   540→  const collapsed = useStore((s) => s.sidebarCollapsed);
+   541→  const toggleSidebar = useStore((s) => s.toggleSidebar);
+   542→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   543→  const badges = useNavBadges();
+   544→
+   545→  return (
+   546→    <aside
+   547→      className={cn(
+   548→        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+   549→        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
+   550→      )}
+   551→    >
+   552→      {/* Brand */}
+   553→      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
+   554→        {!collapsed && (
+   555→          <span className="text-sm font-bold tracking-tight text-foreground select-none">
+   556→            DELULU
+   557→          </span>
+   558→        )}
+   559→        <button
+   560→          onClick={toggleSidebar}
+   561→          className={cn(
+   562→            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+   563→            collapsed ? 'mx-auto' : 'ml-auto'
+   564→          )}
+   565→          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+   566→        >
+   567→          {collapsed ? (
+   568→            <PanelLeftOpen className="size-3.5" />
+   569→          ) : (
+   570→            <PanelLeftClose className="size-3.5" />
+   571→          )}
+   572→        </button>
+   573→      </div>
+   574→
+   575→      {/* Search */}
+   576→      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
+   577→        <button
+   578→          onClick={() => setCommandOpen(true)}
+   579→          className={cn(
+   580→            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+   581→            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+   582→          )}
+   583→          aria-label="Open command palette"
+   584→        >
+   585→          <Search className="size-3.5 shrink-0" />
+   586→          {!collapsed && (
+   587→            <span className="flex-1 text-left text-xs">Search...</span>
+   588→          )}
+   589→          {!collapsed && (
+   590→            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   591→              ⌘K
+   592→            </kbd>
+   593→          )}
+   594→        </button>
+   595→      </div>
+   596→
+   597→      {/* Nav */}
+   598→      <nav className={cn(
+   599→        'scrollbar-thin flex-1 px-1.5 pt-1',
+   600→        collapsed ? 'overflow-visible' : 'overflow-y-auto'
+   601→      )}>
+   602→        {NAV_GROUPS.map((group, gi) => (
+   603→          <div key={group.label}>
+   604→            {!collapsed && (
+   605→              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
+   606→            )}
+   607→            {collapsed && gi > 0 && (
+   608→              <div className="border-t border-border/50 my-2 mx-2" />
+   609→            )}
+   610→            {group.items.map((item) => (
+   611→              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   612→            ))}
+   613→          </div>
+   614→        ))}
+   615→      </nav>
+   616→
+   617→      {/* Bottom */}
+   618→      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+   619→        {BOTTOM_NAV_ITEMS.map((item) => (
+   620→          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   621→        ))}
+   622→      </div>
+   623→    </aside>
+   624→  );
+   625→}
+   626→
+   627→// ─── Theme Toggle (mobile) ─────────────────────────────────────
+   628→
+   629→function ThemeToggle() {
+   630→  const { theme, setTheme } = useTheme();
+   631→  return (
+   632→    <button
+   633→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   634→      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   635→      aria-label="Toggle theme"
+   636→    >
+   637→      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+   638→    </button>
+   639→  );
+   640→}
+   641→
+   642→// ─── Mobile Streak Badge ─────────────────────────────────────────
+   643→
+   644→function MobileStreakBadge() {
+   645→  const studySessions = useStore((s) => s.studySessions);
+   646→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   647→
+   648→  if (streak <= 0) return null;
+   649→
+   650→  return (
+   651→    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+   652→      <Flame className="size-3" />
+   653→      {streak}
+   654→    </span>
+   655→  );
+   656→}
+   657→
+   658→// ─── Desktop Top Bar ───────────────────────────────────────────────
+   659→
+   660→function DesktopTopBar() {
+   661→  const { theme, setTheme } = useTheme();
+   662→  const studySessions = useStore((s) => s.studySessions);
+   663→  const subjects = useStore((s) => s.subjects);
+   664→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   665→  const assessments = useStore((s) => s.assessments);
+   666→  const attendance = useStore((s) => s.attendance);
+   667→  const revisionItems = useStore((s) => s.revisionItems);
+   668→  const profile = useStore((s) => s.profile);
+   669→
+   670→  const healthScore = useMemo(
+   671→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   672→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   673→  );
+   674→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   675→  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   676→
+   677→  const todayMinutes = Math.floor(studyToday / 60);
+   678→  const todayH = Math.floor(todayMinutes / 60);
+   679→  const todayM = todayMinutes % 60;
+   680→  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+   681→
+   682→  return (
+   683→    <div className="top-bar hidden lg:flex items-center gap-3 px-6 py-1.5">
+   684→      <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+   685→      <span className="text-border">·</span>
+   686→      <div className="flex items-center gap-3">
+   687→        <span className={cn(
+   688→          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+   689→          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+   690→        )}>
+   691→          Health {healthScore}
+   692→        </span>
+   693→        {streak > 0 && (
+   694→          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+   695→            <Flame className="size-3" />
+   696→            <span className="font-semibold tabular-nums">{streak}d</span>
+   697→          </span>
+   698→        )}
+   699→        <span className="inline-flex items-center gap-1 text-muted-foreground">
+   700→          <Clock className="size-3" />
+   701→          <span className="tabular-nums">{todayStr}</span>
+   702→        </span>
+   703→      </div>
+   704→      <div className="flex-1" />
+   705→      <div className="flex items-center gap-2">
+   706→        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
+   707→          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   708→        </button>
+   709→      </div>
+   710→    </div>
+   711→  );
+   712→}
+   713→
+   714→// ─── Mobile FAB ──────────────────────────────────────────────────
+   715→
+   716→const FAB_ACTIONS: ({ label: string; icon: LucideIcon; view?: ViewId; color: string; customAction?: string })[] = [
+   717→  { label: 'Quick Note', icon: StickyNote, color: 'bg-amber-500 dark:bg-amber-400', customAction: 'quick-note' },
+   718→  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+   719→  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+   720→  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+   721→];
+   722→
+   723→function MobileFAB() {
+   724→  const [open, setOpen] = useState(false);
+   725→  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+   726→  const navigate = useStore((s) => s.navigate);
+   727→  const currentView = useStore((s) => s.currentView);
+   728→  const fabRef = useRef<HTMLDivElement>(null);
+   729→
+   730→  // Auto-close when navigating away (store currentView is external state)
+   731→  const prevViewRef = useRef(currentView);
+   732→  /* eslint-disable react-hooks/set-state-in-effect */
+   733→  useEffect(() => {
+   734→    if (prevViewRef.current !== currentView) {
+   735→      prevViewRef.current = currentView;
+   736→      setOpen(false);
+   737→    }
+   738→  }, [currentView]);
+   739→  /* eslint-enable react-hooks/set-state-in-effect */
+   740→
+   741→  const handleClose = useCallback(() => setOpen(false), []);
+   742→
+   743→  // Close on outside click
+   744→  useEffect(() => {
+   745→    if (!open) return;
+   746→    const handleClick = (e: MouseEvent) => {
+   747→      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+   748→        setOpen(false);
+   749→      }
+   750→    };
+   751→    // Delay to avoid immediate close from the toggle click
+   752→    const timer = setTimeout(() => {
+   753→      document.addEventListener('mousedown', handleClick);
+   754→    }, 0);
+   755→    return () => {
+   756→      clearTimeout(timer);
+   757→      document.removeEventListener('mousedown', handleClick);
+   758→    };
+   759→  }, [open]);
+   760→
+   761→  const handleAction = (action: typeof FAB_ACTIONS[number]) => {
+   762→    setOpen(false);
+   763→    if (action.customAction === 'quick-note') {
+   764→      setQuickNoteOpen(true);
+   765→    } else if (action.view) {
+   766→      navigate(action.view);
+   767→    }
+   768→  };
+   769→
+   770→  return (
+   771→    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+   772→      {/* Backdrop overlay when open */}
+   773→      <AnimatePresence>
+   774→        {open && (
+   775→          <motion.div
+   776→            initial={{ opacity: 0 }}
+   777→            animate={{ opacity: 1 }}
+   778→            exit={{ opacity: 0 }}
+   779→            transition={{ duration: 0.15 }}
+   780→            className="fixed inset-0 z-[-1]"
+   781→            onClick={() => setOpen(false)}
+   782→          />
+   783→        )}
+   784→      </AnimatePresence>
+   785→
+   786→      {/* Radial menu items */}
+   787→      <AnimatePresence>
+   788→        {open && (
+   789→          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+   790→            {FAB_ACTIONS.map((action, i) => {
+   791→              const Icon = action.icon;
+   792→              return (
+   793→                <motion.div
+   794→                  key={action.label}
+   795→                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   796→                  animate={{ opacity: 1, scale: 1, y: 0 }}
+   797→                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+   798→                  transition={{ duration: 0.2, delay: i * 0.04 }}
+   799→                  className="flex items-center gap-2.5"
+   800→                >
+   801→                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+   802→                    {action.label}
+   803→                  </span>
+   804→                  <button
+   805→                    onClick={() => handleAction(action)}
+   806→                    className={cn(
+   807→                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+   808→                      action.color,
+   809→                      'text-white'
+   810→                    )}
+   811→                    aria-label={action.label}
+   812→                  >
+   813→                    <Icon className="size-4" />
+   814→                  </button>
+   815→                </motion.div>
+   816→              );
+   817→            })}
+   818→          </div>
+   819→        )}
+   820→      </AnimatePresence>
+   821→
+   822→      {/* Main FAB button */}
+   823→      <motion.button
+   824→        onClick={() => setOpen((prev) => !prev)}
+   825→        whileTap={{ scale: 0.92 }}
+   826→        className="h-12 w-12 rounded-full bg-primary text-primary-foreground fab-shadow press-scale flex items-center justify-center"
+   827→        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+   828→        style={{ rotate: open ? 45 : 0 }}
+   829→        transition={{ duration: 0.2 }}
+   830→      >
+   831→        <Plus className="size-5" />
+   832→      </motion.button>
+   833→
+   834→      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
+   835→    </div>
+   836→  );
+   837→}
+   838→
+   839→// ─── App Shell ───────────────────────────────────────────────────────
+   840→
+   841→export function AppShell() {
+   842→  const subjects = useStore((s) => s.subjects);
+   843→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   844→  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+   845→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   846→  const { theme, setTheme } = useTheme();
+   847→
+   848→  const showShortcuts = useCallback(() => {
+   849→    setCommandOpen(false);
+   850→    setShortcutsOpen(true);
+   851→  }, [setCommandOpen]);
+   852→
+   853→  useEffect(() => {
+   854→    const NUMBER_KEY_VIEWS: Record<string, ViewId> = {
+   855→      '1': 'dashboard',
+   856→      '2': 'subjects',
+   857→      '3': 'marks',
+   858→      '4': 'attendance',
+   859→      '5': 'exams',
+   860→      '6': 'focus',
+   861→      '7': 'revision',
+   862→      '8': 'notes',
+   863→      '9': 'tasks',
+   864→    };
+   865→
+   866→    const handleKeyDown = (e: KeyboardEvent) => {
+   867→      // Don't capture when typing in inputs
+   868→      const tag = (e.target as HTMLElement)?.tagName;
+   869→      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+   870→      const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+   871→
+   872→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   873→        e.preventDefault();
+   874→        setCommandOpen(true);
+   875→      }
+   876→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+   877→        e.preventDefault();
+   878→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   879→      }
+   880→      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+   881→        e.preventDefault();
+   882→        useStore.getState().navigate('settings');
+   883→      }
+   884→      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+   885→        e.preventDefault();
+   886→        setShortcutsOpen((prev) => !prev);
+   887→      }
+   888→      // Number keys 1-9 for view navigation (no modifiers, not in input)
+   889→      if (!isInput && !hasModifier && !e.shiftKey && NUMBER_KEY_VIEWS[e.key]) {
+   890→        e.preventDefault();
+   891→        useStore.getState().navigate(NUMBER_KEY_VIEWS[e.key]);
+   892→      }
+   893→      // D key for theme toggle (no modifiers, not in input)
+   894→      if (!isInput && !hasModifier && e.key === 'd') {
+   895→        e.preventDefault();
+   896→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   897→      }
+   898→      // N key for context-sensitive new action (no modifiers, not in input)
+   899→      if (!isInput && !hasModifier && e.key === 'n') {
+   900→        e.preventDefault();
+   901→        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
+   902→      }
+   903→    };
+   904→    document.addEventListener('keydown', handleKeyDown);
+   905→    return () => document.removeEventListener('keydown', handleKeyDown);
+   906→  }, [setCommandOpen, theme, setTheme]);
+   907→
+   908→  return (
+   909→    <ToastProvider>
+   910→    <MobileFAB />
+   911→    <div className="flex min-h-screen">
+   912→      <DesktopSidebar />
+   913→
+   914→      <main className="flex-1 min-w-0 flex flex-col">
+   915→        <DesktopTopBar />
+   916→        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
+   917→          {/* Mobile header */}
+   918→          <div className="flex items-center justify-between mb-5 md:mb-0">
+   919→            <div className="flex items-center gap-2">
+   920→              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+   921→                DELULU
+   922→              </span>
+   923→              <MobileStreakBadge />
+   924→            </div>
+   925→            <div className="flex items-center gap-1.5 ml-auto">
+   926→              <ThemeToggle />
+   927→              <button
+   928→                onClick={() => setCommandOpen(true)}
+   929→                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   930→                aria-label="Search"
+   931→              >
+   932→                <Search className="size-4" />
+   933→              </button>
+   934→            </div>
+   935→          </div>
+   936→
+   937→          {/* Onboarding — shows when no subjects exist */}
+   938→          {subjects.length === 0 && <Onboarding />}
+   939→
+   940→          <ViewRouter />
+   941→        </div>
+   942→      </main>
+   943→
+   944→      <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
+   945→      <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
+   946→      <CommandPalette onShowShortcuts={showShortcuts} />
+   947→      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+   948→    </div>
+   949→    </ToastProvider>
+   950→  );
+   951→}
+   952→

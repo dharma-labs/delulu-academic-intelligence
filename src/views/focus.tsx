@@ -11,7 +11,13 @@ import {
   RotateCcw,
   BookOpen,
   Flame,
+  Volume2,
+  Cloud,
+  VolumeX,
 } from 'lucide-react';
+
+import { createRainSound, createWhiteNoise } from '@/lib/ambient-sounds';
+import type { AmbientSound } from '@/lib/ambient-sounds';
 
 import { useStore, getStudyStreak, getStudyTimeToday } from '@/lib/store';
 import { useToast } from '@/components/toast';
@@ -43,6 +49,15 @@ import {
   SectionHeader,
   EmptyState,
 } from '@/components/shared';
+
+// --- Ambient sound types ---
+type AmbientOption = 'silent' | 'rain' | 'whitenoise';
+
+const AMBIENT_OPTIONS: { value: AmbientOption; label: string; icon: typeof Volume2 }[] = [
+  { value: 'silent', label: 'Silent', icon: VolumeX },
+  { value: 'rain', label: 'Rain', icon: Cloud },
+  { value: 'whitenoise', label: 'White Noise', icon: Volume2 },
+];
 
 // --- Constants ---
 const MOTIVATIONAL_MESSAGES = [
@@ -121,6 +136,9 @@ export default function FocusView() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
   const phaseRef = useRef(phase);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const ambientSoundRef = useRef<AmbientSound | null>(null);
+  const [ambientChoice, setAmbientChoice] = useState<AmbientOption>('silent');
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const [completedNaturally, setCompletedNaturally] = useState(false);
@@ -340,6 +358,53 @@ export default function FocusView() {
     setCompletionNotes('');
     setIsPaused(false);
   }, []);
+
+  // --- Ambient sound management ---
+  const stopAmbientSound = useCallback(() => {
+    if (ambientSoundRef.current) {
+      ambientSoundRef.current.stop();
+      ambientSoundRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+  }, []);
+
+  const startAmbientSound = useCallback((choice: AmbientOption) => {
+    stopAmbientSound();
+    if (choice === 'silent') return;
+    const ctx = new AudioContext();
+    audioContextRef.current = ctx;
+    if (choice === 'rain') {
+      ambientSoundRef.current = createRainSound(ctx);
+    } else if (choice === 'whitenoise') {
+      ambientSoundRef.current = createWhiteNoise(ctx);
+    }
+  }, [stopAmbientSound]);
+
+  // Start sound when timer becomes active, stop when it ends
+  useEffect(() => {
+    if (phase === 'active' && focusActive) {
+      startAmbientSound(ambientChoice);
+    }
+    return () => {
+      stopAmbientSound();
+    };
+  }, [phase, focusActive]);
+
+  // Switch sound in real-time if timer is active
+  const handleAmbientChange = useCallback((choice: AmbientOption) => {
+    setAmbientChoice(choice);
+    if (phase === 'active' && focusActive) {
+      startAmbientSound(choice);
+    }
+  }, [phase, focusActive, startAmbientSound]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { stopAmbientSound(); };
+  }, [stopAmbientSound]);
 
   // Keyboard shortcuts during active phase
   useEffect(() => {
@@ -627,6 +692,29 @@ export default function FocusView() {
                   {selectedTopic && <span> · {selectedTopic.name}</span>}
                 </p>
               )}
+
+              {/* Ambient Sound Bar */}
+              <div className='flex items-center gap-2 mt-3'>
+                <span className='text-[10px] text-muted-foreground'>Ambient</span>
+                {AMBIENT_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleAmbientChange(opt.value)}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] transition-colors',
+                        ambientChoice === opt.value
+                          ? 'bg-primary/15 text-primary font-medium'
+                          : 'bg-secondary/50 text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <Icon className='h-3 w-3' />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* Controls — large circular buttons */}
               <div className='flex items-center gap-6 mt-2'>
@@ -991,7 +1079,7 @@ export default function FocusView() {
                     {sessionStats && (
                       <div className='mt-4'>
                         <span className='section-label block mb-2'>Session Stats</span>
-                        <div className='grid grid-cols-4 gap-2'>
+                        <div className='grid grid-cols-2 lg:grid-cols-4 gap-2'>
                           <div className='metric-card p-3 text-center'>
                             <span className='metric-label text-[9px] block'>Today's Total</span>
                             <span className='text-sm font-semibold tabular-nums mt-1 block'>{sessionStats.totalFormatted}</span>
@@ -1053,7 +1141,7 @@ export default function FocusView() {
                 </div>
 
                 {/* Timer Ring */}
-                <div className={cn('relative flex items-center justify-center', timerPulse && 'timer-completion-pulse')}>
+                <div className={cn('relative flex items-center justify-center desktop-timer-ring', timerPulse && 'timer-completion-pulse')}>
                   <svg
                     width={TIMER_RADIUS * 2 + 24}
                     height={TIMER_RADIUS * 2 + 24}
@@ -1120,6 +1208,29 @@ export default function FocusView() {
                       </span>
                     )}
                   </div>
+                </div>
+
+                {/* Ambient Sound Bar */}
+                <div className='flex items-center gap-2'>
+                  <span className='text-[10px] text-muted-foreground'>Ambient</span>
+                  {AMBIENT_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleAmbientChange(opt.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] transition-colors',
+                          ambientChoice === opt.value
+                            ? 'bg-primary/15 text-primary font-medium'
+                            : 'bg-secondary/50 text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        <Icon className='h-3 w-3' />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Motivational text */}

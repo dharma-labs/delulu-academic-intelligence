@@ -435,6 +435,7 @@ input:focus, textarea:focus, select:focus {
 .metric-card-accent-warning { border-left: 3px solid var(--delulu-warning); }
 .metric-card-accent-danger { border-left: 3px solid var(--delulu-danger); }
 .metric-card-accent-purple { border-left: 3px solid var(--delulu-purple); }
+.metric-card-accent-info { border-left: 3px solid var(--delulu-info); }
 
 /* ── Recharts overrides for dark mode ── */
 .dark .recharts-cartesian-axis-tick-value {
@@ -783,4 +784,23 @@ button:focus-visible {
 /* ── Smooth scrollbar for main content ── */
 main {
   scroll-behavior: smooth;
+}
+
+/* ── Tablet refinements (768-1024px) ── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .content-area {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .metric-card {
+    padding: 0.75rem 1rem;
+  }
+  .page-title {
+    font-size: 1.125rem;
+  }
+  /* Desktop timer ring: slightly smaller on tablet */
+  .desktop-timer-ring {
+    transform: scale(0.85);
+  }
 }
