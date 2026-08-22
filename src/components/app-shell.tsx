@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
 import type { ViewId } from '@/lib/types';
 import { ViewRouter } from '@/components/view-router';
+import { format } from 'date-fns';
 import {
   CommandDialog,
   CommandInput,
@@ -42,6 +43,7 @@ import {
   GraduationCap,
   MoreHorizontal,
   ClipboardList,
+  Flame,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -100,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'analytics', label: 'Analytics', icon: TrendingUp },
       { id: 'er-center', label: 'ER Center', icon: FileSearch },
       { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
+      { id: 'report', label: 'Report', icon: GraduationCap },
     ],
   },
 ];
@@ -136,11 +139,11 @@ function SidebarNavItem({
       onClick={() => navigate(item.id as ViewId)}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-150',
-        collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5',
+        'flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+        collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
         isActive
-          ? 'bg-primary/10 text-primary font-medium'
-          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          ? 'bg-primary/10 text-primary font-medium border-l-primary'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
       )}
     >
       <Icon className="size-[16px] shrink-0" />
@@ -177,14 +180,14 @@ function MobileBottomNav({
                 }
               }}
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors duration-150',
-                isActive ? 'text-primary' : 'text-muted-foreground'
+                'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-all duration-200',
+                isActive ? 'text-primary scale-105' : 'text-muted-foreground active:scale-95'
               )}
             >
               <Icon className="size-[18px]" />
               <span>{item.label}</span>
               {isActive && (
-                <span className="absolute top-0 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-primary" />
+                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-primary transition-all duration-200" />
               )}
             </button>
           );
@@ -296,6 +299,8 @@ function CommandPalette() {
     },
     [setCommandOpen]
   );
+
+  if (!commandOpen) return null;
 
   return (
     <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
@@ -517,6 +522,77 @@ function DesktopSidebar() {
   );
 }
 
+// ─── Mobile Streak Badge ─────────────────────────────────────────
+
+function MobileStreakBadge() {
+  const studySessions = useStore((s) => s.studySessions);
+  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+
+  if (streak <= 0) return null;
+
+  return (
+    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+      <Flame className="size-3" />
+      {streak}
+    </span>
+  );
+}
+
+// ─── Desktop Top Bar ───────────────────────────────────────────────
+
+function DesktopTopBar() {
+  const profile = useStore((s) => s.profile);
+  const studySessions = useStore((s) => s.studySessions);
+  const subjects = useStore((s) => s.subjects);
+  const syllabusUnits = useStore((s) => s.syllabusUnits);
+  const assessments = useStore((s) => s.assessments);
+  const attendance = useStore((s) => s.attendance);
+  const revisionItems = useStore((s) => s.revisionItems);
+
+  const healthScore = useMemo(
+    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+  );
+  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const todayMinutes = Math.floor(studyToday / 60);
+  const todayH = Math.floor(todayMinutes / 60);
+  const todayM = todayMinutes % 60;
+  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+
+  return (
+    <div className="hidden lg:flex items-center gap-4 px-6 py-2 border-b border-border/50 text-xs text-muted-foreground">
+      <span className="font-medium text-foreground/70">{greeting}, {profile.name}</span>
+      <span className="text-border">|</span>
+      <span>{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+      <div className="flex-1" />
+      <div className="flex items-center gap-3">
+        <span className={cn(
+          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+        )}>
+          {healthScore}
+        </span>
+        {streak > 0 && (
+          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+            <Flame className="size-3" />
+            <span className="font-semibold tabular-nums">{streak}</span>
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1">
+          <Clock className="size-3" />
+          <span className="tabular-nums">{todayStr}</span>
+          <span>today</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── App Shell ───────────────────────────────────────────────────────
 
 export function AppShell() {
@@ -538,13 +614,17 @@ export function AppShell() {
     <div className="flex min-h-screen">
       <DesktopSidebar />
 
-      <main className="flex-1 min-w-0">
-        <div className="content-area px-4 md:px-6 py-5 pb-20 md:pb-6">
+      <main className="flex-1 min-w-0 flex flex-col">
+        <DesktopTopBar />
+        <div className="content-area flex-1 px-4 md:px-6 py-5 pb-20 md:pb-6">
           {/* Mobile header */}
           <div className="flex items-center justify-between mb-5 md:mb-0">
-            <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
-              DELULU
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+                DELULU
+              </span>
+              <MobileStreakBadge />
+            </div>
             <button
               onClick={() => setCommandOpen(true)}
               className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors ml-auto"

@@ -174,6 +174,7 @@ export interface UserProfile {
   college: string;
   targetCGPA: number;
   attendanceThreshold: number;
+  weeklyStudyGoalHours: number;
 }
 
 export type ViewId =

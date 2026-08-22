@@ -1,14 +1,19 @@
 'use client';
 
 import { useStore, calculateSGPA, calculateCGPA, getSubjectProgress, getSubjectAttendance, getSubjectMarks, getSubjectGrade, getStudyTimeThisWeek } from '@/lib/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+import { PageHeader, MetricCard, SectionHeader, EmptyState } from '@/components/shared';
+import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { Download, Printer, FileText, GraduationCap, UserCheck, BookOpen, BarChart3, Clock } from 'lucide-react';
+import { Download, Printer, GraduationCap, UserCheck, BarChart3, Clock, FileText } from 'lucide-react';
+
+function gradeSignal(grade: string): string {
+  if (['A+', 'A'].includes(grade)) return 'signal-healthy';
+  if (['B+', 'B'].includes(grade)) return 'signal-improving';
+  if (['C+', 'C'].includes(grade)) return 'signal-attention';
+  return 'signal-critical';
+}
 
 export default function ReportView() {
   const { subjects, assessments, attendance, studySessions, profile, calendarEvents } = useStore();
@@ -36,7 +41,11 @@ export default function ReportView() {
     const totalSessions = studySessions.length;
     const totalStudyHours = Math.round(studySessions.reduce((a, s) => a + s.duration, 0) / 3600);
 
-    return { sgpa, cgpa, weekMinutes, subjectReports, totalAssessments, avgAssessmentPct, totalSessions, totalStudyHours };
+    const avgAttendance = subjectReports.length > 0
+      ? Math.round(subjectReports.reduce((a, r) => a + r.attendance.percentage, 0) / subjectReports.length)
+      : 0;
+
+    return { sgpa, cgpa, weekMinutes, subjectReports, totalAssessments, avgAssessmentPct, totalSessions, totalStudyHours, avgAttendance };
   }, [activeSubjects, assessments, attendance, studySessions, profile]);
 
   const handlePrint = () => window.print();
@@ -71,8 +80,8 @@ export default function ReportView() {
       <div class="metric-grid">
         <div class="metric-card"><div class="metric-value">${reportData.cgpa.toFixed(2)}</div><div class="metric-label">CGPA</div></div>
         <div class="metric-card"><div class="metric-value">${reportData.sgpa.toFixed(2)}</div><div class="metric-label">SGPA</div></div>
+        <div class="metric-card"><div class="metric-value">${reportData.avgAttendance}%</div><div class="metric-label">Avg Attendance</div></div>
         <div class="metric-card"><div class="metric-value">${reportData.totalStudyHours}h</div><div class="metric-label">Total Study</div></div>
-        <div class="metric-card"><div class="metric-value">${reportData.totalSessions}</div><div class="metric-label">Sessions</div></div>
       </div>
 
       <div class="section">
@@ -94,133 +103,140 @@ export default function ReportView() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Academic Report</h1>
-          <p className="text-muted-foreground text-sm mt-1">Professional report of your academic performance</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />Print</Button>
-          <Button onClick={handleDownload}><Download className="w-4 h-4 mr-2" />Download PDF</Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Academic Report"
+        subtitle="Professional report of your academic performance"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="size-3.5 mr-1.5" />Print
+            </Button>
+            <Button size="sm" onClick={handleDownload}>
+              <Download className="size-3.5 mr-1.5" />Download PDF
+            </Button>
+          </>
+        }
+      />
 
-      <div id="report-content" className="bg-card border border-border rounded-xl p-6 space-y-6">
-        {/* Report Header */}
-        <div className="flex items-center justify-between">
+      {activeSubjects.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No report data"
+          description="Add subjects and record assessments to generate a report."
+        />
+      ) : (
+        <div id="report-content" className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-5">
+          {/* Report Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">Delulu 4.0 — Academic Report</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {profile.name} · Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''} · {format(new Date(), 'd MMMM yyyy')}
+              </p>
+            </div>
+            <FileText className="size-8 text-muted-foreground/20" />
+          </div>
+
+          <div className="border-b border-border" />
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MetricCard
+              label="CGPA"
+              value={reportData.cgpa.toFixed(2)}
+              icon={GraduationCap}
+            />
+            <MetricCard
+              label="SGPA"
+              value={reportData.sgpa.toFixed(2)}
+              icon={BarChart3}
+            />
+            <MetricCard
+              label="Avg Attendance"
+              value={`${reportData.avgAttendance}%`}
+              icon={UserCheck}
+            />
+            <MetricCard
+              label="Total Study"
+              value={`${reportData.totalStudyHours}h`}
+              icon={Clock}
+            />
+          </div>
+
+          <div className="border-b border-border" />
+
+          {/* Subject Table */}
           <div>
-            <h2 className="text-xl font-bold">Delulu 4.0 — Academic Report</h2>
-            <p className="text-sm text-muted-foreground">
-              {profile.name} · Semester {profile.semester}{profile.branch ? ` · ${profile.branch}` : ''} · {format(new Date(), 'd MMMM yyyy')}
-            </p>
-          </div>
-          <FileText className="w-10 h-10 text-muted-foreground/30" />
-        </div>
-
-        <Separator />
-
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-0 shadow-none bg-muted/50">
-            <CardContent className="p-4 text-center">
-              <GraduationCap className="w-5 h-5 mx-auto text-primary mb-2" />
-              <div className="text-2xl font-bold tabular-nums">{reportData.cgpa.toFixed(2)}</div>
-              <div className="text-xs text-muted-foreground">CGPA</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-none bg-muted/50">
-            <CardContent className="p-4 text-center">
-              <BarChart3 className="w-5 h-5 mx-auto text-primary mb-2" />
-              <div className="text-2xl font-bold tabular-nums">{reportData.sgpa.toFixed(2)}</div>
-              <div className="text-xs text-muted-foreground">SGPA</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-none bg-muted/50">
-            <CardContent className="p-4 text-center">
-              <UserCheck className="w-5 h-5 mx-auto text-primary mb-2" />
-              <div className="text-2xl font-bold tabular-nums">{reportData.subjectReports.length > 0 ? Math.round(reportData.subjectReports.reduce((a, r) => a + r.attendance.percentage, 0) / reportData.subjectReports.length) : 0}%</div>
-              <div className="text-xs text-muted-foreground">Avg Attendance</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-none bg-muted/50">
-            <CardContent className="p-4 text-center">
-              <Clock className="w-5 h-5 mx-auto text-primary mb-2" />
-              <div className="text-2xl font-bold tabular-nums">{reportData.totalStudyHours}h</div>
-              <div className="text-xs text-muted-foreground">Total Study</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Separator />
-
-        {/* Subject Table */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Subject Performance</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2.5 px-3 font-semibold text-muted-foreground">Subject</th>
-                  <th className="text-left py-2.5 px-3 font-semibold text-muted-foreground hidden sm:table-cell">Code</th>
-                  <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">Credits</th>
-                  <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">Grade</th>
-                  <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">Attendance</th>
-                  <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground hidden md:table-cell">Syllabus</th>
-                  <th className="text-center py-2.5 px-3 font-semibold text-muted-foreground">CA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.subjectReports.map((r) => (
-                  <tr key={r.subject.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.subject.color }} />
-                        <span className="font-medium truncate max-w-[180px]">{r.subject.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-muted-foreground hidden sm:table-cell">{r.subject.code}</td>
-                    <td className="py-2.5 px-3 text-center tabular-nums">{r.subject.credits}</td>
-                    <td className="py-2.5 px-3 text-center"><Badge variant="outline">{r.grade}</Badge></td>
-                    <td className="py-2.5 px-3 text-center tabular-nums">{r.attendance.percentage.toFixed(0)}%</td>
-                    <td className="py-2.5 px-3 text-center tabular-nums hidden md:table-cell">{r.progress.toFixed(0)}%</td>
-                    <td className="py-2.5 px-3 text-center tabular-nums">{r.marks.percentage.toFixed(0)}%</td>
+            <SectionHeader title="Subject Performance" />
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="section-label text-left py-2.5 px-3">Subject</th>
+                    <th className="section-label text-left py-2.5 px-3 hidden sm:table-cell">Code</th>
+                    <th className="section-label text-center py-2.5 px-3">Credits</th>
+                    <th className="section-label text-center py-2.5 px-3">Grade</th>
+                    <th className="section-label text-center py-2.5 px-3">Attendance</th>
+                    <th className="section-label text-center py-2.5 px-3 hidden md:table-cell">Syllabus</th>
+                    <th className="section-label text-center py-2.5 px-3">CA</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {reportData.subjectReports.map((r) => (
+                    <tr key={r.subject.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className="status-dot" style={{ backgroundColor: r.subject.color }} />
+                          <span className="font-medium truncate max-w-[180px]">{r.subject.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground hidden sm:table-cell">{r.subject.code}</td>
+                      <td className="py-2.5 px-3 text-center tabular-nums">{r.subject.credits}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className={cn('inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase', gradeSignal(r.grade))}>
+                          {r.grade}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center tabular-nums">{r.attendance.percentage.toFixed(0)}%</td>
+                      <td className="py-2.5 px-3 text-center tabular-nums hidden md:table-cell">{r.progress.toFixed(0)}%</td>
+                      <td className="py-2.5 px-3 text-center tabular-nums">{r.marks.percentage.toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          {activeSubjects.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">No subjects to report.</p>}
-        </div>
 
-        <Separator />
+          <div className="border-b border-border" />
 
-        {/* Assessment Summary */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Assessment Summary</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold tabular-nums">{reportData.totalAssessments}</div>
-              <div className="text-xs text-muted-foreground">Total Assessments</div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold tabular-nums">{reportData.avgAssessmentPct}%</div>
-              <div className="text-xs text-muted-foreground">Average Score</div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold tabular-nums">{reportData.totalSessions}</div>
-              <div className="text-xs text-muted-foreground">Study Sessions</div>
+          {/* Assessment Summary */}
+          <div>
+            <SectionHeader title="Assessment Summary" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="metric-card text-center">
+                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.totalAssessments}</div>
+                <p className="metric-context text-center mt-1.5">Total Assessments</p>
+              </div>
+              <div className="metric-card text-center">
+                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.avgAssessmentPct}%</div>
+                <p className="metric-context text-center mt-1.5">Average Score</p>
+              </div>
+              <div className="metric-card text-center">
+                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.totalSessions}</div>
+                <p className="metric-context text-center mt-1.5">Study Sessions</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <Separator />
+          <div className="border-b border-border" />
 
-        {/* Footer */}
-        <div className="text-xs text-muted-foreground text-center">
-          Generated by Delulu 4.0 — Academic Operating System · {format(new Date(), 'd MMMM yyyy HH:mm')}
+          {/* Footer */}
+          <div className="text-xs text-muted-foreground text-center py-1">
+            Generated by Delulu 4.0 — Academic Operating System · {format(new Date(), 'd MMMM yyyy HH:mm')}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

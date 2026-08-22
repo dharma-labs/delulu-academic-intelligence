@@ -2,6 +2,7 @@
 
 import React, { Suspense } from 'react';
 import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import type { ViewId } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,8 +62,15 @@ export function ViewRouter() {
   }
 
   return (
-    <Suspense fallback={<ViewLoadingFallback />}>
-      <ViewComponent />
-    </Suspense>
+    <motion.div
+      key={currentView}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <ViewComponent />
+      </Suspense>
+    </motion.div>
   );
 }

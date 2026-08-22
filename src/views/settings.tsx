@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useRef } from 'react';
 import { User, Palette, Database, Info, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,6 +20,8 @@ export default function SettingsView() {
   const [localProfile, setLocalProfile] = useState(profile);
   const [resetText, setResetText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   const handleSave = () => {
     updateProfile(localProfile);
@@ -37,9 +40,16 @@ export default function SettingsView() {
     toast.success('Data exported successfully');
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportFile(file);
+    setImportDialogOpen(true);
+    e.target.value = '';
+  };
+
+  const confirmImport = () => {
+    if (!importFile) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -51,8 +61,9 @@ export default function SettingsView() {
         toast.error('Invalid backup file');
       }
     };
-    reader.readAsText(file);
-    e.target.value = '';
+    reader.readAsText(importFile);
+    setImportFile(null);
+    setImportDialogOpen(false);
   };
 
   const handleReset = () => {
@@ -141,6 +152,16 @@ export default function SettingsView() {
                   onChange={(e) => setLocalProfile({ ...localProfile, attendanceThreshold: Number(e.target.value) })}
                 />
               </div>
+              <div className="space-y-1.5">
+                <span className="section-label">Weekly Study Goal (hours)</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={80}
+                  value={localProfile.weeklyStudyGoalHours ?? 10}
+                  onChange={(e) => setLocalProfile({ ...localProfile, weeklyStudyGoalHours: Number(e.target.value) })}
+                />
+              </div>
             </div>
             <div className="mt-5">
               <Button onClick={handleSave} size="sm">
@@ -197,10 +218,28 @@ export default function SettingsView() {
               <Button variant="outline" onClick={handleExport} className="flex-1" size="sm">
                 <Download className="w-3.5 h-3.5 mr-1.5" />Export JSON Backup
               </Button>
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1" size="sm">
-                <Upload className="w-3.5 h-3.5 mr-1.5" />Import Backup
-              </Button>
-              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+              <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportFile(null); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1" size="sm">
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />Import Backup
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Import Backup</DialogTitle>
+                    <DialogDescription>
+                      This will <strong>overwrite all existing data</strong> with the contents of {importFile?.name || 'the selected file'}. This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setImportDialogOpen(false); setImportFile(null); }}>Cancel</Button>
+                    <Button size="sm" onClick={confirmImport} disabled={!importFile}>
+                      <Upload className="w-3.5 h-3.5 mr-1.5" />Confirm Import
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportPick} />
             </div>
             <Separator className="my-4" />
             <div className="space-y-3">

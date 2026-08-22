@@ -30,6 +30,7 @@ const DEFAULT_PROFILE: UserProfile = {
   college: '',
   targetCGPA: 8.5,
   attendanceThreshold: 75,
+  weeklyStudyGoalHours: 10,
 };
 
 // ─── Date helpers ──────────────────────────────────────────────────
@@ -1077,6 +1078,43 @@ export function getStudyTimeThisWeek(
 
   return state.studySessions
     .filter((s) => s.date >= startStr)
+    .reduce((sum, s) => sum + s.duration, 0);
+}
+
+/** Current consecutive day study streak (days with >= 1 session) */
+export function getStudyStreak(
+  state: Pick<AppState, 'studySessions'>
+): number {
+  const today = new Date();
+  const sessionsByDate = new Map<string, number>();
+  for (const s of state.studySessions) {
+    sessionsByDate.set(s.date, (sessionsByDate.get(s.date) || 0) + 1);
+  }
+
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    if ((sessionsByDate.get(dateStr) || 0) >= 1) {
+      streak++;
+    } else {
+      // If today has no sessions, don't count it as breaking the streak
+      // (streak counts backwards from most recent study day)
+      if (i === 0) continue;
+      break;
+    }
+  }
+  return streak;
+}
+
+/** Total study time today (in seconds) */
+export function getStudyTimeToday(
+  state: Pick<AppState, 'studySessions'>
+): number {
+  const today = todayStr();
+  return state.studySessions
+    .filter((s) => s.date === today)
     .reduce((sum, s) => sum + s.duration, 0);
 }
 

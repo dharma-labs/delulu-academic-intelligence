@@ -21,16 +21,18 @@ import {
   BrainCircuit,
   ChevronRight,
   Sparkles,
+  Flame,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSubjectProgress, getStudyTimeThisWeek, getDueRevisionItems, getSubjectSignal } from '@/lib/store';
+import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSubjectProgress, getStudyTimeThisWeek, getStudyStreak, getStudyTimeToday, getDueRevisionItems, getSubjectSignal } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, progressColorClass } from '@/components/shared';
+import { cn } from '@/lib/utils';
 import type { SignalStatus } from '@/lib/types';
 
 // -- Animation --
@@ -76,7 +78,7 @@ function WeeklyHeatmap({ studySessions }: { studySessions: { date: string; durat
       const daySessions = studySessions.filter((s) => s.date === dateStr);
       const totalMinutes = Math.floor(daySessions.reduce((sum, s) => sum + s.duration / 60, 0));
       return { date: d, dateStr, label: format(d, 'EEE'), totalMinutes, count: daySessions.length };
-    };
+    });
   }, [studySessions]);
 
   const maxMinutes = Math.max(...days.map((d) => d.totalMinutes), 1);
@@ -144,6 +146,15 @@ export default function DashboardView() {
   }, [activeSubjects, syllabusUnits]);
 
   const studyTimeThisWeek = useMemo(() => getStudyTimeThisWeek({ studySessions }), [studySessions]);
+
+  const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+
+  const studyTimeToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+
+  const weeklyGoalHours = profile.weeklyStudyGoalHours || 10;
+  const weeklyGoalSeconds = weeklyGoalHours * 3600;
+  const weeklyGoalProgress = weeklyGoalSeconds > 0 ? Math.min(100, Math.round((studyTimeThisWeek / weeklyGoalSeconds) * 100)) : 0;
+  const weeklyHoursThisWeek = (studyTimeThisWeek / 3600).toFixed(1);
 
   const dueRevisionCount = useMemo(() => getDueRevisionItems({ revisionItems }).length, [revisionItems]);
 
@@ -305,56 +316,96 @@ export default function DashboardView() {
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
         {/* Health Score */}
         <Card className="hero-card">
-          <CardContent className="p-5 pt-6">
-            <span className="section-label">Academic Health</span>
-            <div className="mt-3 mb-2">
-              <span className="text-4xl font-bold tracking-tighter text-foreground leading-none">
-                {healthScore}
-              </span>
-              <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
-            </div>
-            <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
-            <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
-            <div className="mt-4">
-              <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+          <CardContent className="relative p-5 pt-6 overflow-hidden">
+            {/* Subtle gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-card via-card to-card/80 pointer-events-none" />
+            {/* Decorative accent line */}
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" />
+            <div className="relative">
+              <span className="section-label">Academic Health</span>
+              <div className="mt-3 mb-2">
+                <span className="text-5xl font-extrabold tracking-tighter text-foreground leading-none">
+                  {healthScore}
+                </span>
+                <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
+              </div>
+              <StatusBadge status={healthConfig.status} label={healthConfig.label} className="mb-2" />
+              <p className="text-xs text-muted-foreground mt-1">{healthConfig.description}</p>
+              <div className="mt-4">
+                <CompactProgress label="Overall" value={healthScore} color={healthScore >= 75 ? 'green' : healthScore >= 50 ? 'blue' : healthScore >= 30 ? 'amber' : 'red'} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard
-            label="Attendance"
-            value={`${avgAttendance}%`}
-            context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
-            trend={avgAttendance >= profile.attendanceThreshold ? 'up' : 'down'}
-            icon={UserCheck}
-            valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}
-            onClick={() => navigate('attendance')}
-          />
-          <MetricCard
-            label="Syllabus"
-            value={`${avgSyllabus}%`}
-            context="Average completion"
-            icon={BookOpen}
-            onClick={() => navigate('subjects')}
-          />
-          <MetricCard
-            label="CGPA"
-            value={cgpa.toFixed(1)}
-            context={`Target: ${profile.targetCGPA}`}
-            trend={cgpaTrend}
-            trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
-            icon={BarChart3}
-            onClick={() => navigate('marks')}
-          />
-          <MetricCard
-            label="Study Time"
-            value={formatStudyTime(studyTimeThisWeek)}
-            context="This week"
-            icon={Clock}
-            onClick={() => navigate('analytics')}
-          />
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MetricCard
+              label="Attendance"
+              value={`${avgAttendance}%`}
+              context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
+              trend={avgAttendance >= profile.attendanceThreshold ? 'up' : 'down'}
+              icon={UserCheck}
+              valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}
+              onClick={() => navigate('attendance')}
+            />
+            <MetricCard
+              label="Syllabus"
+              value={`${avgSyllabus}%`}
+              context="Average completion"
+              icon={BookOpen}
+              onClick={() => navigate('subjects')}
+            />
+            <MetricCard
+              label="CGPA"
+              value={cgpa.toFixed(1)}
+              context={`Target: ${profile.targetCGPA}`}
+              trend={cgpaTrend}
+              trendValue={cgpaTrend === 'up' ? 'On target' : cgpaTrend === 'down' ? 'Below' : undefined}
+              icon={BarChart3}
+              onClick={() => navigate('marks')}
+            />
+            <MetricCard
+              label="Study Time"
+              value={formatStudyTime(studyTimeThisWeek)}
+              context="This week"
+              icon={Clock}
+              onClick={() => navigate('analytics')}
+            />
+          </div>
+          {/* Streak + Weekly Goal Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <MetricCard
+              label="Streak"
+              value={studyStreak}
+              context={`${studyStreak} day streak`}
+              icon={Flame}
+              iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
+              valueColor={studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : undefined}
+            />
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <span className="metric-label">Weekly Goal</span>
+                <Target className="size-3.5 md:size-4 text-muted-foreground" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={cn(
+                  'text-xl md:text-2xl font-bold tracking-tight leading-none',
+                  weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground'
+                )}>{weeklyHoursThisWeek}h</span>
+                <span className="text-xs text-muted-foreground">/ {weeklyGoalHours}h goal</span>
+              </div>
+              <div className="mt-2">
+                <div className="progress-thin">
+                  <div
+                    className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'}
+                    style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </motion.div>
 
@@ -478,7 +529,7 @@ export default function DashboardView() {
             </CardContent>
           </Card>
 
-          {/* Signal Legend */
+          {/* Signal Legend */}
           {activeSubjects.length > 0 && (
             <div className="signal-legend px-1">
               <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>

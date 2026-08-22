@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
+import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -444,7 +445,7 @@ export default function FocusView() {
                 <svg
                   width={TIMER_RADIUS * 2 + 24}
                   height={TIMER_RADIUS * 2 + 24}
-                  className='transform -rotate-90'
+                  className={cn('transform -rotate-90', !isPaused && 'timer-glow')}
                 >
                   {/* Background track */}
                   <circle
@@ -489,7 +490,7 @@ export default function FocusView() {
                 <div className='absolute flex flex-col items-center'>
                   <motion.span
                     key={focusElapsed}
-                    className='metric-value tabular-nums'
+                    className={cn('text-4xl md:text-5xl font-bold tracking-tighter leading-none tabular-nums', !isPaused && 'animate-timer-pulse')}
                     initial={{ scale: 1.01 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.1 }}

@@ -6,6 +6,16 @@ import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 
 // ─── Metric Card ─────────────────────────────────────────────────
 
+type MetricAccent = 'primary' | 'success' | 'warning' | 'danger' | 'purple';
+
+const ACCENT_CLASS: Record<MetricAccent, string> = {
+  primary: 'metric-card-accent-primary',
+  success: 'metric-card-accent-success',
+  warning: 'metric-card-accent-warning',
+  danger: 'metric-card-accent-danger',
+  purple: 'metric-card-accent-purple',
+};
+
 interface MetricCardProps {
   label: string;
   value: string | number;
@@ -15,6 +25,7 @@ interface MetricCardProps {
   icon?: LucideIcon;
   iconColor?: string;
   valueColor?: string;
+  accent?: MetricAccent;
   className?: string;
   onClick?: () => void;
 }
@@ -28,12 +39,13 @@ export function MetricCard({
   icon: Icon,
   iconColor,
   valueColor,
+  accent,
   className,
   onClick,
 }: MetricCardProps) {
   return (
     <div
-      className={cn('metric-card', onClick && 'cursor-pointer', className)}
+      className={cn('metric-card', onClick && 'cursor-pointer', accent && ACCENT_CLASS[accent], className)}
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2 md:mb-3">
