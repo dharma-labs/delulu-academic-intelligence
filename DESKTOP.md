@@ -4,7 +4,7 @@ The desktop app wraps the Next.js standalone server in an Electron shell.
 
 ## What it is
 
-- `main.js` boots the bundled server (`app/server.js`) on `127.0.0.1:3210`
+- `main.js` boots the bundled server (`server/server.js`) on `127.0.0.1:3210`
   using Electron's embedded Node runtime, then opens a native window.
 - The server is a Next.js `output: "standalone"` build (full app, including
   API routes such as the AI Tutor).
@@ -17,10 +17,10 @@ npm install
 npm run build              # produces .next/standalone
 
 # stage the standalone server into the desktop app
-rm -rf desktop/app && mkdir -p desktop/app
+rm -rf desktop/server && mkdir -p desktop/server
 cp -r .next/standalone/.next/static .next/standalone/.next/
 cp -r public .next/standalone/
-cp -r .next/standalone/* desktop/app/
+cp -r .next/standalone/* desktop/server/
 
 # build the installer
 cd desktop

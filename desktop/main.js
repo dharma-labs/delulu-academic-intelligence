@@ -15,7 +15,7 @@ let mainWindow = null;
 let logStream = null;
 
 function startServer() {
-  const serverDir = path.join(__dirname, 'app');
+  const serverDir = path.join(__dirname, 'server');
   const serverEntry = path.join(serverDir, 'server.js');
 
   if (!fs.existsSync(serverEntry)) {

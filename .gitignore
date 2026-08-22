@@ -58,7 +58,7 @@ server.log
 /package-lock.json
 
 # desktop app build artifacts
-/desktop/app/
+/desktop/server/
 /desktop/node_modules/
 /desktop/release/
 /desktop/package-lock.json

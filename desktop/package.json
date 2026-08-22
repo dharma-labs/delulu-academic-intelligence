@@ -21,7 +21,7 @@
     },
     "files": [
       "main.js",
-      "app/**/*"
+      "server/**/*"
     ],
     "win": {
       "target": [
