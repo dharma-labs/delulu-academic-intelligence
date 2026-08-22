@@ -53,3 +53,18 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# npm lockfile (project uses bun)
+/package-lock.json
+
+# desktop app build artifacts
+/desktop/app/
+/desktop/node_modules/
+/desktop/release/
+/desktop/package-lock.json
+
+# mobile app build artifacts
+/mobile/www/
+/mobile/node_modules/
+/mobile/package-lock.json
+/mobile/android/

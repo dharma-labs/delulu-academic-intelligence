@@ -1,0 +1,8 @@
+{
+  "appId": "com.delulu.academic",
+  "appName": "Delulu",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
