@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 
 // ─── Metric Card ─────────────────────────────────────────────────
@@ -202,17 +203,111 @@ interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
+  illustration?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
+/** Generate a deterministic geometric pattern SVG based on icon name */
+function GeometricPattern({ iconName }: { iconName: string }) {
+  const seed = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < iconName.length; i++) {
+      hash = ((hash << 5) - hash + iconName.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+  }, [iconName]);
+
+  const circles = useMemo(() => {
+    const items: { cx: number; cy: number; r: number; opacity: number }[] = [];
+    for (let i = 0; i < 5; i++) {
+      const s = (seed * (i + 1) * 13) % 100;
+      items.push({
+        cx: 20 + (s % 60),
+        cy: 20 + ((s * 7) % 60),
+        r: 4 + (s % 12),
+        opacity: 0.04 + (s % 6) * 0.01,
+      });
+    }
+    return items;
+  }, [seed]);
+
+  const lines = useMemo(() => {
+    const items: { x1: number; y1: number; x2: number; y2: number; opacity: number }[] = [];
+    for (let i = 0; i < 4; i++) {
+      const s = (seed * (i + 1) * 17) % 100;
+      items.push({
+        x1: 10 + (s % 80),
+        y1: 10 + ((s * 3) % 80),
+        x2: 10 + ((s * 11) % 80),
+        y2: 10 + ((s * 23) % 80),
+        opacity: 0.03 + (s % 5) * 0.01,
+      });
+    }
+    return items;
+  }, [seed]);
+
+  return (
+    <svg
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      viewBox="0 0 100 100"
+      fill="none"
+      aria-hidden="true"
+    >
+      {circles.map((c, i) => (
+        <circle
+          key={`c-${i}`}
+          cx={c.cx}
+          cy={c.cy}
+          r={c.r}
+          className="fill-primary"
+          style={{ opacity: c.opacity }}
+        />
+      ))}
+      {lines.map((l, i) => (
+        <line
+          key={`l-${i}`}
+          x1={l.x1}
+          y1={l.y1}
+          x2={l.x2}
+          y2={l.y2}
+          className="stroke-primary"
+          strokeWidth="0.5"
+          style={{ opacity: l.opacity }}
+        />
+      ))}
+    </svg>
+  );
+}
+
+const floatAnimation = {
+  y: [0, -6, 0],
+  transition: {
+    duration: 3,
+    repeat: Infinity,
+    ease: 'easeInOut' as const,
+  },
+};
+
+export function EmptyState({ icon: Icon, title, description, illustration, action, className }: EmptyStateProps) {
+  const patternKey = Icon.displayName || Icon.name || 'empty';
+
   return (
     <div className={cn('flex flex-col items-center justify-center py-16 text-center', className)}>
-      <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center mb-3">
-        <Icon className="size-6 text-muted-foreground" />
-      </div>
-      <h3 className="text-sm font-semibold mb-1">{title}</h3>
+      <motion.div
+        className="relative mb-4"
+        animate={floatAnimation}
+      >
+        <div className="h-16 w-16 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center relative overflow-hidden">
+          {!illustration && <GeometricPattern iconName={patternKey} />}
+          {illustration ? (
+            <div className="relative z-10">{illustration}</div>
+          ) : (
+            <Icon className="size-6 text-primary/50 relative z-10" />
+          )}
+        </div>
+      </motion.div>
+      <h3 className="text-base font-semibold mb-1">{title}</h3>
       <p className="text-xs text-muted-foreground max-w-xs">{description}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>

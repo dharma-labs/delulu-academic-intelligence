@@ -189,6 +189,44 @@ function seedDemoData() {
     { id: 'ce3', title: 'OS Lab Submission', date: daysFromNow(5), type: 'deadline', subjectId: 's4', color: '#D99200' },
   ];
 
+  // ─── Study Sessions (realistic seed data) ──────────────────────
+  const studySessions: StudySession[] = [];
+  // Generate sessions for the past 14 days
+  const sessionPatterns: { subjectId: string; topicName: string; minDur: number; maxDur: number; daysBack: number }[] = [
+    { subjectId: 's1', topicName: '1D & 2D Arrays', minDur: 1800, maxDur: 3600, daysBack: 13 },
+    { subjectId: 's1', topicName: 'Linked List Traversal', minDur: 2400, maxDur: 4200, daysBack: 12 },
+    { subjectId: 's2', topicName: 'Propositional Logic', minDur: 1500, maxDur: 2700, daysBack: 11 },
+    { subjectId: 's3', topicName: 'Binary & Hexadecimal', minDur: 1200, maxDur: 2400, daysBack: 10 },
+    { subjectId: 's1', topicName: 'Singly Linked List', minDur: 3000, maxDur: 5400, daysBack: 9 },
+    { subjectId: 's4', topicName: 'Process States', minDur: 1800, maxDur: 3600, daysBack: 8 },
+    { subjectId: 's2', topicName: 'Set Operations', minDur: 2100, maxDur: 3600, daysBack: 7 },
+    { subjectId: 's5', topicName: 'OSI Layers', minDur: 1500, maxDur: 2700, daysBack: 6 },
+    { subjectId: 's1', topicName: 'String Manipulation', minDur: 2400, maxDur: 4200, daysBack: 5 },
+    { subjectId: 's3', topicName: 'BCD & Gray Code', minDur: 1200, maxDur: 2400, daysBack: 5 },
+    { subjectId: 's4', topicName: 'CPU Scheduling', minDur: 3000, maxDur: 5400, daysBack: 4 },
+    { subjectId: 's2', topicName: 'Permutations & Combinations', minDur: 1800, maxDur: 3000, daysBack: 3 },
+    { subjectId: 's5', topicName: 'TCP/IP Stack', minDur: 2100, maxDur: 3600, daysBack: 3 },
+    { subjectId: 's1', topicName: 'Binary Trees', minDur: 2700, maxDur: 4800, daysBack: 2 },
+    { subjectId: 's4', topicName: 'Process Scheduling', minDur: 3600, maxDur: 5400, daysBack: 2 },
+    { subjectId: 's3', topicName: 'Logic Gates', minDur: 1500, maxDur: 3000, daysBack: 1 },
+    { subjectId: 's5', topicName: 'Error Detection', minDur: 1800, maxDur: 2700, daysBack: 1 },
+    { subjectId: 's2', topicName: 'Set Theory Review', minDur: 2100, maxDur: 3600, daysBack: 0 },
+    { subjectId: 's1', topicName: 'BST & AVL Trees', minDur: 2400, maxDur: 4200, daysBack: 0 },
+  ];
+  for (const sp of sessionPatterns) {
+    const dur = sp.minDur + Math.floor(Math.random() * (sp.maxDur - sp.minDur));
+    const dateObj = new Date();
+    dateObj.setDate(dateObj.getDate() - sp.daysBack);
+    const dateStr = dateObj.toISOString().split('T')[0];
+    studySessions.push({ id: uid(), subjectId: sp.subjectId, topicName: sp.topicName, duration: dur, date: dateStr, type: 'focus' });
+  }
+  // Add a few revision sessions
+  studySessions.push(
+    { id: uid(), subjectId: 's1', topicName: 'Arrays Review', duration: 1200, date: daysAgo(3), type: 'revision' },
+    { id: uid(), subjectId: 's2', topicName: 'Logic Review', duration: 900, date: daysAgo(1), type: 'revision' },
+    { id: uid(), subjectId: 's4', topicName: 'Process States Review', duration: 1500, date: daysAgo(0), type: 'revision' },
+  );
+
   const assignments: Assignment[] = [
     { id: 'as1', subjectId: 's1', title: 'Binary Tree Implementation', description: 'Implement BST with insert, delete, search', deadline: daysFromNow(7), priority: 'high', status: 'upcoming', createdAt: now },
     { id: 'as2', subjectId: 's2', title: 'Proof Techniques Worksheet', deadline: daysFromNow(4), priority: 'medium', status: 'due_soon', createdAt: now },
@@ -216,7 +254,7 @@ function seedDemoData() {
     assignments,
     exams,
     notes,
-    studySessions: [] as StudySession[],
+    studySessions,
     pyqs: [] as PYQ[],
     erPapers: [] as ERPaper[],
   };
@@ -808,6 +846,14 @@ export const useStore = create<AppState>()(
         pyqs: state.pyqs,
         erPapers: state.erPapers,
       }),
+      // Migrate: inject study sessions if existing data has none
+      migrate: (persisted) => {
+        if (persisted.studySessions && persisted.studySessions.length === 0) {
+          const seed = seedDemoData();
+          persisted.studySessions = seed.studySessions;
+        }
+        return persisted;
+      },
     }
   )
 );

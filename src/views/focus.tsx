@@ -57,6 +57,9 @@ const MOTIVATIONAL_MESSAGES = [
 const TIMER_RADIUS = 130;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 
+const MOBILE_TIMER_RADIUS = 130;
+const MOBILE_TIMER_CIRCUMFERENCE = 2 * Math.PI * MOBILE_TIMER_RADIUS;
+
 type Phase = 'setup' | 'active' | 'completion';
 
 // --- Helpers ---
@@ -177,6 +180,7 @@ export default function FocusView() {
     ? Math.min(focusElapsed / goalSeconds, 1)
     : 0;
   const strokeDashoffset = TIMER_CIRCUMFERENCE * (1 - progress);
+  const mobileStrokeDashoffset = MOBILE_TIMER_CIRCUMFERENCE * (1 - progress);
 
   // --- Actions ---
   const handleStart = useCallback(() => {
@@ -239,163 +243,117 @@ export default function FocusView() {
   // --- Render ---
   return (
     <div className='relative min-h-full'>
-      <div className='content-area px-4 sm:px-6 py-6'>
-
-        {/* --- Setup Phase --- */}
+      {/* ═══════════════════════════════════════════════════════════════
+          MOBILE LAYOUT
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className='md:hidden'>
         <AnimatePresence mode='wait'>
+          {/* --- Mobile: Setup Phase --- */}
           {phase === 'setup' && !focusActive && (
             <motion.div
-              key='setup'
-              initial={{ opacity: 0, y: 12 }}
+              key='mobile-setup'
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.25 }}
-              className='flex flex-col items-center gap-8'
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className='flex flex-col gap-4'
             >
-              <PageHeader
-                title='Focus Session'
-                subtitle='Set up your study session and get into deep work mode.'
-                badge={
-                  todaySessions.length > 0 ? (
-                    <span className='section-label'>{todaySessions.length} sessions today</span>
-                  ) : undefined
-                }
-                className='!mb-0 w-full max-w-md'
-              />
-
-              <div className='w-full max-w-md'>
-                <div className='metric-card p-5 space-y-5'>
-                  <div className='space-y-2'>
-                    <Label className='section-label' htmlFor='subject-select'>Subject</Label>
-                    <Select
-                      value={selectedSubjectId}
-                      onValueChange={(v) => {
-                        setSelectedSubjectId(v);
-                        setSelectedTopicId('');
-                      }}
-                    >
-                      <SelectTrigger id='subject-select'>
-                        <SelectValue placeholder='Select a subject' />
+              {/* Compact inline session start */}
+              <div className='flex flex-wrap gap-2 items-end'>
+                <div className='flex-1 min-w-[120px]'>
+                  <span className='section-label text-[10px]'>Subject</span>
+                  <Select
+                    value={selectedSubjectId}
+                    onValueChange={(v) => {
+                      setSelectedSubjectId(v);
+                      setSelectedTopicId('');
+                    }}
+                  >
+                    <SelectTrigger className='h-8 text-xs'>
+                      <SelectValue placeholder='Subject' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeSubjects.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className='flex items-center gap-1.5'>
+                            <span className='status-dot' style={{ backgroundColor: s.color }} />
+                            {s.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedSubjectId && topicsForSubject.length > 0 && (
+                  <div className='flex-1 min-w-[100px]'>
+                    <span className='section-label text-[10px]'>Topic</span>
+                    <Select value={selectedTopicId} onValueChange={setSelectedTopicId}>
+                      <SelectTrigger className='h-8 text-xs'>
+                        <SelectValue placeholder='Topic' />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeSubjects.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            <span className='flex items-center gap-2'>
-                              <span
-                                className='status-dot'
-                                style={{ backgroundColor: s.color }}
-                              />
-                              {s.name}
-                            </span>
+                        {topicsForSubject.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {selectedSubjectId && topicsForSubject.length > 0 && (
-                    <motion.div
-                      className='space-y-2'
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <Label className='section-label' htmlFor='topic-select'>Topic (optional)</Label>
-                      <Select
-                        value={selectedTopicId}
-                        onValueChange={setSelectedTopicId}
-                      >
-                        <SelectTrigger id='topic-select'>
-                          <SelectValue placeholder='Select a topic' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {topicsForSubject.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </motion.div>
-                  )}
-
-                  <div className='space-y-2'>
-                    <Label className='section-label' htmlFor='goal-input'>
-                      Session Goal
-                      <span className='font-normal normal-case tracking-normal text-muted-foreground/60 ml-1'>(optional)</span>
-                    </Label>
-                    <div className='relative'>
-                      <Input
-                        id='goal-input'
-                        type='number'
-                        min='1'
-                        max='480'
-                        placeholder='e.g. 45'
-                        value={goalMinutes}
-                        onChange={(e) => setGoalMinutes(e.target.value)}
-                        className='pr-16'
-                      />
-                      <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground'>
-                        minutes
-                      </span>
-                    </div>
-                  </div>
-
-                  <Button
-                    size='lg'
-                    className='w-full'
-                    disabled={!selectedSubjectId}
-                    onClick={handleStart}
-                  >
-                    <Play className='mr-2 h-4 w-4' />
-                    Start Focus
-                  </Button>
+                )}
+                <div className='w-[60px]'>
+                  <span className='section-label text-[10px]'>Min</span>
+                  <Input
+                    type='number'
+                    min='1'
+                    max='480'
+                    placeholder='25'
+                    value={goalMinutes}
+                    onChange={(e) => setGoalMinutes(e.target.value)}
+                    className='h-8 text-xs'
+                  />
                 </div>
+                <Button
+                  size='sm'
+                  disabled={!selectedSubjectId}
+                  onClick={handleStart}
+                  className='h-8 px-3'
+                >
+                  <Play className='mr-1 h-3 w-3' />
+                  Start
+                </Button>
               </div>
 
-              {/* --- Recent Sessions --- */}
+              {/* Today's Sessions — compact horizontal strip */}
               {todaySessions.length > 0 && (
-                <div className='w-full max-w-md mt-2'>
-                  <SectionHeader
-                    title="Today's Sessions"
-                    subtitle={`${todayTotalMinutes}m total study time`}
-                  />
-                  <div className='space-y-2'>
-                    {todaySessions.map((session) => {
+                <div>
+                  <div className='flex items-center justify-between mb-2'>
+                    <span className='section-label'>Today</span>
+                    <span className='text-[10px] text-muted-foreground tabular-nums'>{todayTotalMinutes}m</span>
+                  </div>
+                  <div className='flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none snap-x snap-mandatory'>
+                    {todaySessions.slice(0, 6).map((session) => {
                       const subj = subjects.find((s) => s.id === session.subjectId);
                       return (
-                        <div
+                        <motion.div
                           key={session.id}
-                          className='card-interactive flex items-center gap-3 p-3'
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className='metric-card flex-shrink-0 w-[120px] snap-start p-2.5'
                         >
-                          <div
-                            className='h-8 w-8 shrink-0 rounded-md flex items-center justify-center'
-                            style={{ backgroundColor: subj ? `${subj.color}12` : undefined }}
-                          >
-                            <BookOpen
-                              className='h-4 w-4'
-                              style={{ color: subj?.color || 'var(--muted-foreground)' }}
+                          <div className='flex items-center gap-1.5 mb-1.5'>
+                            <span
+                              className='status-dot'
+                              style={{ backgroundColor: subj?.color || 'var(--muted-foreground)' }}
                             />
-                          </div>
-                          <div className='min-w-0 flex-1'>
-                            <p className='text-sm font-medium truncate'>
+                            <span className='text-[11px] font-medium truncate'>
                               {subj?.name || 'Unknown'}
-                              {session.topicName && (
-                                <span className='text-muted-foreground font-normal'>
-                                  {' '}/ {session.topicName}
-                                </span>
-                              )}
-                            </p>
-                            {session.notes && (
-                              <p className='text-[11px] text-muted-foreground truncate'>
-                                {session.notes}
-                              </p>
-                            )}
+                            </span>
                           </div>
-                          <span className='text-sm font-semibold tabular-nums text-muted-foreground shrink-0'>
+                          <span className='text-sm font-semibold tabular-nums'>
                             {formatDuration(session.duration)}
                           </span>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -406,77 +364,88 @@ export default function FocusView() {
                 <EmptyState
                   icon={Clock}
                   title='No sessions today'
-                  description='Start your first focus session to begin tracking study time.'
+                  description='Tap Start above to begin your first focus session.'
                 />
               )}
             </motion.div>
           )}
 
-          {/* --- Active Timer Phase --- */}
+          {/* --- Mobile: Active Timer Phase --- */}
           {phase === 'active' && focusActive && (
             <motion.div
-              key='active'
+              key='mobile-active'
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className='flex flex-col items-center gap-6'
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              className='flex flex-col items-center gap-4'
             >
-              {/* Subject & Topic */}
+              {/* Timer digits centered */}
               <div className='text-center'>
-                <div className='flex items-center justify-center gap-2 mb-1'>
-                  {selectedSubject && (
-                    <span
-                      className='status-dot'
-                      style={{ backgroundColor: selectedSubject.color }}
-                    />
+                <motion.span
+                  key={focusElapsed}
+                  className={cn(
+                    'text-5xl font-bold tracking-tighter leading-none tabular-nums',
+                    !isPaused && 'animate-timer-pulse'
                   )}
-                  <span className='text-sm font-medium'>
-                    {selectedSubject?.name || 'Unknown Subject'}
+                  initial={{ scale: 1.01 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.1 }}
+                >
+                  {formatElapsed(focusElapsed)}
+                </motion.span>
+                {/* Status badge + session count */}
+                <div className='flex items-center justify-center gap-2 mt-2'>
+                  <span className={cn(
+                    'inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase',
+                    isPaused
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                  )}>
+                    {isPaused ? 'PAUSED' : 'RUNNING'}
                   </span>
+                  {todaySessions.length > 0 && (
+                    <span className='text-[10px] text-muted-foreground'>
+                      Session {todaySessions.length + 1}
+                    </span>
+                  )}
                 </div>
-                {selectedTopic && (
-                  <p className='text-xs text-muted-foreground'>{selectedTopic.name}</p>
-                )}
               </div>
 
-              {/* Timer Ring */}
-              <div className='relative flex items-center justify-center'>
+              {/* Timer Ring — full width, larger */}
+              <div className='relative flex items-center justify-center w-full max-w-[300px]'>
                 <svg
-                  width={TIMER_RADIUS * 2 + 24}
-                  height={TIMER_RADIUS * 2 + 24}
+                  width={MOBILE_TIMER_RADIUS * 2 + 24}
+                  height={MOBILE_TIMER_RADIUS * 2 + 24}
                   className={cn('transform -rotate-90', !isPaused && 'timer-glow')}
                 >
-                  {/* Background track */}
                   <circle
-                    cx={TIMER_RADIUS + 12}
-                    cy={TIMER_RADIUS + 12}
-                    r={TIMER_RADIUS}
+                    cx={MOBILE_TIMER_RADIUS + 12}
+                    cy={MOBILE_TIMER_RADIUS + 12}
+                    r={MOBILE_TIMER_RADIUS}
                     fill='none'
                     stroke='var(--border)'
-                    strokeWidth='3'
+                    strokeWidth='4'
                   />
-                  {/* Progress arc */}
                   {goalSeconds > 0 && (
                     <motion.circle
-                      cx={TIMER_RADIUS + 12}
-                      cy={TIMER_RADIUS + 12}
-                      r={TIMER_RADIUS}
+                      cx={MOBILE_TIMER_RADIUS + 12}
+                      cy={MOBILE_TIMER_RADIUS + 12}
+                      r={MOBILE_TIMER_RADIUS}
                       fill='none'
                       stroke='var(--color-primary)'
-                      strokeWidth='3'
+                      strokeWidth='4'
                       strokeLinecap='round'
-                      strokeDasharray={TIMER_CIRCUMFERENCE}
-                      strokeDashoffset={strokeDashoffset}
+                      strokeDasharray={MOBILE_TIMER_CIRCUMFERENCE}
+                      strokeDashoffset={mobileStrokeDashoffset}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
                     />
                   )}
-                  {/* No-goal: subtle inner ring */}
                   {goalSeconds === 0 && (
                     <circle
-                      cx={TIMER_RADIUS + 12}
-                      cy={TIMER_RADIUS + 12}
-                      r={TIMER_RADIUS - 8}
+                      cx={MOBILE_TIMER_RADIUS + 12}
+                      cy={MOBILE_TIMER_RADIUS + 12}
+                      r={MOBILE_TIMER_RADIUS - 8}
                       fill='none'
                       stroke='var(--border)'
                       strokeWidth='1'
@@ -485,28 +454,41 @@ export default function FocusView() {
                     />
                   )}
                 </svg>
+              </div>
 
-                {/* Timer text centered inside ring */}
-                <div className='absolute flex flex-col items-center'>
-                  <motion.span
-                    key={focusElapsed}
-                    className={cn('text-4xl md:text-5xl font-bold tracking-tighter leading-none tabular-nums', !isPaused && 'animate-timer-pulse')}
-                    initial={{ scale: 1.01 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.1 }}
+              {/* Topic display */}
+              {(selectedSubject || selectedTopic) && (
+                <p className='text-xs text-muted-foreground text-center'>
+                  {selectedSubject?.name || 'Unknown Subject'}
+                  {selectedTopic && <span> · {selectedTopic.name}</span>}
+                </p>
+              )}
+
+              {/* Controls — large circular buttons */}
+              <div className='flex items-center gap-6 mt-2'>
+                <div className='flex flex-col items-center gap-1'>
+                  <button
+                    onClick={handlePauseResume}
+                    aria-label={isPaused ? 'Resume' : 'Pause'}
+                    className='h-14 w-14 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
                   >
-                    {formatElapsed(focusElapsed)}
-                  </motion.span>
-                  {goalSeconds > 0 && (
-                    <span className='text-xs text-muted-foreground mt-1'>
-                      of {formatDuration(goalSeconds)}
-                    </span>
-                  )}
-                  {isPaused && (
-                    <span className='text-[10px] font-medium text-amber-500 uppercase tracking-wider mt-2'>
-                      Paused
-                    </span>
-                  )}
+                    {isPaused ? (
+                      <Play className='h-5 w-5 text-foreground' />
+                    ) : (
+                      <Pause className='h-5 w-5 text-foreground' />
+                    )}
+                  </button>
+                  <span className='text-xs text-muted-foreground'>{isPaused ? 'Resume' : 'Pause'}</span>
+                </div>
+                <div className='flex flex-col items-center gap-1'>
+                  <button
+                    onClick={handleStopClick}
+                    aria-label='Stop'
+                    className='h-14 w-14 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
+                  >
+                    <Square className='h-5 w-5 text-red-500' />
+                  </button>
+                  <span className='text-xs text-muted-foreground'>Stop</span>
                 </div>
               </div>
 
@@ -524,111 +506,103 @@ export default function FocusView() {
                 </motion.p>
               )}
 
-              {/* Controls */}
-              <div className='flex items-center gap-3'>
-                <button
-                  onClick={handlePauseResume}
-                  aria-label={isPaused ? 'Resume' : 'Pause'}
-                  className='h-12 w-12 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
-                >
-                  {isPaused ? (
-                    <Play className='h-5 w-5 text-foreground' />
-                  ) : (
-                    <Pause className='h-5 w-5 text-foreground' />
-                  )}
-                </button>
-
-                <button
-                  onClick={handleStopClick}
-                  aria-label='Stop'
-                  className='h-12 w-12 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
-                >
-                  <Square className='h-4 w-4 text-red-500' />
-                </button>
-              </div>
+              {/* Today's Sessions — compact horizontal scroll strip */}
+              {todaySessions.length > 0 && (
+                <div className='w-full mt-2'>
+                  <div className='flex items-center justify-between mb-2'>
+                    <span className='section-label'>Today's Sessions</span>
+                    <span className='text-[10px] text-muted-foreground tabular-nums'>{todayTotalMinutes}m total</span>
+                  </div>
+                  <div className='flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none snap-x snap-mandatory'>
+                    {todaySessions.slice(0, 6).map((session) => {
+                      const subj = subjects.find((s) => s.id === session.subjectId);
+                      return (
+                        <div
+                          key={session.id}
+                          className='metric-card flex-shrink-0 w-[120px] snap-start p-2.5'
+                        >
+                          <div className='flex items-center gap-1.5 mb-1.5'>
+                            <span
+                              className='status-dot'
+                              style={{ backgroundColor: subj?.color || 'var(--muted-foreground)' }}
+                            />
+                            <span className='text-[11px] font-medium truncate'>
+                              {subj?.name || 'Unknown'}
+                            </span>
+                          </div>
+                          <span className='text-sm font-semibold tabular-nums'>
+                            {formatDuration(session.duration)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
-          {/* --- Completion Phase --- */}
+          {/* --- Mobile: Completion Phase --- */}
           {phase === 'completion' && (
             <motion.div
-              key='completion'
+              key='mobile-completion'
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.25 }}
-              className='flex flex-col items-center gap-8'
+              className='flex flex-col items-center gap-5'
             >
               <div className='text-center'>
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
-                  className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
+                  className='mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
                 >
-                  <CheckCircle2 className='h-7 w-7 text-emerald-500' />
+                  <CheckCircle2 className='h-6 w-6 text-emerald-500' />
                 </motion.div>
-                <h1 className='text-xl font-semibold tracking-tight text-foreground'>Session Complete</h1>
-                <p className='text-sm text-muted-foreground mt-1'>
-                  Great work! Here is a summary of your session.
-                </p>
+                <h1 className='text-lg font-semibold tracking-tight text-foreground'>Session Complete</h1>
+                <span className='metric-value tabular-nums text-2xl mt-1 block'>
+                  {formatDuration(completionDuration)}
+                </span>
               </div>
 
-              <div className='w-full max-w-md'>
-                <div className='metric-card p-5 space-y-4'>
-                  {/* Duration highlight */}
-                  <div className='text-center py-3'>
-                    <span className='metric-value tabular-nums'>
-                      {formatDuration(completionDuration)}
-                    </span>
-                    <p className='metric-context'>Session Duration</p>
-                  </div>
-
-                  {/* Subject & Topic */}
-                  <div className='space-y-2 border-t border-border pt-3'>
-                    <div className='flex items-center justify-between'>
-                      <span className='metric-label'>Subject</span>
-                      <div className='flex items-center gap-1.5'>
-                        {selectedSubject && (
-                          <span
-                            className='status-dot'
-                            style={{ backgroundColor: selectedSubject.color }}
-                          />
-                        )}
-                        <span className='text-sm font-medium'>
-                          {selectedSubject?.name || 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
-                    {completionTopicName && (
-                      <div className='flex items-center justify-between'>
-                        <span className='metric-label'>Topic</span>
-                        <span className='text-sm font-medium'>{completionTopicName}</span>
-                      </div>
+              <div className='w-full metric-card p-4 space-y-3'>
+                <div className='flex items-center justify-between'>
+                  <span className='metric-label'>Subject</span>
+                  <div className='flex items-center gap-1.5'>
+                    {selectedSubject && (
+                      <span className='status-dot' style={{ backgroundColor: selectedSubject.color }} />
                     )}
+                    <span className='text-sm font-medium'>{selectedSubject?.name || 'Unknown'}</span>
                   </div>
-
-                  {/* Notes */}
-                  <div className='space-y-2 border-t border-border pt-3'>
-                    <Label className='section-label' htmlFor='completion-notes'>
-                      What did you accomplish?
-                    </Label>
-                    <Textarea
-                      id='completion-notes'
-                      placeholder='E.g., Completed chapter 3 exercises, reviewed linked list operations...'
-                      value={completionNotes}
-                      onChange={(e) => setCompletionNotes(e.target.value)}
-                      rows={3}
-                      className='resize-none'
-                    />
-                  </div>
-
-                  <Button className='w-full' onClick={handleSaveCompletion}>
-                    <CheckCircle2 className='mr-2 h-4 w-4' />
-                    Save Session
-                  </Button>
                 </div>
+                {completionTopicName && (
+                  <div className='flex items-center justify-between'>
+                    <span className='metric-label'>Topic</span>
+                    <span className='text-sm font-medium'>{completionTopicName}</span>
+                  </div>
+                )}
               </div>
+
+              <div className='w-full space-y-2'>
+                <Label className='section-label' htmlFor='mobile-completion-notes'>
+                  What did you accomplish?
+                </Label>
+                <Textarea
+                  id='mobile-completion-notes'
+                  placeholder='E.g., Completed chapter 3 exercises...'
+                  value={completionNotes}
+                  onChange={(e) => setCompletionNotes(e.target.value)}
+                  rows={2}
+                  className='resize-none text-sm'
+                />
+              </div>
+
+              <Button className='w-full' onClick={handleSaveCompletion}>
+                <CheckCircle2 className='mr-2 h-4 w-4' />
+                Save Session
+              </Button>
 
               <Button
                 variant='ghost'
@@ -637,11 +611,420 @@ export default function FocusView() {
                 className='text-muted-foreground'
               >
                 <RotateCcw className='mr-2 h-3.5 w-3.5' />
-                Start Another Session
+                Start Another
               </Button>
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          DESKTOP LAYOUT (unchanged)
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className='hidden md:block'>
+        <div className='content-area px-4 sm:px-6 py-6'>
+          <AnimatePresence mode='wait'>
+            {/* --- Setup Phase --- */}
+            {phase === 'setup' && !focusActive && (
+              <motion.div
+                key='setup'
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                className='flex flex-col items-center gap-8'
+              >
+                <PageHeader
+                  title='Focus Session'
+                  subtitle='Set up your study session and get into deep work mode.'
+                  badge={
+                    todaySessions.length > 0 ? (
+                      <span className='section-label'>{todaySessions.length} sessions today</span>
+                    ) : undefined
+                  }
+                  className='!mb-0 w-full max-w-md'
+                />
+
+                <div className='w-full max-w-md'>
+                  <div className='metric-card p-5 space-y-5'>
+                    <div className='space-y-2'>
+                      <Label className='section-label' htmlFor='subject-select'>Subject</Label>
+                      <Select
+                        value={selectedSubjectId}
+                        onValueChange={(v) => {
+                          setSelectedSubjectId(v);
+                          setSelectedTopicId('');
+                        }}
+                      >
+                        <SelectTrigger id='subject-select'>
+                          <SelectValue placeholder='Select a subject' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeSubjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              <span className='flex items-center gap-2'>
+                                <span
+                                  className='status-dot'
+                                  style={{ backgroundColor: s.color }}
+                                />
+                                {s.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedSubjectId && topicsForSubject.length > 0 && (
+                      <motion.div
+                        className='space-y-2'
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <Label className='section-label' htmlFor='topic-select'>Topic (optional)</Label>
+                        <Select
+                          value={selectedTopicId}
+                          onValueChange={setSelectedTopicId}
+                        >
+                          <SelectTrigger id='topic-select'>
+                            <SelectValue placeholder='Select a topic' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {topicsForSubject.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </motion.div>
+                    )}
+
+                    <div className='space-y-2'>
+                      <Label className='section-label' htmlFor='goal-input'>
+                        Session Goal
+                        <span className='font-normal normal-case tracking-normal text-muted-foreground/60 ml-1'>(optional)</span>
+                      </Label>
+                      <div className='relative'>
+                        <Input
+                          id='goal-input'
+                          type='number'
+                          min='1'
+                          max='480'
+                          placeholder='e.g. 45'
+                          value={goalMinutes}
+                          onChange={(e) => setGoalMinutes(e.target.value)}
+                          className='pr-16'
+                        />
+                        <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground'>
+                          minutes
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      size='lg'
+                      className='w-full'
+                      disabled={!selectedSubjectId}
+                      onClick={handleStart}
+                    >
+                      <Play className='mr-2 h-4 w-4' />
+                      Start Focus
+                    </Button>
+                  </div>
+                </div>
+
+                {/* --- Recent Sessions --- */}
+                {todaySessions.length > 0 && (
+                  <div className='w-full max-w-md mt-2'>
+                    <SectionHeader
+                      title="Today's Sessions"
+                      subtitle={`${todayTotalMinutes}m total study time`}
+                    />
+                    <div className='space-y-2'>
+                      {todaySessions.map((session) => {
+                        const subj = subjects.find((s) => s.id === session.subjectId);
+                        return (
+                          <div
+                            key={session.id}
+                            className='card-interactive flex items-center gap-3 p-3'
+                          >
+                            <div
+                              className='h-8 w-8 shrink-0 rounded-md flex items-center justify-center'
+                              style={{ backgroundColor: subj ? `${subj.color}12` : undefined }}
+                            >
+                              <BookOpen
+                                className='h-4 w-4'
+                                style={{ color: subj?.color || 'var(--muted-foreground)' }}
+                              />
+                            </div>
+                            <div className='min-w-0 flex-1'>
+                              <p className='text-sm font-medium truncate'>
+                                {subj?.name || 'Unknown'}
+                                {session.topicName && (
+                                  <span className='text-muted-foreground font-normal'>
+                                    {' '}/ {session.topicName}
+                                  </span>
+                                )}
+                              </p>
+                              {session.notes && (
+                                <p className='text-[11px] text-muted-foreground truncate'>
+                                  {session.notes}
+                                </p>
+                              )}
+                            </div>
+                            <span className='text-sm font-semibold tabular-nums text-muted-foreground shrink-0'>
+                              {formatDuration(session.duration)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {todaySessions.length === 0 && (
+                  <EmptyState
+                    icon={Clock}
+                    title='No sessions today'
+                    description='Start your first focus session to begin tracking study time.'
+                  />
+                )}
+              </motion.div>
+            )}
+
+            {/* --- Active Timer Phase --- */}
+            {phase === 'active' && focusActive && (
+              <motion.div
+                key='active'
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className='flex flex-col items-center gap-6'
+              >
+                {/* Subject & Topic */}
+                <div className='text-center'>
+                  <div className='flex items-center justify-center gap-2 mb-1'>
+                    {selectedSubject && (
+                      <span
+                        className='status-dot'
+                        style={{ backgroundColor: selectedSubject.color }}
+                      />
+                    )}
+                    <span className='text-sm font-medium'>
+                      {selectedSubject?.name || 'Unknown Subject'}
+                    </span>
+                  </div>
+                  {selectedTopic && (
+                    <p className='text-xs text-muted-foreground'>{selectedTopic.name}</p>
+                  )}
+                </div>
+
+                {/* Timer Ring */}
+                <div className='relative flex items-center justify-center'>
+                  <svg
+                    width={TIMER_RADIUS * 2 + 24}
+                    height={TIMER_RADIUS * 2 + 24}
+                    className={cn('transform -rotate-90', !isPaused && 'timer-glow')}
+                  >
+                    {/* Background track */}
+                    <circle
+                      cx={TIMER_RADIUS + 12}
+                      cy={TIMER_RADIUS + 12}
+                      r={TIMER_RADIUS}
+                      fill='none'
+                      stroke='var(--border)'
+                      strokeWidth='3'
+                    />
+                    {/* Progress arc */}
+                    {goalSeconds > 0 && (
+                      <motion.circle
+                        cx={TIMER_RADIUS + 12}
+                        cy={TIMER_RADIUS + 12}
+                        r={TIMER_RADIUS}
+                        fill='none'
+                        stroke='var(--color-primary)'
+                        strokeWidth='3'
+                        strokeLinecap='round'
+                        strokeDasharray={TIMER_CIRCUMFERENCE}
+                        strokeDashoffset={strokeDashoffset}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    )}
+                    {/* No-goal: subtle inner ring */}
+                    {goalSeconds === 0 && (
+                      <circle
+                        cx={TIMER_RADIUS + 12}
+                        cy={TIMER_RADIUS + 12}
+                        r={TIMER_RADIUS - 8}
+                        fill='none'
+                        stroke='var(--border)'
+                        strokeWidth='1'
+                        strokeDasharray='4 8'
+                        opacity='0.5'
+                      />
+                    )}
+                  </svg>
+
+                  {/* Timer text centered inside ring */}
+                  <div className='absolute flex flex-col items-center'>
+                    <motion.span
+                      key={focusElapsed}
+                      className={cn('text-4xl md:text-5xl font-bold tracking-tighter leading-none tabular-nums', !isPaused && 'animate-timer-pulse')}
+                      initial={{ scale: 1.01 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 0.1 }}
+                    >
+                      {formatElapsed(focusElapsed)}
+                    </motion.span>
+                    {goalSeconds > 0 && (
+                      <span className='text-xs text-muted-foreground mt-1'>
+                        of {formatDuration(goalSeconds)}
+                      </span>
+                    )}
+                    {isPaused && (
+                      <span className='text-[10px] font-medium text-amber-500 uppercase tracking-wider mt-2'>
+                        Paused
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Motivational text */}
+                {!isPaused && (
+                  <motion.p
+                    key={messageIndex}
+                    className='text-xs text-muted-foreground'
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.35 }}
+                  >
+                    {MOTIVATIONAL_MESSAGES[messageIndex]}
+                  </motion.p>
+                )}
+
+                {/* Controls */}
+                <div className='flex items-center gap-3'>
+                  <button
+                    onClick={handlePauseResume}
+                    aria-label={isPaused ? 'Resume' : 'Pause'}
+                    className='h-12 w-12 rounded-full border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-colors'
+                  >
+                    {isPaused ? (
+                      <Play className='h-5 w-5 text-foreground' />
+                    ) : (
+                      <Pause className='h-5 w-5 text-foreground' />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleStopClick}
+                    aria-label='Stop'
+                    className='h-12 w-12 rounded-full border border-red-200 dark:border-red-900/50 bg-card flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800/50 transition-colors'
+                  >
+                    <Square className='h-4 w-4 text-red-500' />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* --- Completion Phase --- */}
+            {phase === 'completion' && (
+              <motion.div
+                key='completion'
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                className='flex flex-col items-center gap-8'
+              >
+                <div className='text-center'>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+                    className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40'
+                  >
+                    <CheckCircle2 className='h-7 w-7 text-emerald-500' />
+                  </motion.div>
+                  <h1 className='text-xl font-semibold tracking-tight text-foreground'>Session Complete</h1>
+                  <p className='text-sm text-muted-foreground mt-1'>
+                    Great work! Here is a summary of your session.
+                  </p>
+                </div>
+
+                <div className='w-full max-w-md'>
+                  <div className='metric-card p-5 space-y-4'>
+                    {/* Duration highlight */}
+                    <div className='text-center py-3'>
+                      <span className='metric-value tabular-nums'>
+                        {formatDuration(completionDuration)}
+                      </span>
+                      <p className='metric-context'>Session Duration</p>
+                    </div>
+
+                    {/* Subject & Topic */}
+                    <div className='space-y-2 border-t border-border pt-3'>
+                      <div className='flex items-center justify-between'>
+                        <span className='metric-label'>Subject</span>
+                        <div className='flex items-center gap-1.5'>
+                          {selectedSubject && (
+                            <span
+                              className='status-dot'
+                              style={{ backgroundColor: selectedSubject.color }}
+                            />
+                          )}
+                          <span className='text-sm font-medium'>
+                            {selectedSubject?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
+                      {completionTopicName && (
+                        <div className='flex items-center justify-between'>
+                          <span className='metric-label'>Topic</span>
+                          <span className='text-sm font-medium'>{completionTopicName}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    <div className='space-y-2 border-t border-border pt-3'>
+                      <Label className='section-label' htmlFor='completion-notes'>
+                        What did you accomplish?
+                      </Label>
+                      <Textarea
+                        id='completion-notes'
+                        placeholder='E.g., Completed chapter 3 exercises, reviewed linked list operations...'
+                        value={completionNotes}
+                        onChange={(e) => setCompletionNotes(e.target.value)}
+                        rows={3}
+                        className='resize-none'
+                      />
+                    </div>
+
+                    <Button className='w-full' onClick={handleSaveCompletion}>
+                      <CheckCircle2 className='mr-2 h-4 w-4' />
+                      Save Session
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={handleAnotherSession}
+                  className='text-muted-foreground'
+                >
+                  <RotateCcw className='mr-2 h-3.5 w-3.5' />
+                  Start Another Session
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* --- Stop Confirmation Dialog --- */}

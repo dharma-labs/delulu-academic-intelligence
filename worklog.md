@@ -608,3 +608,137 @@ The Delulu 4.0 Academic Intelligence System is now **feature-rich and polished**
 4. **LOW**: Add notification/toast for study streak milestones
 5. **LOW**: Add dark/light mode toggle to mobile header
 ---
+Task ID: Mobile Enhancements
+Agent: UI Agent
+Task: Mobile dark/light mode toggle + Mobile minimal focus view
+
+Work Log:
+- Added `Sun` and `Moon` icon imports from lucide-react, `useTheme` from `next-themes` to app-shell.tsx
+- Created `ThemeToggle` component (md:hidden, Sun in dark mode / Moon in light mode, border style matching search button)
+- Placed ThemeToggle between brand/streak badge and search button in mobile header
+- Completely redesigned focus.tsx with separate mobile (md:hidden) and desktop (hidden md:block) layouts
+- Mobile setup phase: compact inline row with subject dropdown + topic dropdown + minutes input + Start button, flex-wrap for 2-line fit
+- Mobile active phase: large centered timer digits, PAUSED/RUNNING status badge, session count, full-width SVG timer ring (radius 130, strokeWidth 4), topic text below ring, large h-14 w-14 circular Pause/Stop controls with text labels, horizontal scroll session strip (metric-card style, 120px snap cards)
+- Mobile completion phase: compact card with subject/topic, duration highlight, notes textarea, Save/Another buttons
+- All timer logic, store imports, callbacks, and effects preserved exactly — only presentation split into mobile/desktop branches
+- Desktop layout wrapped in `hidden md:block` and kept byte-for-byte identical to original
+- Lint passes with 0 errors
+
+Stage Summary:
+- Mobile dark/light toggle: Complete (app-shell.tsx)
+- Mobile minimal focus view: Complete (focus.tsx)
+- All business logic preserved, no store/state changes
+- Lint: 0 errors
+---
+Task ID: Styling Polish + Onboarding
+Agent: Styling Agent
+Task: Improved Empty State Illustrations + Onboarding/Welcome Flow
+
+Work Log:
+- Enhanced EmptyState component (shared.tsx):
+  - Added optional `illustration` ReactNode prop
+  - Created GeometricPattern sub-component: deterministic SVG circles + lines pattern generated from icon name hash
+  - Uses primary color at low opacity (0.03–0.09) for geometric elements
+  - Upgraded icon container: h-16 w-16 rounded-2xl bg-primary/5 border border-primary/10 with overflow-hidden
+  - Added framer-motion float animation (gentle y-axis oscillation, 3s cycle)
+  - Title bumped from text-sm to text-base font-semibold
+  - All existing props preserved (icon, title, description, action, className)
+  - Added `useMemo` import for pattern memoization
+- Created onboarding.tsx — 3-step first-visit wizard:
+  - Step 1 "Welcome to Delulu": App branding, tagline, feature list (attendance, syllabus, AI study, spaced repetition)
+  - Step 2 "Set up your profile": Name, Semester (1-8), Branch/Dept, Target CGPA (default 8.5), Attendance Threshold (default 75%)
+  - Step 3 "Quick start": First subject form — Name, Code, Credits, Color picker (8 preset buttons from SUBJECT_COLORS)
+  - Navigation: Previous/Next buttons, clickable step indicator dots (3 dots)
+  - framer-motion AnimatePresence with directional slide transitions
+  - Uses shadcn Dialog (max-w-lg), all inputs use section-label class + Input component
+  - On finish: calls updateProfile + addSubject, closes dialog, navigates to 'subjects' view
+  - onPointerDownOutside prevented to avoid accidental close
+- Integrated Onboarding into app-shell.tsx:
+  - Added `subjects` selector from store
+  - Renders Onboarding conditionally when subjects.length === 0, above ViewRouter
+  - Dashboard renders behind as blurred background
+
+Stage Summary:
+- EmptyState enhancement: Complete (shared.tsx)
+- Onboarding flow: Complete (onboarding.tsx)
+- App shell integration: Complete (app-shell.tsx)
+- Lint: 0 errors
+---
+
+---
+Task ID: 11
+Agent: Main Orchestrator
+Task: Phase 11 — Data Seeding, Mobile Focus, Dark Mode Toggle, Onboarding, Styling
+
+Work Log:
+- QA Assessment: All 15 desktop views pass with zero errors, all mobile nav items working
+- Identified that study sessions were seeded as empty array in store, causing dashboard to show 0h study, 0d streak, empty charts
+- **Data Seeding** (store.ts):
+  - Added 19 study session patterns across past 14 days (all 5 subjects covered)
+  - Sessions range from 20min to 90min duration (realistic Pomodoro sessions)
+  - Added 3 revision sessions (Arrays review, Logic review, Process States review)
+  - Sessions use actual topic names matching syllabus
+  - Added zustand persist `migrate` option to inject sessions into existing empty persisted data
+  - After clearing localStorage, dashboard now shows: 122m total study time, 14 sessions this week, 2d streak, 8.9 CGPA, 39% syllabus
+- **Onboarding Flow** (onboarding.tsx — NEW FILE):
+  - 3-step Dialog wizard: Welcome → Profile Setup → Quick Start (first subject)
+  - Welcome: App branding with GraduationCap icon, tagline, feature list (4 items)
+  - Profile: Name, Semester (1-8), Branch/Dept, Target CGPA, Attendance Threshold
+  - Quick Start: Subject Name, Code, Credits, Color picker (8 preset colors from types.ts)
+  - Animated step transitions (framer-motion AnimatePresence, directional slide)
+  - Clickable step dots, Previous/Next/Finish navigation
+  - Shows only when subjects.length === 0 (first-time users)
+  - Integrated into app-shell.tsx above ViewRouter
+- **Mobile Dark Mode Toggle** (app-shell.tsx):
+  - Added Sun/Moon icons from lucide-react
+  - Added useTheme from next-themes
+  - Placed between brand/streak badge and search button in mobile header
+  - Styled identically to search button (border, bg-background/50, hover:bg-accent)
+- **Mobile Minimal Focus View** (focus.tsx — REWRITTEN by subagent):
+  - Split into md:hidden (mobile) and hidden md:block (desktop) branches
+  - Mobile setup: Compact flex-wrap row with subject dropdown, topic dropdown, minutes input (60px), Start button — all inline, wrapping to 2 lines
+  - Mobile active: Large centered timer digits (text-5xl), PAUSED/RUNNING status badge, session count, full-width SVG ring (radius 130, strokeWidth 4), muted topic text, large h-14 w-14 circular Pause/Stop buttons, motivational message, horizontal scroll session strip (120px snap cards with subject color dot + duration)
+  - Mobile completion: Compact centered layout with checkmark, duration highlight, metric card, notes textarea, Save/Another buttons
+  - Desktop layout: byte-for-byte identical to original, all timer logic preserved
+- **Enhanced EmptyState** (shared.tsx):
+  - New `illustration` prop (React node for custom SVG artwork)
+  - GeometricPattern: deterministic SVG generated from icon name hash using primary color at low opacity (0.03-0.09)
+  - Each empty state gets unique geometric decoration
+  - Upgraded icon container: h-16 w-16 rounded-2xl bg-primary/5 border-primary/10
+  - Float animation: framer-motion gentle y-axis oscillation (6px, 3s loop)
+  - Title: upgraded from text-sm to text-base font-semibold
+
+Stage Summary:
+- Data seeding: 19 study sessions across 14 days, dashboard shows rich metrics
+- Onboarding: 3-step wizard for first-time users
+- Mobile dark mode toggle: Sun/Moon button in mobile header
+- Mobile Focus: Intentionally minimal layout different from desktop
+- EmptyState: Geometric pattern illustrations with float animation
+- ESLint: 0 errors
+- All 15 desktop views verified: zero errors
+- Dark mode toggle: verified working
+
+### Verification Results
+- ESLint: 0 errors
+- Dev server: GET / 200 consistently
+- Console errors: 0 across all 15 views
+- Desktop views: All 15 tested OK
+- Mobile views: Home, Subjects, Study (Focus) all tested OK
+- Dark mode: Verified working via toggle button
+- Dashboard with seeded data: Shows 122m study time, 14 sessions, 2d streak, 8.9 CGPA, weekly goal progress, study patterns insights, grade prediction
+- Analytics charts: Weekly study time bar chart, assessment performance line chart, study distribution donut — all showing data
+- Onboarding: Correctly returns null when subjects exist (shows only for fresh installs)
+
+### Unresolved Issues / Risks
+1. **Onboarding only for fresh installs**: Existing users with data won't see onboarding (by design). Could add a 'Reset Data' option in settings.
+2. **AI Tutor streaming**: Backend SSE streaming path implemented but not fully load-tested with live z-ai-web-dev-sdk.
+3. **Study session dates are random**: The seed uses `daysAgo()` which creates sessions with fixed dates. On a new day, some past sessions may appear as "today" in the streak if the random duration logic created sessions for future dates.
+4. **More mobile per-page minimalism**: Calendar and Insights/Analytics could still benefit from mobile-specific layouts.
+
+### Priority Recommendations for Next Phase
+1. **HIGH**: Add 'Reset All Data' option in Settings (with confirmation dialog)
+2. **MEDIUM**: Add mobile-specific layouts for Calendar, Analytics, and Insights/Notes views
+3. **MEDIUM**: Add notification toast when study streak milestones are reached
+4. **LOW**: Add tablet-specific optimizations (768-1024px testing)
+5. **LOW**: Add keyboard shortcut for dark/light mode toggle (e.g., ⌘+Shift+D)
+---

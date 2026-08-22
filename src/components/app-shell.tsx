@@ -46,10 +46,14 @@ import {
   Flame,
   Keyboard,
   ArrowRight,
+  Sun,
+  Moon,
   type LucideIcon,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
+import { Onboarding } from '@/components/onboarding';
 
 // ─── Nav item types ─────────────────────────────────────────────────
 
@@ -538,6 +542,21 @@ function DesktopSidebar() {
   );
 }
 
+// ─── Theme Toggle (mobile) ─────────────────────────────────────
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors"
+      aria-label="Toggle theme"
+    >
+      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </button>
+  );
+}
+
 // ─── Mobile Streak Badge ─────────────────────────────────────────
 
 function MobileStreakBadge() {
@@ -613,6 +632,7 @@ function DesktopTopBar() {
 // ─── App Shell ───────────────────────────────────────────────────────
 
 export function AppShell() {
+  const subjects = useStore((s) => s.subjects);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -656,14 +676,20 @@ export function AppShell() {
               </span>
               <MobileStreakBadge />
             </div>
-            <button
-              onClick={() => setCommandOpen(true)}
-              className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors ml-auto"
-              aria-label="Search"
-            >
-              <Search className="size-4" />
-            </button>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <ThemeToggle />
+              <button
+                onClick={() => setCommandOpen(true)}
+                className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors"
+                aria-label="Search"
+              >
+                <Search className="size-4" />
+              </button>
+            </div>
           </div>
+
+          {/* Onboarding — shows when no subjects exist */}
+          {subjects.length === 0 && <Onboarding />}
 
           <ViewRouter />
         </div>
