@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, useMemo, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
 import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
 import type { ViewId } from '@/lib/types';
 import { ViewRouter } from '@/components/view-router';
@@ -48,12 +48,15 @@ import {
   ArrowRight,
   Sun,
   Moon,
+  Plus,
   type LucideIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
 import { Onboarding } from '@/components/onboarding';
+import { ToastProvider } from '@/components/toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── Nav item types ─────────────────────────────────────────────────
 
@@ -171,7 +174,7 @@ function MobileBottomNav({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
-      <div className="flex h-14 items-center justify-around px-1">
+      <div className="flex h-[60px] items-center justify-around px-1">
         {MOBILE_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === 'more' ? false : currentView === item.id;
@@ -187,11 +190,11 @@ function MobileBottomNav({
                 }
               }}
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-all duration-200',
+                'relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
                 isActive ? 'text-primary scale-105' : 'text-muted-foreground active:scale-95'
               )}
             >
-              <Icon className="size-[18px]" />
+              <Icon className="size-[18px] mb-0.5" />
               <span>{item.label}</span>
               {isActive && (
                 <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-primary transition-all duration-200" />
@@ -549,7 +552,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors"
+      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
       aria-label="Toggle theme"
     >
       {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -600,9 +603,9 @@ function DesktopTopBar() {
   const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
 
   return (
-    <div className="hidden lg:flex items-center gap-4 px-6 py-2 border-b border-border/50 text-xs text-muted-foreground">
+    <div className="top-bar hidden lg:flex items-center gap-4 px-6 py-2">
 
-      <span className="font-medium text-foreground/70">{greeting}, {profile.name}</span>
+      <span className="font-semibold text-foreground/80">{greeting}, {profile.name}</span>
       <span className="text-border">|</span>
       <span>{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
       <div className="flex-1" />
@@ -629,6 +632,124 @@ function DesktopTopBar() {
   );
 }
 
+// ─── Mobile FAB ──────────────────────────────────────────────────
+
+const FAB_ACTIONS: { label: string; icon: LucideIcon; view: ViewId; color: string }[] = [
+  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+  { label: 'New Note', icon: StickyNote, view: 'notes', color: 'bg-emerald-500 dark:bg-emerald-400' },
+  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+];
+
+function MobileFAB() {
+  const [open, setOpen] = useState(false);
+  const navigate = useStore((s) => s.navigate);
+  const currentView = useStore((s) => s.currentView);
+  const fabRef = useRef<HTMLDivElement>(null);
+
+  // Auto-close when navigating away (store currentView is external state)
+  const prevViewRef = useRef(currentView);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (prevViewRef.current !== currentView) {
+      prevViewRef.current = currentView;
+      setOpen(false);
+    }
+  }, [currentView]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const handleClose = useCallback(() => setOpen(false), []);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    // Delay to avoid immediate close from the toggle click
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [open]);
+
+  const handleAction = (view: ViewId) => {
+    setOpen(false);
+    navigate(view);
+  };
+
+  return (
+    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+      {/* Backdrop overlay when open */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[-1]"
+            onClick={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Radial menu items */}
+      <AnimatePresence>
+        {open && (
+          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+            {FAB_ACTIONS.map((action, i) => {
+              const Icon = action.icon;
+              return (
+                <motion.div
+                  key={action.label}
+                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+                  transition={{ duration: 0.2, delay: i * 0.04 }}
+                  className="flex items-center gap-2.5"
+                >
+                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+                    {action.label}
+                  </span>
+                  <button
+                    onClick={() => handleAction(action.view)}
+                    className={cn(
+                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+                      action.color,
+                      'text-white'
+                    )}
+                    aria-label={action.label}
+                  >
+                    <Icon className="size-4" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Main FAB button */}
+      <motion.button
+        onClick={() => setOpen((prev) => !prev)}
+        whileTap={{ scale: 0.92 }}
+        className="h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg press-scale flex items-center justify-center"
+        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+        style={{ rotate: open ? 45 : 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <Plus className="size-5" />
+      </motion.button>
+    </div>
+  );
+}
+
 // ─── App Shell ───────────────────────────────────────────────────────
 
 export function AppShell() {
@@ -636,6 +757,7 @@ export function AppShell() {
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const showShortcuts = useCallback(() => {
     setCommandOpen(false);
@@ -652,6 +774,10 @@ export function AppShell() {
         e.preventDefault();
         setCommandOpen(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        setTheme(theme === 'dark' ? 'light' : 'dark');
+      }
       if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
         e.preventDefault();
         setShortcutsOpen((prev) => !prev);
@@ -659,15 +785,17 @@ export function AppShell() {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [setCommandOpen]);
+  }, [setCommandOpen, theme, setTheme]);
 
   return (
+    <ToastProvider>
+    <MobileFAB />
     <div className="flex min-h-screen">
       <DesktopSidebar />
 
       <main className="flex-1 min-w-0 flex flex-col">
         <DesktopTopBar />
-        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-20 md:pb-6">
+        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
           {/* Mobile header */}
           <div className="flex items-center justify-between mb-5 md:mb-0">
             <div className="flex items-center gap-2">
@@ -680,7 +808,7 @@ export function AppShell() {
               <ThemeToggle />
               <button
                 onClick={() => setCommandOpen(true)}
-                className="md:hidden flex items-center justify-center rounded-md border border-border bg-background/50 p-2 text-muted-foreground hover:bg-accent transition-colors"
+                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
                 aria-label="Search"
               >
                 <Search className="size-4" />
@@ -700,5 +828,6 @@ export function AppShell() {
       <CommandPalette onShowShortcuts={showShortcuts} />
       <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
+    </ToastProvider>
   );
 }

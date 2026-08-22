@@ -823,6 +823,35 @@ export const useStore = create<AppState>()(
             focusElapsed: 0,
           });
         },
+
+        resetState: () => {
+          set({
+            profile: { ...DEFAULT_PROFILE },
+            subjects: [],
+            syllabusUnits: [],
+            assessments: [],
+            attendance: [],
+            studySessions: [],
+            revisionItems: [],
+            notes: [],
+            tasks: [],
+            timetableSlots: [],
+            calendarEvents: [],
+            assignments: [],
+            exams: [],
+            pyqs: [],
+            erPapers: [],
+            currentView: 'dashboard' as const,
+            selectedSubjectId: null,
+            previousView: null,
+            focusActive: false,
+            focusSubjectId: null,
+            focusTopicId: null,
+            focusStartTime: null,
+            focusElapsed: 0,
+          });
+          localStorage.removeItem('delulu-v4-data');
+        },
       };
     },
     {

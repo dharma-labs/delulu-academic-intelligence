@@ -323,6 +323,7 @@ export interface AppState {
   exportData: () => string;
   importData: (json: string) => void;
   resetData: () => void;
+  resetState: () => void;
 }
 
 // Grade point mapping

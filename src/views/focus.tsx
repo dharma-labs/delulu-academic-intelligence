@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   RotateCcw,
   BookOpen,
+  Flame,
 } from 'lucide-react';
 
-import { useStore } from '@/lib/store';
+import { useStore, getStudyStreak, getStudyTimeToday } from '@/lib/store';
+import { useToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -111,6 +113,15 @@ export default function FocusView() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  const [completedNaturally, setCompletedNaturally] = useState(false);
+  const [timerPulse, setTimerPulse] = useState(false);
+  const completionToastShownRef = useRef(false);
+  const naturalCompletionTriggeredRef = useRef(false);
+
+  const { toast } = useToast();
 
   // --- Derived data ---
   const activeSubjects = useMemo(
@@ -152,18 +163,45 @@ export default function FocusView() {
     [todaySessions]
   );
 
+  const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+  const studyTimeTodaySeconds = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+  const studyTimeTodayFormatted = useMemo(() => formatDuration(studyTimeTodaySeconds), [studyTimeTodaySeconds]);
+
   // --- Timer logic ---
   useEffect(() => {
     if (focusActive && !isPaused) {
       intervalRef.current = setInterval(() => {
         elapsedRef.current += 1;
         useStore.setState({ focusElapsed: elapsedRef.current });
+
+        // Check for goal completion
+        const goalSecs = goalMinutes ? parseInt(goalMinutes) * 60 : 0;
+        if (goalSecs > 0 && elapsedRef.current >= goalSecs && !naturalCompletionTriggeredRef.current) {
+          naturalCompletionTriggeredRef.current = true;
+          if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+          const finalDuration = elapsedRef.current;
+          const topicName = selectedTopic?.name || '';
+          // Defer UI state updates to next tick
+          setTimeout(() => {
+            setTimerPulse(true);
+            setTimeout(() => {
+              if (phaseRef.current !== 'active') return;
+              stopFocus();
+              setCompletionDuration(finalDuration);
+              setCompletionTopicName(topicName);
+              setCompletionNotes('');
+              setCompletedNaturally(true);
+              setPhase('completion');
+              setTimerPulse(false);
+            }, 500);
+          }, 0);
+        }
       }, 1000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [focusActive, isPaused]);
+  }, [focusActive, isPaused, goalMinutes, stopFocus, selectedTopic]);
 
   // Motivational message cycling
   useEffect(() => {
@@ -182,6 +220,32 @@ export default function FocusView() {
   const strokeDashoffset = TIMER_CIRCUMFERENCE * (1 - progress);
   const mobileStrokeDashoffset = MOBILE_TIMER_CIRCUMFERENCE * (1 - progress);
 
+  // Toast notification on completion
+  useEffect(() => {
+    if (phase !== 'completion' || completionToastShownRef.current) return;
+    completionToastShownRef.current = true;
+
+    if (completedNaturally) {
+      const parts = [selectedSubject?.name, completionTopicName].filter(Boolean);
+      toast({
+        variant: 'success',
+        title: 'Focus session complete!',
+        description: parts.length > 0
+          ? `${parts.join(' · ')} · ${formatDuration(completionDuration)}`
+          : formatDuration(completionDuration),
+      });
+    } else {
+      const goalMins = goalMinutes ? parseInt(goalMinutes) : 0;
+      toast({
+        variant: 'default',
+        title: 'Session ended early',
+        description: goalMins > 0
+          ? `Studied ${formatDuration(completionDuration)} of ${goalMins}m goal`
+          : `Studied for ${formatDuration(completionDuration)}`,
+      });
+    }
+  }, [phase, completedNaturally, selectedSubject, completionTopicName, completionDuration, goalMinutes, toast]);
+
   // --- Actions ---
   const handleStart = useCallback(() => {
     if (!selectedSubjectId) return;
@@ -190,6 +254,10 @@ export default function FocusView() {
     elapsedRef.current = 0;
     setIsPaused(false);
     setPhase('active');
+    setCompletedNaturally(false);
+    setTimerPulse(false);
+    completionToastShownRef.current = false;
+    naturalCompletionTriggeredRef.current = false;
   }, [selectedSubjectId, selectedTopicId, selectedTopic, startFocus]);
 
   const handlePauseResume = useCallback(() => {
@@ -202,11 +270,13 @@ export default function FocusView() {
 
   const handleConfirmStop = useCallback(() => {
     setShowStopDialog(false);
+    if (naturalCompletionTriggeredRef.current) return;
     const duration = elapsedRef.current;
     stopFocus();
     setCompletionDuration(duration);
     setCompletionTopicName(selectedTopic?.name || '');
     setCompletionNotes('');
+    setCompletedNaturally(false);
     setPhase('completion');
   }, [stopFocus, selectedTopic]);
 
@@ -220,6 +290,9 @@ export default function FocusView() {
       type: 'focus',
       notes: completionNotes || undefined,
     });
+    setCompletedNaturally(false);
+    completionToastShownRef.current = false;
+    naturalCompletionTriggeredRef.current = false;
     setPhase('setup');
     setSelectedSubjectId('');
     setSelectedTopicId('');
@@ -232,6 +305,9 @@ export default function FocusView() {
   ]);
 
   const handleAnotherSession = useCallback(() => {
+    setCompletedNaturally(false);
+    completionToastShownRef.current = false;
+    naturalCompletionTriggeredRef.current = false;
     setPhase('setup');
     setSelectedSubjectId('');
     setSelectedTopicId('');
@@ -239,6 +315,24 @@ export default function FocusView() {
     setCompletionNotes('');
     setIsPaused(false);
   }, []);
+
+  // Keyboard shortcuts during active phase
+  useEffect(() => {
+    if (phase !== 'active') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePauseResume();
+      }
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        handleStopClick();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, handlePauseResume, handleStopClick]);
 
   // --- Render ---
   return (
@@ -413,7 +507,7 @@ export default function FocusView() {
               </div>
 
               {/* Timer Ring — full width, larger */}
-              <div className='relative flex items-center justify-center w-full max-w-[300px]'>
+              <div className={cn('relative flex items-center justify-center w-full max-w-[300px]', timerPulse && 'timer-completion-pulse')}>
                 <svg
                   width={MOBILE_TIMER_RADIUS * 2 + 24}
                   height={MOBILE_TIMER_RADIUS * 2 + 24}
@@ -565,6 +659,25 @@ export default function FocusView() {
                 <span className='metric-value tabular-nums text-2xl mt-1 block'>
                   {formatDuration(completionDuration)}
                 </span>
+
+                {/* Session Stats */}
+                <div className='grid grid-cols-3 gap-3 mt-3'>
+                  <div className='text-center'>
+                    <span className='text-xs font-bold tabular-nums'>{todaySessions.length}</span>
+                    <p className='metric-label text-[9px]'>Sessions</p>
+                  </div>
+                  <div className='text-center'>
+                    <span className='text-xs font-bold tabular-nums'>{studyTimeTodayFormatted}</span>
+                    <p className='metric-label text-[9px]'>Time</p>
+                  </div>
+                  <div className='text-center'>
+                    <span className='flex items-center justify-center gap-0.5'>
+                      <Flame className='h-3 w-3 text-amber-500' />
+                      <span className='text-xs font-bold tabular-nums'>{studyStreak}</span>
+                    </span>
+                    <p className='metric-label text-[9px]'>Streak</p>
+                  </div>
+                </div>
               </div>
 
               <div className='w-full metric-card p-4 space-y-3'>
@@ -823,7 +936,7 @@ export default function FocusView() {
                 </div>
 
                 {/* Timer Ring */}
-                <div className='relative flex items-center justify-center'>
+                <div className={cn('relative flex items-center justify-center', timerPulse && 'timer-completion-pulse')}>
                   <svg
                     width={TIMER_RADIUS * 2 + 24}
                     height={TIMER_RADIUS * 2 + 24}
@@ -928,6 +1041,11 @@ export default function FocusView() {
                     <Square className='h-4 w-4 text-red-500' />
                   </button>
                 </div>
+
+                {/* Keyboard shortcuts hint — desktop only */}
+                <p className='hidden md:block text-[10px] text-muted-foreground tracking-wider uppercase'>
+                  Space: Pause/Resume · Esc: Stop
+                </p>
               </motion.div>
             )}
 
@@ -964,6 +1082,25 @@ export default function FocusView() {
                         {formatDuration(completionDuration)}
                       </span>
                       <p className='metric-context'>Session Duration</p>
+                    </div>
+
+                    {/* Session Stats */}
+                    <div className='grid grid-cols-3 gap-3 border-t border-border pt-3'>
+                      <div className='text-center'>
+                        <span className='text-sm font-bold tabular-nums'>{todaySessions.length}</span>
+                        <p className='metric-label'>Sessions Today</p>
+                      </div>
+                      <div className='text-center'>
+                        <span className='text-sm font-bold tabular-nums'>{studyTimeTodayFormatted}</span>
+                        <p className='metric-label'>Time Today</p>
+                      </div>
+                      <div className='text-center'>
+                        <span className='flex items-center justify-center gap-1'>
+                          <Flame className='h-3.5 w-3.5 text-amber-500' />
+                          <span className='text-sm font-bold tabular-nums'>{studyStreak}</span>
+                        </span>
+                        <p className='metric-label'>Day Streak</p>
+                      </div>
                     </div>
 
                     {/* Subject & Topic */}

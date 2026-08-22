@@ -1,0 +1,1258 @@
+     1→import { create } from 'zustand';
+     2→import { persist, createJSONStorage } from 'zustand/middleware';
+     3→import type {
+     4→  AppState,
+     5→  Subject,
+     6→  SyllabusUnit,
+     7→  SyllabusTopic,
+     8→  Assessment,
+     9→  AttendanceRecord,
+    10→  StudySession,
+    11→  RevisionItem,
+    12→  Note,
+    13→  Task,
+    14→  TimetableSlot,
+    15→  CalendarEvent,
+    16→  Assignment,
+    17→  Exam,
+    18→  PYQ,
+    19→  ERPaper,
+    20→  UserProfile,
+    21→  SignalStatus,
+    22→} from './types';
+    23→import { GRADE_POINTS, GRADE_FROM_PERCENTAGE } from './types';
+    24→
+    25→// ─── Default Profile ───────────────────────────────────────────────
+    26→const DEFAULT_PROFILE: UserProfile = {
+    27→  name: 'Student',
+    28→  semester: 1,
+    29→  branch: '',
+    30→  college: '',
+    31→  targetCGPA: 8.5,
+    32→  attendanceThreshold: 75,
+    33→  weeklyStudyGoalHours: 10,
+    34→};
+    35→
+    36→// ─── Date helpers ──────────────────────────────────────────────────
+    37→const todayStr = () => new Date().toISOString().split('T')[0];
+    38→const daysAgo = (n: number) => {
+    39→  const d = new Date();
+    40→  d.setDate(d.getDate() - n);
+    41→  return d.toISOString().split('T')[0];
+    42→};
+    43→const daysFromNow = (n: number) => {
+    44→  const d = new Date();
+    45→  d.setDate(d.getDate() + n);
+    46→  return d.toISOString().split('T')[0];
+    47→};
+    48→
+    49→const uid = () => crypto.randomUUID();
+    50→
+    51→// ─── Demo Seed Data ────────────────────────────────────────────────
+    52→function seedDemoData() {
+    53→  const now = new Date().toISOString();
+    54→  const subjects: Subject[] = [
+    55→    { id: 's1', name: 'Data Structures', code: 'CS201', credits: 4, color: '#635BFF', archived: false, createdAt: now },
+    56→    { id: 's2', name: 'Discrete Mathematics', code: 'MA201', credits: 3, color: '#16A36A', archived: false, createdAt: now },
+    57→    { id: 's3', name: 'Digital Logic Design', code: 'EC201', credits: 3, color: '#E5484D', archived: false, createdAt: now },
+    58→    { id: 's4', name: 'Operating Systems', code: 'CS202', credits: 4, color: '#D99200', archived: false, createdAt: now },
+    59→    { id: 's5', name: 'Computer Networks', code: 'CS203', credits: 3, color: '#8B5CF6', archived: false, createdAt: now },
+    60→  ];
+    61→
+    62→  const syllabusUnits: SyllabusUnit[] = [
+    63→    // CS201 Data Structures
+    64→    { id: 'u1', subjectId: 's1', name: 'Arrays & Strings', order: 1, topics: [
+    65→      { id: 't1', unitId: 'u1', subjectId: 's1', name: '1D & 2D Arrays', completed: true, order: 1 },
+    66→      { id: 't2', unitId: 'u1', subjectId: 's1', name: 'String Manipulation', completed: true, order: 2 },
+    67→      { id: 't3', unitId: 'u1', subjectId: 's1', name: 'Array ADT Operations', completed: false, order: 3 },
+    68→    ]},
+    69→    { id: 'u2', subjectId: 's1', name: 'Linked Lists', order: 2, topics: [
+    70→      { id: 't4', unitId: 'u2', subjectId: 's1', name: 'Singly Linked List', completed: true, order: 1 },
+    71→      { id: 't5', unitId: 'u2', subjectId: 's1', name: 'Doubly Linked List', completed: false, order: 2 },
+    72→      { id: 't6', unitId: 'u2', subjectId: 's1', name: 'Circular Linked List', completed: false, order: 3 },
+    73→    ]},
+    74→    { id: 'u3', subjectId: 's1', name: 'Trees & Graphs', order: 3, topics: [
+    75→      { id: 't7', unitId: 'u3', subjectId: 's1', name: 'Binary Trees', completed: false, order: 1 },
+    76→      { id: 't8', unitId: 'u3', subjectId: 's1', name: 'BST & AVL Trees', completed: false, order: 2 },
+    77→      { id: 't9', unitId: 'u3', subjectId: 's1', name: 'Graph Traversals', completed: false, order: 3 },
+    78→    ]},
+    79→    // MA201 Discrete Math
+    80→    { id: 'u4', subjectId: 's2', name: 'Set Theory & Logic', order: 1, topics: [
+    81→      { id: 't10', unitId: 'u4', subjectId: 's2', name: 'Propositional Logic', completed: true, order: 1 },
+    82→      { id: 't11', unitId: 'u4', subjectId: 's2', name: 'Predicate Logic', completed: false, order: 2 },
+    83→      { id: 't12', unitId: 'u4', subjectId: 's2', name: 'Set Operations', completed: true, order: 3 },
+    84→    ]},
+    85→    { id: 'u5', subjectId: 's2', name: 'Combinatorics', order: 2, topics: [
+    86→      { id: 't13', unitId: 'u5', subjectId: 's2', name: 'Permutations & Combinations', completed: false, order: 1 },
+    87→      { id: 't14', unitId: 'u5', subjectId: 's2', name: 'Pigeonhole Principle', completed: false, order: 2 },
+    88→    ]},
+    89→    // EC201 Digital Logic
+    90→    { id: 'u6', subjectId: 's3', name: 'Number Systems & Codes', order: 1, topics: [
+    91→      { id: 't15', unitId: 'u6', subjectId: 's3', name: 'Binary & Hexadecimal', completed: true, order: 1 },
+    92→      { id: 't16', unitId: 'u6', subjectId: 's3', name: 'BCD & Gray Code', completed: true, order: 2 },
+    93→    ]},
+    94→    { id: 'u7', subjectId: 's3', name: 'Combinational Logic', order: 2, topics: [
+    95→      { id: 't17', unitId: 'u7', subjectId: 's3', name: 'Logic Gates & Boolean Algebra', completed: false, order: 1 },
+    96→      { id: 't18', unitId: 'u7', subjectId: 's3', name: 'K-Map Simplification', completed: false, order: 2 },
+    97→    ]},
+    98→    // CS202 Operating Systems
+    99→    { id: 'u8', subjectId: 's4', name: 'Process Management', order: 1, topics: [
+   100→      { id: 't19', unitId: 'u8', subjectId: 's4', name: 'Process States & Scheduling', completed: true, order: 1 },
+   101→      { id: 't20', unitId: 'u8', subjectId: 's4', name: 'CPU Scheduling Algorithms', completed: false, order: 2 },
+   102→      { id: 't21', unitId: 'u8', subjectId: 's4', name: 'Deadlocks', completed: false, order: 3 },
+   103→    ]},
+   104→    { id: 'u9', subjectId: 's4', name: 'Memory Management', order: 2, topics: [
+   105→      { id: 't22', unitId: 'u9', subjectId: 's4', name: 'Paging & Segmentation', completed: false, order: 1 },
+   106→      { id: 't23', unitId: 'u9', subjectId: 's4', name: 'Virtual Memory', completed: false, order: 2 },
+   107→    ]},
+   108→    // CS203 Computer Networks
+   109→    { id: 'u10', subjectId: 's5', name: 'OSI & TCP/IP Models', order: 1, topics: [
+   110→      { id: 't24', unitId: 'u10', subjectId: 's5', name: 'OSI Layers', completed: true, order: 1 },
+   111→      { id: 't25', unitId: 'u10', subjectId: 's5', name: 'TCP/IP Stack', completed: true, order: 2 },
+   112→    ]},
+   113→    { id: 'u11', subjectId: 's5', name: 'Data Link Layer', order: 2, topics: [
+   114→      { id: 't26', unitId: 'u11', subjectId: 's5', name: 'Error Detection & Correction', completed: false, order: 1 },
+   115→      { id: 't27', unitId: 'u11', subjectId: 's5', name: 'Flow Control Protocols', completed: false, order: 2 },
+   116→    ]},
+   117→  ];
+   118→
+   119→  const assessments: Assessment[] = [
+   120→    { id: 'a1', subjectId: 's1', name: 'CA Test 1', category: 'ca_test', maxMarks: 30, obtainedMarks: 24, date: daysAgo(14), notes: 'Arrays & Strings', createdAt: now },
+   121→    { id: 'a2', subjectId: 's1', name: 'Assignment 1', category: 'assignment', maxMarks: 20, obtainedMarks: 18, date: daysAgo(10), notes: 'Linked List Implementation', createdAt: now },
+   122→    { id: 'a3', subjectId: 's2', name: 'CA Test 1', category: 'ca_test', maxMarks: 30, obtainedMarks: 27, date: daysAgo(12), notes: 'Logic & Sets', createdAt: now },
+   123→    { id: 'a4', subjectId: 's3', name: 'Quiz 1', category: 'quiz', maxMarks: 10, obtainedMarks: 8, date: daysAgo(7), notes: 'Number Systems', createdAt: now },
+   124→    { id: 'a5', subjectId: 's4', name: 'CA Test 1', category: 'ca_test', maxMarks: 30, obtainedMarks: 21, date: daysAgo(5), notes: 'Process Management', createdAt: now },
+   125→    { id: 'a6', subjectId: 's5', name: 'Assignment 1', category: 'assignment', maxMarks: 15, obtainedMarks: 12, date: daysAgo(3), notes: 'OSI Model', createdAt: now },
+   126→  ];
+   127→
+   128→  // Generate attendance for past 20 working days (skip weekends)
+   129→  const attendance: AttendanceRecord[] = [];
+   130→  const dayNames = [0, 1, 2, 3, 4]; // Mon-Fri
+   131→  let classCount = 0;
+   132→  for (let d = 20; d >= 0; d--) {
+   133→    const date = new Date();
+   134→    date.setDate(date.getDate() - d);
+   135→    const dow = date.getDay();
+   136→    if (dow === 0 || dow === 6) continue; // skip weekends
+   137→    const dateStr = date.toISOString().split('T')[0];
+   138→    // Each subject has class on certain days
+   139→    const subjectsToday = subjects.filter((_, i) => {
+   140→      // Rough schedule: Mon/Wed s1,s3,s5  Tue/Thu s2,s4
+   141→      if ((dow === 1 || dow === 3) && (i === 0 || i === 2 || i === 4)) return true;
+   142→      if ((dow === 2 || dow === 4) && (i === 1 || i === 3)) return true;
+   143→      if (dow === 5 && i < 3) return true; // Friday lab-like
+   144→      return false;
+   145→    });
+   146→    for (const sub of subjectsToday) {
+   147→      const present = Math.random() > 0.2; // 80% attendance
+   148→      attendance.push({ id: uid(), subjectId: sub.id, date: dateStr, present, totalClasses: 1 });
+   149→    }
+   150→    classCount++;
+   151→    if (classCount > 15) break; // limit records
+   152→  }
+   153→
+   154→  const tasks: Task[] = [
+   155→    { id: 'tk1', title: 'Complete Linked List Assignment', description: 'Implement doubly linked list with all operations', priority: 'high', subjectId: 's1', dueDate: todayStr(), completed: false, createdAt: now },
+   156→    { id: 'tk2', title: 'Practice K-Map problems', priority: 'medium', subjectId: 's3', dueDate: daysFromNow(2), completed: false, createdAt: now },
+   157→    { id: 'tk3', title: 'Read Chapter 5 - Memory Management', priority: 'low', subjectId: 's4', dueDate: daysFromNow(5), completed: false, createdAt: now },
+   158→    { id: 'tk4', title: 'Solve combinatorics worksheet', priority: 'high', subjectId: 's2', dueDate: daysAgo(1), completed: false, createdAt: now },
+   159→    { id: 'tk5', title: 'Submit Digital Logic lab report', priority: 'high', subjectId: 's3', dueDate: daysAgo(2), completed: true, createdAt: now },
+   160→    { id: 'tk6', title: 'Revise OSI model notes', priority: 'medium', subjectId: 's5', dueDate: todayStr(), completed: false, createdAt: now },
+   161→  ];
+   162→
+   163→  const timetableSlots: TimetableSlot[] = [
+   164→    { id: 'ts1', subjectId: 's1', day: 1, startTime: '09:00', endTime: '10:00', room: 'LH-201', type: 'lecture' },
+   165→    { id: 'ts2', subjectId: 's3', day: 1, startTime: '10:00', endTime: '11:00', room: 'LH-201', type: 'lecture' },
+   166→    { id: 'ts3', subjectId: 's5', day: 1, startTime: '14:00', endTime: '15:00', room: 'LH-301', type: 'lecture' },
+   167→    { id: 'ts4', subjectId: 's2', day: 2, startTime: '09:00', endTime: '10:00', room: 'LH-105', type: 'lecture' },
+   168→    { id: 'ts5', subjectId: 's4', day: 2, startTime: '10:00', endTime: '11:30', room: 'LH-105', type: 'lecture' },
+   169→    { id: 'ts6', subjectId: 's1', day: 3, startTime: '09:00', endTime: '10:00', room: 'LH-201', type: 'lecture' },
+   170→    { id: 'ts7', subjectId: 's3', day: 3, startTime: '11:00', endTime: '13:00', room: 'Lab-3', type: 'lab' },
+   171→    { id: 'ts8', subjectId: 's2', day: 4, startTime: '09:00', endTime: '10:00', room: 'LH-105', type: 'lecture' },
+   172→    { id: 'ts9', subjectId: 's4', day: 4, startTime: '10:00', endTime: '11:00', room: 'LH-301', type: 'lecture' },
+   173→    { id: 'ts10', subjectId: 's5', day: 4, startTime: '14:00', endTime: '15:00', room: 'LH-201', type: 'tutorial' },
+   174→    { id: 'ts11', subjectId: 's1', day: 5, startTime: '10:00', endTime: '12:00', room: 'Lab-1', type: 'lab' },
+   175→    { id: 'ts12', subjectId: 's3', day: 5, startTime: '14:00', endTime: '15:00', room: 'LH-301', type: 'tutorial' },
+   176→  ];
+   177→
+   178→  const revisionItems: RevisionItem[] = [
+   179→    { id: 'r1', subjectId: 's1', topicId: 't1', topicName: '1D & 2D Arrays', easeFactor: 2.5, interval: 6, repetitions: 2, nextReview: daysFromNow(3), lastReview: daysAgo(3), createdAt: now },
+   180→    { id: 'r2', subjectId: 's1', topicId: 't4', topicName: 'Singly Linked List', easeFactor: 2.3, interval: 4, repetitions: 1, nextReview: todayStr(), lastReview: daysAgo(4), createdAt: now },
+   181→    { id: 'r3', subjectId: 's2', topicId: 't10', topicName: 'Propositional Logic', easeFactor: 2.6, interval: 8, repetitions: 3, nextReview: daysFromNow(5), lastReview: daysAgo(5), createdAt: now },
+   182→    { id: 'r4', subjectId: 's3', topicId: 't15', topicName: 'Binary & Hexadecimal', easeFactor: 2.4, interval: 1, repetitions: 0, nextReview: daysAgo(2), lastReview: daysAgo(5), createdAt: now },
+   183→    { id: 'r5', subjectId: 's4', topicId: 't19', topicName: 'Process States & Scheduling', easeFactor: 2.2, interval: 3, repetitions: 1, nextReview: todayStr(), lastReview: daysAgo(3), createdAt: now },
+   184→  ];
+   185→
+   186→  const calendarEvents: CalendarEvent[] = [
+   187→    { id: 'ce1', title: 'Mid-Semester Exams Begin', date: daysFromNow(21), type: 'exam', color: '#E5484D' },
+   188→    { id: 'ce2', title: 'DS CA Test 2', date: daysFromNow(10), type: 'exam', subjectId: 's1', color: '#635BFF' },
+   189→    { id: 'ce3', title: 'OS Lab Submission', date: daysFromNow(5), type: 'deadline', subjectId: 's4', color: '#D99200' },
+   190→  ];
+   191→
+   192→  // ─── Study Sessions (realistic seed data) ──────────────────────
+   193→  const studySessions: StudySession[] = [];
+   194→  // Generate sessions for the past 14 days
+   195→  const sessionPatterns: { subjectId: string; topicName: string; minDur: number; maxDur: number; daysBack: number }[] = [
+   196→    { subjectId: 's1', topicName: '1D & 2D Arrays', minDur: 1800, maxDur: 3600, daysBack: 13 },
+   197→    { subjectId: 's1', topicName: 'Linked List Traversal', minDur: 2400, maxDur: 4200, daysBack: 12 },
+   198→    { subjectId: 's2', topicName: 'Propositional Logic', minDur: 1500, maxDur: 2700, daysBack: 11 },
+   199→    { subjectId: 's3', topicName: 'Binary & Hexadecimal', minDur: 1200, maxDur: 2400, daysBack: 10 },
+   200→    { subjectId: 's1', topicName: 'Singly Linked List', minDur: 3000, maxDur: 5400, daysBack: 9 },
+   201→    { subjectId: 's4', topicName: 'Process States', minDur: 1800, maxDur: 3600, daysBack: 8 },
+   202→    { subjectId: 's2', topicName: 'Set Operations', minDur: 2100, maxDur: 3600, daysBack: 7 },
+   203→    { subjectId: 's5', topicName: 'OSI Layers', minDur: 1500, maxDur: 2700, daysBack: 6 },
+   204→    { subjectId: 's1', topicName: 'String Manipulation', minDur: 2400, maxDur: 4200, daysBack: 5 },
+   205→    { subjectId: 's3', topicName: 'BCD & Gray Code', minDur: 1200, maxDur: 2400, daysBack: 5 },
+   206→    { subjectId: 's4', topicName: 'CPU Scheduling', minDur: 3000, maxDur: 5400, daysBack: 4 },
+   207→    { subjectId: 's2', topicName: 'Permutations & Combinations', minDur: 1800, maxDur: 3000, daysBack: 3 },
+   208→    { subjectId: 's5', topicName: 'TCP/IP Stack', minDur: 2100, maxDur: 3600, daysBack: 3 },
+   209→    { subjectId: 's1', topicName: 'Binary Trees', minDur: 2700, maxDur: 4800, daysBack: 2 },
+   210→    { subjectId: 's4', topicName: 'Process Scheduling', minDur: 3600, maxDur: 5400, daysBack: 2 },
+   211→    { subjectId: 's3', topicName: 'Logic Gates', minDur: 1500, maxDur: 3000, daysBack: 1 },
+   212→    { subjectId: 's5', topicName: 'Error Detection', minDur: 1800, maxDur: 2700, daysBack: 1 },
+   213→    { subjectId: 's2', topicName: 'Set Theory Review', minDur: 2100, maxDur: 3600, daysBack: 0 },
+   214→    { subjectId: 's1', topicName: 'BST & AVL Trees', minDur: 2400, maxDur: 4200, daysBack: 0 },
+   215→  ];
+   216→  for (const sp of sessionPatterns) {
+   217→    const dur = sp.minDur + Math.floor(Math.random() * (sp.maxDur - sp.minDur));
+   218→    const dateObj = new Date();
+   219→    dateObj.setDate(dateObj.getDate() - sp.daysBack);
+   220→    const dateStr = dateObj.toISOString().split('T')[0];
+   221→    studySessions.push({ id: uid(), subjectId: sp.subjectId, topicName: sp.topicName, duration: dur, date: dateStr, type: 'focus' });
+   222→  }
+   223→  // Add a few revision sessions
+   224→  studySessions.push(
+   225→    { id: uid(), subjectId: 's1', topicName: 'Arrays Review', duration: 1200, date: daysAgo(3), type: 'revision' },
+   226→    { id: uid(), subjectId: 's2', topicName: 'Logic Review', duration: 900, date: daysAgo(1), type: 'revision' },
+   227→    { id: uid(), subjectId: 's4', topicName: 'Process States Review', duration: 1500, date: daysAgo(0), type: 'revision' },
+   228→  );
+   229→
+   230→  const assignments: Assignment[] = [
+   231→    { id: 'as1', subjectId: 's1', title: 'Binary Tree Implementation', description: 'Implement BST with insert, delete, search', deadline: daysFromNow(7), priority: 'high', status: 'upcoming', createdAt: now },
+   232→    { id: 'as2', subjectId: 's2', title: 'Proof Techniques Worksheet', deadline: daysFromNow(4), priority: 'medium', status: 'due_soon', createdAt: now },
+   233→  ];
+   234→
+   235→  const exams: Exam[] = [
+   236→    { id: 'ex1', subjectId: 's1', name: 'CA Test 2 - Data Structures', date: daysFromNow(10), type: 'midsem', totalMarks: 30, status: 'upcoming', createdAt: now },
+   237→    { id: 'ex2', subjectId: 's4', name: 'Mid-Sem - Operating Systems', date: daysFromNow(24), type: 'midsem', totalMarks: 40, status: 'upcoming', createdAt: now },
+   238→  ];
+   239→
+   240→  const notes: Note[] = [
+   241→    { id: 'n1', subjectId: 's1', topicId: 't4', title: 'Linked List Traversal Notes', content: '## Singly Linked List\n\nKey points:\n- Head pointer tracks first node\n- Traversal uses temporary pointer\n- O(n) for search, O(1) for insert at head', createdAt: now, updatedAt: now },
+   242→    { id: 'n2', subjectId: 's2', topicId: 't10', title: 'Truth Tables Quick Reference', content: '## Propositional Logic\n\n- Conjunction (AND): p ∧ q\n- Disjunction (OR): p ∨ q\n- Implication: p → q\n- Biconditional: p ↔ q', createdAt: now, updatedAt: now },
+   243→  ];
+   244→
+   245→  return {
+   246→    subjects,
+   247→    syllabusUnits,
+   248→    assessments,
+   249→    attendance,
+   250→    tasks,
+   251→    timetableSlots,
+   252→    revisionItems,
+   253→    calendarEvents,
+   254→    assignments,
+   255→    exams,
+   256→    notes,
+   257→    studySessions,
+   258→    pyqs: [] as PYQ[],
+   259→    erPapers: [] as ERPaper[],
+   260→  };
+   261→}
+   262→
+   263→// ─── Store Creation ─────────────────────────────────────────────────
+   264→export const useStore = create<AppState>()(
+   265→  persist(
+   266→    (set, get) => {
+   267→      const seed = seedDemoData();
+   268→
+   269→      return {
+   270→        // ── Navigation ──
+   271→        currentView: 'dashboard' as const,
+   272→        selectedSubjectId: null,
+   273→        previousView: null,
+   274→        sidebarCollapsed: false,
+   275→        commandOpen: false,
+   276→
+   277→        // ── Profile ──
+   278→        profile: { ...DEFAULT_PROFILE },
+   279→
+   280→        // ── Data (seeded) ──
+   281→        subjects: seed.subjects,
+   282→        syllabusUnits: seed.syllabusUnits,
+   283→        assessments: seed.assessments,
+   284→        attendance: seed.attendance,
+   285→        studySessions: seed.studySessions,
+   286→        revisionItems: seed.revisionItems,
+   287→        notes: seed.notes,
+   288→        tasks: seed.tasks,
+   289→        timetableSlots: seed.timetableSlots,
+   290→        calendarEvents: seed.calendarEvents,
+   291→        assignments: seed.assignments,
+   292→        exams: seed.exams,
+   293→        pyqs: seed.pyqs,
+   294→        erPapers: seed.erPapers,
+   295→
+   296→        // ── Focus Timer ──
+   297→        focusActive: false,
+   298→        focusSubjectId: null,
+   299→        focusTopicId: null,
+   300→        focusStartTime: null,
+   301→        focusElapsed: 0,
+   302→
+   303→        // ═══════════════════════════════════════════════════════════════
+   304→        // Navigation Actions
+   305→        // ═══════════════════════════════════════════════════════════════
+   306→        navigate: (view) =>
+   307→          set((state) => ({
+   308→            previousView: state.currentView,
+   309→            currentView: view,
+   310→          })),
+   311→
+   312→        goBack: () =>
+   313→          set((state) => {
+   314→            if (state.previousView) {
+   315→              const prev = state.previousView;
+   316→              return { currentView: prev, previousView: null };
+   317→            }
+   318→            return { currentView: 'dashboard' as const, previousView: null };
+   319→          }),
+   320→
+   321→        selectSubject: (id) => set({ selectedSubjectId: id }),
+   322→
+   323→        toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+   324→
+   325→        setCommandOpen: (open) => set({ commandOpen: open }),
+   326→
+   327→        // ═══════════════════════════════════════════════════════════════
+   328→        // Profile Actions
+   329→        // ═══════════════════════════════════════════════════════════════
+   330→        updateProfile: (data) =>
+   331→          set((state) => ({
+   332→            profile: { ...state.profile, ...data },
+   333→          })),
+   334→
+   335→        // ═══════════════════════════════════════════════════════════════
+   336→        // Subject Actions
+   337→        // ═══════════════════════════════════════════════════════════════
+   338→        addSubject: (subject) =>
+   339→          set((state) => ({
+   340→            subjects: [
+   341→              ...state.subjects,
+   342→              { ...subject, id: uid(), createdAt: new Date().toISOString() },
+   343→            ],
+   344→          })),
+   345→
+   346→        updateSubject: (id, data) =>
+   347→          set((state) => ({
+   348→            subjects: state.subjects.map((s) =>
+   349→              s.id === id ? { ...s, ...data } : s
+   350→            ),
+   351→          })),
+   352→
+   353→        deleteSubject: (id) =>
+   354→          set((state) => ({
+   355→            subjects: state.subjects.filter((s) => s.id !== id),
+   356→            syllabusUnits: state.syllabusUnits.filter((u) => u.subjectId !== id),
+   357→            assessments: state.assessments.filter((a) => a.subjectId !== id),
+   358→            attendance: state.attendance.filter((a) => a.subjectId !== id),
+   359→            studySessions: state.studySessions.filter((s) => s.subjectId !== id),
+   360→            revisionItems: state.revisionItems.filter((r) => r.subjectId !== id),
+   361→            notes: state.notes.filter((n) => n.subjectId !== id),
+   362→            tasks: state.tasks.filter((t) => t.subjectId !== id),
+   363→            timetableSlots: state.timetableSlots.filter((t) => t.subjectId !== id),
+   364→            calendarEvents: state.calendarEvents.filter((e) => e.subjectId !== id),
+   365→            assignments: state.assignments.filter((a) => a.subjectId !== id),
+   366→            exams: state.exams.filter((e) => e.subjectId !== id),
+   367→            pyqs: state.pyqs.filter((p) => p.subjectId !== id),
+   368→            erPapers: state.erPapers.filter((e) => e.subjectId !== id),
+   369→          })),
+   370→
+   371→        // ═══════════════════════════════════════════════════════════════
+   372→        // Syllabus Actions
+   373→        // ═══════════════════════════════════════════════════════════════
+   374→        addSyllabusUnit: (unit) =>
+   375→          set((state) => ({
+   376→            syllabusUnits: [
+   377→              ...state.syllabusUnits,
+   378→              { ...unit, id: uid(), topics: [] },
+   379→            ],
+   380→          })),
+   381→
+   382→        updateSyllabusUnit: (id, data) =>
+   383→          set((state) => ({
+   384→            syllabusUnits: state.syllabusUnits.map((u) =>
+   385→              u.id === id ? { ...u, ...data } : u
+   386→            ),
+   387→          })),
+   388→
+   389→        deleteSyllabusUnit: (id) =>
+   390→          set((state) => ({
+   391→            syllabusUnits: state.syllabusUnits.filter((u) => u.id !== id),
+   392→            revisionItems: state.revisionItems.filter((r) => {
+   393→              const unit = state.syllabusUnits.find((u) => u.id === id);
+   394→              return !unit || !unit.topics.some((t) => t.id === r.topicId);
+   395→            }),
+   396→          })),
+   397→
+   398→        addSyllabusTopic: (topic) =>
+   399→          set((state) => ({
+   400→            syllabusUnits: state.syllabusUnits.map((u) =>
+   401→              u.id === topic.unitId
+   402→                ? {
+   403→                    ...u,
+   404→                    topics: [...u.topics, { ...topic, id: uid() }],
+   405→                  }
+   406→                : u
+   407→            ),
+   408→          })),
+   409→
+   410→        updateSyllabusTopic: (id, data) =>
+   411→          set((state) => ({
+   412→            syllabusUnits: state.syllabusUnits.map((u) => ({
+   413→              ...u,
+   414→              topics: u.topics.map((t) =>
+   415→                t.id === id ? { ...t, ...data } : t
+   416→              ),
+   417→            })),
+   418→          })),
+   419→
+   420→        deleteSyllabusTopic: (id) =>
+   421→          set((state) => ({
+   422→            syllabusUnits: state.syllabusUnits.map((u) => ({
+   423→              ...u,
+   424→              topics: u.topics.filter((t) => t.id !== id),
+   425→            })),
+   426→            revisionItems: state.revisionItems.filter((r) => r.topicId !== id),
+   427→          })),
+   428→
+   429→        toggleTopicComplete: (id) =>
+   430→          set((state) => ({
+   431→            syllabusUnits: state.syllabusUnits.map((u) => ({
+   432→              ...u,
+   433→              topics: u.topics.map((t) =>
+   434→                t.id === id ? { ...t, completed: !t.completed } : t
+   435→              ),
+   436→            })),
+   437→          })),
+   438→
+   439→        // ═══════════════════════════════════════════════════════════════
+   440→        // Assessment Actions
+   441→        // ═══════════════════════════════════════════════════════════════
+   442→        addAssessment: (assessment) =>
+   443→          set((state) => ({
+   444→            assessments: [
+   445→              ...state.assessments,
+   446→              { ...assessment, id: uid(), createdAt: new Date().toISOString() },
+   447→            ],
+   448→          })),
+   449→
+   450→        updateAssessment: (id, data) =>
+   451→          set((state) => ({
+   452→            assessments: state.assessments.map((a) =>
+   453→              a.id === id ? { ...a, ...data } : a
+   454→            ),
+   455→          })),
+   456→
+   457→        deleteAssessment: (id) =>
+   458→          set((state) => ({
+   459→            assessments: state.assessments.filter((a) => a.id !== id),
+   460→          })),
+   461→
+   462→        // ═══════════════════════════════════════════════════════════════
+   463→        // Attendance Actions
+   464→        // ═══════════════════════════════════════════════════════════════
+   465→        addAttendance: (record) =>
+   466→          set((state) => ({
+   467→            attendance: [...state.attendance, { ...record, id: uid() }],
+   468→          })),
+   469→
+   470→        updateAttendance: (id, data) =>
+   471→          set((state) => ({
+   472→            attendance: state.attendance.map((a) =>
+   473→              a.id === id ? { ...a, ...data } : a
+   474→            ),
+   475→          })),
+   476→
+   477→        deleteAttendance: (id) =>
+   478→          set((state) => ({
+   479→            attendance: state.attendance.filter((a) => a.id !== id),
+   480→          })),
+   481→
+   482→        // ═══════════════════════════════════════════════════════════════
+   483→        // Study Session Actions
+   484→        // ═══════════════════════════════════════════════════════════════
+   485→        addStudySession: (session) =>
+   486→          set((state) => ({
+   487→            studySessions: [
+   488→              ...state.studySessions,
+   489→              { ...session, id: uid() },
+   490→            ],
+   491→          })),
+   492→
+   493→        // ═══════════════════════════════════════════════════════════════
+   494→        // Revision Actions (with SM-2 algorithm)
+   495→        // ═══════════════════════════════════════════════════════════════
+   496→        addRevisionItem: (item) =>
+   497→          set((state) => ({
+   498→            revisionItems: [
+   499→              ...state.revisionItems,
+   500→              { ...item, id: uid(), createdAt: new Date().toISOString() },
+   501→            ],
+   502→          })),
+   503→
+   504→        updateRevisionItem: (id, data) =>
+   505→          set((state) => ({
+   506→            revisionItems: state.revisionItems.map((r) =>
+   507→              r.id === id ? { ...r, ...data } : r
+   508→            ),
+   509→          })),
+   510→
+   511→        deleteRevisionItem: (id) =>
+   512→          set((state) => ({
+   513→            revisionItems: state.revisionItems.filter((r) => r.id !== id),
+   514→          })),
+   515→
+   516→        // ═══════════════════════════════════════════════════════════════
+   517→        // Notes Actions
+   518→        // ═══════════════════════════════════════════════════════════════
+   519→        addNote: (note) => {
+   520→          const now = new Date().toISOString();
+   521→          set((state) => ({
+   522→            notes: [
+   523→              ...state.notes,
+   524→              { ...note, id: uid(), createdAt: now, updatedAt: now },
+   525→            ],
+   526→          }));
+   527→        },
+   528→
+   529→        updateNote: (id, data) =>
+   530→          set((state) => ({
+   531→            notes: state.notes.map((n) =>
+   532→              n.id === id
+   533→                ? { ...n, ...data, updatedAt: new Date().toISOString() }
+   534→                : n
+   535→            ),
+   536→          })),
+   537→
+   538→        deleteNote: (id) =>
+   539→          set((state) => ({
+   540→            notes: state.notes.filter((n) => n.id !== id),
+   541→          })),
+   542→
+   543→        // ═══════════════════════════════════════════════════════════════
+   544→        // Task Actions
+   545→        // ═══════════════════════════════════════════════════════════════
+   546→        addTask: (task) =>
+   547→          set((state) => ({
+   548→            tasks: [
+   549→              ...state.tasks,
+   550→              { ...task, id: uid(), createdAt: new Date().toISOString() },
+   551→            ],
+   552→          })),
+   553→
+   554→        updateTask: (id, data) =>
+   555→          set((state) => ({
+   556→            tasks: state.tasks.map((t) =>
+   557→              t.id === id ? { ...t, ...data } : t
+   558→            ),
+   559→          })),
+   560→
+   561→        deleteTask: (id) =>
+   562→          set((state) => ({
+   563→            tasks: state.tasks.filter((t) => t.id !== id),
+   564→          })),
+   565→
+   566→        toggleTaskComplete: (id) =>
+   567→          set((state) => ({
+   568→            tasks: state.tasks.map((t) =>
+   569→              t.id === id ? { ...t, completed: !t.completed } : t
+   570→            ),
+   571→          })),
+   572→
+   573→        // ═══════════════════════════════════════════════════════════════
+   574→        // Timetable Actions
+   575→        // ═══════════════════════════════════════════════════════════════
+   576→        addTimetableSlot: (slot) =>
+   577→          set((state) => ({
+   578→            timetableSlots: [...state.timetableSlots, { ...slot, id: uid() }],
+   579→          })),
+   580→
+   581→        updateTimetableSlot: (id, data) =>
+   582→          set((state) => ({
+   583→            timetableSlots: state.timetableSlots.map((t) =>
+   584→              t.id === id ? { ...t, ...data } : t
+   585→            ),
+   586→          })),
+   587→
+   588→        deleteTimetableSlot: (id) =>
+   589→          set((state) => ({
+   590→            timetableSlots: state.timetableSlots.filter((t) => t.id !== id),
+   591→          })),
+   592→
+   593→        // ═══════════════════════════════════════════════════════════════
+   594→        // Calendar Actions
+   595→        // ═══════════════════════════════════════════════════════════════
+   596→        addCalendarEvent: (event) =>
+   597→          set((state) => ({
+   598→            calendarEvents: [...state.calendarEvents, { ...event, id: uid() }],
+   599→          })),
+   600→
+   601→        updateCalendarEvent: (id, data) =>
+   602→          set((state) => ({
+   603→            calendarEvents: state.calendarEvents.map((e) =>
+   604→              e.id === id ? { ...e, ...data } : e
+   605→            ),
+   606→          })),
+   607→
+   608→        deleteCalendarEvent: (id) =>
+   609→          set((state) => ({
+   610→            calendarEvents: state.calendarEvents.filter((e) => e.id !== id),
+   611→          })),
+   612→
+   613→        // ═══════════════════════════════════════════════════════════════
+   614→        // Assignment Actions
+   615→        // ═══════════════════════════════════════════════════════════════
+   616→        addAssignment: (assignment) =>
+   617→          set((state) => ({
+   618→            assignments: [
+   619→              ...state.assignments,
+   620→              { ...assignment, id: uid(), createdAt: new Date().toISOString() },
+   621→            ],
+   622→          })),
+   623→
+   624→        updateAssignment: (id, data) =>
+   625→          set((state) => ({
+   626→            assignments: state.assignments.map((a) =>
+   627→              a.id === id ? { ...a, ...data } : a
+   628→            ),
+   629→          })),
+   630→
+   631→        deleteAssignment: (id) =>
+   632→          set((state) => ({
+   633→            assignments: state.assignments.filter((a) => a.id !== id),
+   634→          })),
+   635→
+   636→        // ═══════════════════════════════════════════════════════════════
+   637→        // Exam Actions
+   638→        // ═══════════════════════════════════════════════════════════════
+   639→        addExam: (exam) =>
+   640→          set((state) => ({
+   641→            exams: [
+   642→              ...state.exams,
+   643→              { ...exam, id: uid(), createdAt: new Date().toISOString() },
+   644→            ],
+   645→          })),
+   646→
+   647→        updateExam: (id, data) =>
+   648→          set((state) => ({
+   649→            exams: state.exams.map((e) =>
+   650→              e.id === id ? { ...e, ...data } : e
+   651→            ),
+   652→          })),
+   653→
+   654→        deleteExam: (id) =>
+   655→          set((state) => ({
+   656→            exams: state.exams.filter((e) => e.id !== id),
+   657→          })),
+   658→
+   659→        // ═══════════════════════════════════════════════════════════════
+   660→        // PYQ Actions
+   661→        // ═══════════════════════════════════════════════════════════════
+   662→        addPYQ: (pyq) =>
+   663→          set((state) => ({
+   664→            pyqs: [...state.pyqs, { ...pyq, id: uid() }],
+   665→          })),
+   666→
+   667→        updatePYQ: (id, data) =>
+   668→          set((state) => ({
+   669→            pyqs: state.pyqs.map((p) =>
+   670→              p.id === id ? { ...p, ...data } : p
+   671→            ),
+   672→          })),
+   673→
+   674→        deletePYQ: (id) =>
+   675→          set((state) => ({
+   676→            pyqs: state.pyqs.filter((p) => p.id !== id),
+   677→          })),
+   678→
+   679→        // ═══════════════════════════════════════════════════════════════
+   680→        // ER Paper Actions
+   681→        // ═══════════════════════════════════════════════════════════════
+   682→        addERPaper: (paper) =>
+   683→          set((state) => ({
+   684→            erPapers: [
+   685→              ...state.erPapers,
+   686→              { ...paper, id: uid(), createdAt: new Date().toISOString() },
+   687→            ],
+   688→          })),
+   689→
+   690→        updateERPaper: (id, data) =>
+   691→          set((state) => ({
+   692→            erPapers: state.erPapers.map((e) =>
+   693→              e.id === id ? { ...e, ...data } : e
+   694→            ),
+   695→          })),
+   696→
+   697→        deleteERPaper: (id) =>
+   698→          set((state) => ({
+   699→            erPapers: state.erPapers.filter((e) => e.id !== id),
+   700→          })),
+   701→
+   702→        // ═══════════════════════════════════════════════════════════════
+   703→        // Focus Actions
+   704→        // ═══════════════════════════════════════════════════════════════
+   705→        startFocus: (subjectId, topicId, topicName) =>
+   706→          set({
+   707→            focusActive: true,
+   708→            focusSubjectId: subjectId,
+   709→            focusTopicId: topicId ?? null,
+   710→            focusStartTime: Date.now(),
+   711→            focusElapsed: 0,
+   712→          }),
+   713→
+   714→        stopFocus: (notes) => {
+   715→          const state = get();
+   716→          if (!state.focusActive || !state.focusStartTime || !state.focusSubjectId) return;
+   717→
+   718→          const duration = Math.round((Date.now() - state.focusStartTime) / 1000);
+   719→          const session: StudySession = {
+   720→            id: uid(),
+   721→            subjectId: state.focusSubjectId,
+   722→            topicId: state.focusTopicId ?? undefined,
+   723→            topicName: state.focusTopicId
+   724→              ? state.revisionItems.find((r) => r.topicId === state.focusTopicId)?.topicName
+   725→              : topicName,
+   726→            duration,
+   727→            date: todayStr(),
+   728→            type: 'focus',
+   729→            notes,
+   730→          };
+   731→
+   732→          set({
+   733→            focusActive: false,
+   734→            focusSubjectId: null,
+   735→            focusTopicId: null,
+   736→            focusStartTime: null,
+   737→            focusElapsed: 0,
+   738→            studySessions: [...state.studySessions, session],
+   739→          });
+   740→        },
+   741→
+   742→        // ═══════════════════════════════════════════════════════════════
+   743→        // Data Management
+   744→        // ═══════════════════════════════════════════════════════════════
+   745→        exportData: () => {
+   746→          const state = get();
+   747→          const dataToExport = {
+   748→            profile: state.profile,
+   749→            subjects: state.subjects,
+   750→            syllabusUnits: state.syllabusUnits,
+   751→            assessments: state.assessments,
+   752→            attendance: state.attendance,
+   753→            studySessions: state.studySessions,
+   754→            revisionItems: state.revisionItems,
+   755→            notes: state.notes,
+   756→            tasks: state.tasks,
+   757→            timetableSlots: state.timetableSlots,
+   758→            calendarEvents: state.calendarEvents,
+   759→            assignments: state.assignments,
+   760→            exams: state.exams,
+   761→            pyqs: state.pyqs,
+   762→            erPapers: state.erPapers,
+   763→          };
+   764→          return JSON.stringify(dataToExport, null, 2);
+   765→        },
+   766→
+   767→        importData: (json) => {
+   768→          try {
+   769→            const data = JSON.parse(json);
+   770→            if (typeof data !== 'object' || data === null) {
+   771→              throw new Error('Invalid data format');
+   772→            }
+   773→
+   774→            // Validate required fields
+   775→            const validKeys: (keyof typeof data)[] = [
+   776→              'profile', 'subjects', 'syllabusUnits', 'assessments',
+   777→              'attendance', 'studySessions', 'revisionItems', 'notes',
+   778→              'tasks', 'timetableSlots', 'calendarEvents', 'assignments',
+   779→              'exams', 'pyqs', 'erPapers',
+   780→            ];
+   781→
+   782→            const updates: Partial<AppState> = {};
+   783→            for (const key of validKeys) {
+   784→              if (Array.isArray(data[key]) || (key === 'profile' && typeof data[key] === 'object')) {
+   785→                (updates as Record<string, unknown>)[key] = data[key];
+   786→              }
+   787→            }
+   788→
+   789→            set({
+   790→              ...updates,
+   791→              profile: data.profile ? { ...DEFAULT_PROFILE, ...data.profile } : DEFAULT_PROFILE,
+   792→            } as Partial<AppState>);
+   793→          } catch {
+   794→            console.error('Failed to import data: invalid JSON or structure');
+   795→          }
+   796→        },
+   797→
+   798→        resetData: () => {
+   799→          const seed = seedDemoData();
+   800→          set({
+   801→            profile: { ...DEFAULT_PROFILE },
+   802→            subjects: seed.subjects,
+   803→            syllabusUnits: seed.syllabusUnits,
+   804→            assessments: seed.assessments,
+   805→            attendance: seed.attendance,
+   806→            studySessions: [],
+   807→            revisionItems: seed.revisionItems,
+   808→            notes: seed.notes,
+   809→            tasks: seed.tasks,
+   810→            timetableSlots: seed.timetableSlots,
+   811→            calendarEvents: seed.calendarEvents,
+   812→            assignments: seed.assignments,
+   813→            exams: seed.exams,
+   814→            pyqs: [],
+   815→            erPapers: [],
+   816→            currentView: 'dashboard' as const,
+   817→            selectedSubjectId: null,
+   818→            previousView: null,
+   819→            focusActive: false,
+   820→            focusSubjectId: null,
+   821→            focusTopicId: null,
+   822→            focusStartTime: null,
+   823→            focusElapsed: 0,
+   824→          });
+   825→        },
+   826→      };
+   827→    },
+   828→    {
+   829→      name: 'delulu-v4-data',
+   830→      storage: createJSONStorage(() => localStorage),
+   831→      // Only persist data, not navigation or transient state
+   832→      partialize: (state) => ({
+   833→        profile: state.profile,
+   834→        subjects: state.subjects,
+   835→        syllabusUnits: state.syllabusUnits,
+   836→        assessments: state.assessments,
+   837→        attendance: state.attendance,
+   838→        studySessions: state.studySessions,
+   839→        revisionItems: state.revisionItems,
+   840→        notes: state.notes,
+   841→        tasks: state.tasks,
+   842→        timetableSlots: state.timetableSlots,
+   843→        calendarEvents: state.calendarEvents,
+   844→        assignments: state.assignments,
+   845→        exams: state.exams,
+   846→        pyqs: state.pyqs,
+   847→        erPapers: state.erPapers,
+   848→      }),
+   849→      // Migrate: inject study sessions if existing data has none
+   850→      migrate: (persisted) => {
+   851→        if (persisted.studySessions && persisted.studySessions.length === 0) {
+   852→          const seed = seedDemoData();
+   853→          persisted.studySessions = seed.studySessions;
+   854→        }
+   855→        return persisted;
+   856→      },
+   857→    }
+   858→  )
+   859→);
+   860→
+   861→// ═════════════════════════════════════════════════════════════════════
+   862→// SM-2 Revision Review Helper
+   863→// ═════════════════════════════════════════════════════════════════════
+   864→/**
+   865→ * Review a revision item using the SM-2 algorithm.
+   866→ * @param store - the zustand store
+   867→ * @param itemId - the revision item id
+   868→ * @param quality - quality of recall (0-5). >= 3 means pass.
+   869→ * @returns void (mutates the store)
+   870→ */
+   871→export function reviewRevisionItem(
+   872→  store: ReturnType<typeof useStore>,
+   873→  itemId: string,
+   874→  quality: number
+   875→) {
+   876→  const item = store.getState().revisionItems.find((r) => r.id === itemId);
+   877→  if (!item) return;
+   878→
+   879→  const q = Math.max(0, Math.min(5, quality));
+   880→  let { easeFactor, interval, repetitions } = item;
+   881→
+   882→  if (q >= 3) {
+   883→    // Good response
+   884→    if (repetitions === 0) {
+   885→      interval = 1;
+   886→    } else if (repetitions === 1) {
+   887→      interval = 6;
+   888→    } else {
+   889→      interval = Math.round(interval * easeFactor);
+   890→    }
+   891→    repetitions += 1;
+   892→    easeFactor =
+   893→      Math.max(1.3, easeFactor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+   894→  } else {
+   895→    // Bad response - reset
+   896→    repetitions = 0;
+   897→    interval = 1;
+   898→  }
+   899→
+   900→  const nextReviewDate = new Date();
+   901→  nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+   902→  const nextReview = nextReviewDate.toISOString().split('T')[0];
+   903→
+   904→  store.getState().updateRevisionItem(itemId, {
+   905→    easeFactor,
+   906→    interval,
+   907→    repetitions,
+   908→    nextReview,
+   909→    lastReview: todayStr(),
+   910→  });
+   911→}
+   912→
+   913→// ═════════════════════════════════════════════════════════════════════
+   914→// Computed Helper Methods
+   915→// ═════════════════════════════════════════════════════════════════════
+   916→
+   917→/** Syllabus completion % for a subject */
+   918→export function getSubjectProgress(
+   919→  state: Pick<AppState, 'syllabusUnits'>,
+   920→  subjectId: string
+   921→): number {
+   922→  const units = state.syllabusUnits.filter((u) => u.subjectId === subjectId);
+   923→  const allTopics = units.flatMap((u) => u.topics);
+   924→  if (allTopics.length === 0) return 0;
+   925→  const completed = allTopics.filter((t) => t.completed).length;
+   926→  return Math.round((completed / allTopics.length) * 100);
+   927→}
+   928→
+   929→/** Attendance stats for a subject */
+   930→export function getSubjectAttendance(
+   931→  state: Pick<AppState, 'attendance'>,
+   932→  subjectId: string
+   933→): { present: number; total: number; percentage: number } {
+   934→  const records = state.attendance.filter((a) => a.subjectId === subjectId);
+   935→  const total = records.reduce((sum, r) => sum + r.totalClasses, 0);
+   936→  const present = records.filter((r) => r.present).reduce((sum, r) => sum + r.totalClasses, 0);
+   937→  const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+   938→  return { present, total, percentage };
+   939→}
+   940→
+   941→/** Marks summary for a subject */
+   942→export function getSubjectMarks(
+   943→  state: Pick<AppState, 'assessments'>,
+   944→  subjectId: string
+   945→): { obtained: number; max: number; percentage: number } {
+   946→  const assessments = state.assessments.filter((a) => a.subjectId === subjectId);
+   947→  const obtained = assessments.reduce((sum, a) => sum + a.obtainedMarks, 0);
+   948→  const max = assessments.reduce((sum, a) => sum + a.maxMarks, 0);
+   949→  const percentage = max > 0 ? Math.round((obtained / max) * 100) : 0;
+   950→  return { obtained, max, percentage };
+   951→}
+   952→
+   953→/** Projected grade for a subject based on current marks */
+   954→export function getSubjectGrade(
+   955→  state: Pick<AppState, 'assessments'>,
+   956→  subjectId: string
+   957→): string {
+   958→  const { percentage } = getSubjectMarks(state, subjectId);
+   959→  return GRADE_FROM_PERCENTAGE(percentage);
+   960→}
+   961→
+   962→/** Current semester SGPA */
+   963→export function calculateSGPA(state: Pick<AppState, 'subjects' | 'assessments'>): number {
+   964→  const activeSubjects = state.subjects.filter((s) => !s.archived);
+   965→  if (activeSubjects.length === 0) return 0;
+   966→
+   967→  let totalWeightedPoints = 0;
+   968→  let totalCredits = 0;
+   969→
+   970→  for (const subject of activeSubjects) {
+   971→    const grade = getSubjectGrade(state, subject.id);
+   972→    const gradePoint = GRADE_POINTS[grade] ?? 0;
+   973→    totalWeightedPoints += gradePoint * subject.credits;
+   974→    totalCredits += subject.credits;
+   975→  }
+   976→
+   977→  return totalCredits > 0
+   978→    ? Math.round((totalWeightedPoints / totalCredits) * 100) / 100
+   979→    : 0;
+   980→}
+   981→
+   982→/** Overall CGPA (currently same as SGPA for single semester data) */
+   983→export function calculateCGPA(state: Pick<AppState, 'subjects' | 'assessments'>): number {
+   984→  return calculateSGPA(state);
+   985→}
+   986→
+   987→/** Revision items due today or earlier */
+   988→export function getDueRevisionItems(
+   989→  state: Pick<AppState, 'revisionItems'>
+   990→): RevisionItem[] {
+   991→  const today = todayStr();
+   992→  return state.revisionItems.filter((r) => r.nextReview <= today);
+   993→}
+   994→
+   995→/** Tasks due today */
+   996→export function getTodayTasks(
+   997→  state: Pick<AppState, 'tasks'>
+   998→): Task[] {
+   999→  const today = todayStr();
+  1000→  return state.tasks.filter(
+  1001→    (t) => t.dueDate === today && !t.completed
+  1002→  );
+  1003→}
+  1004→
+  1005→/** Overdue tasks (past due, not completed) */
+  1006→export function getOverdueTasks(
+  1007→  state: Pick<AppState, 'tasks'>
+  1008→): Task[] {
+  1009→  const today = todayStr();
+  1010→  return state.tasks.filter(
+  1011→    (t) => t.dueDate && t.dueDate < today && !t.completed
+  1012→  );
+  1013→}
+  1014→
+  1015→/** Health signal for a subject */
+  1016→export function getSubjectSignal(
+  1017→  state: AppState,
+  1018→  subjectId: string
+  1019→): SignalStatus {
+  1020→  const att = getSubjectAttendance(state, subjectId);
+  1021→  const progress = getSubjectProgress(state, subjectId);
+  1022→  const marks = getSubjectMarks(state, subjectId);
+  1023→  const dueRevisions = getDueRevisionItems(state).filter(
+  1024→    (r) => r.subjectId === subjectId
+  1025→  );
+  1026→
+  1027→  // No data at all
+  1028→  if (att.total === 0 && marks.max === 0 && progress === 0) {
+  1029→    return 'nodata';
+  1030→  }
+  1031→
+  1032→  // Critical: attendance below threshold or very low marks
+  1033→  if (
+  1034→    att.total > 0 && att.percentage < 60
+  1035→  ) {
+  1036→    return 'critical';
+  1037→  }
+  1038→
+  1039→  if (
+  1040→    marks.max > 0 && marks.percentage < 40
+  1041→  ) {
+  1042→    return 'critical';
+  1043→  }
+  1044→
+  1045→  // Attention: attendance near threshold, many overdue revisions, or low marks
+  1046→  if (
+  1047→    (att.total > 0 && att.percentage < state.profile.attendanceThreshold) ||
+  1048→    dueRevisions.length >= 3 ||
+  1049→    (marks.max > 0 && marks.percentage < 55)
+  1050→  ) {
+  1051→    return 'attention';
+  1052→  }
+  1053→
+  1054→  // Improving: some progress but not great
+  1055→  if (
+  1056→    progress > 0 && progress < 50 &&
+  1057→    (marks.max === 0 || marks.percentage < 70)
+  1058→  ) {
+  1059→    return 'improving';
+  1060→  }
+  1061→
+  1062→  // Healthy: good attendance, decent progress
+  1063→  if (
+  1064→    (att.total === 0 || att.percentage >= state.profile.attendanceThreshold) &&
+  1065→    progress >= 50
+  1066→  ) {
+  1067→    return 'healthy';
+  1068→  }
+  1069→
+  1070→  return 'improving';
+  1071→}
+  1072→
+  1073→/** Overall semester health score 0-100 */
+  1074→export function getSemesterHealth(state: AppState): number {
+  1075→  const activeSubjects = state.subjects.filter((s) => !s.archived);
+  1076→  if (activeSubjects.length === 0) return 0;
+  1077→
+  1078→  let totalScore = 0;
+  1079→  let maxScore = 0;
+  1080→
+  1081→  for (const subject of activeSubjects) {
+  1082→    // Attendance score (30 points max)
+  1083→    const att = getSubjectAttendance(state, subject.id);
+  1084→    const attScore = att.total > 0 ? Math.min(30, (att.percentage / 100) * 30) : 10;
+  1085→
+  1086→    // Marks score (30 points max)
+  1087→    const marks = getSubjectMarks(state, subject.id);
+  1088→    const marksScore = marks.max > 0 ? (marks.percentage / 100) * 30 : 10;
+  1089→
+  1090→    // Syllabus progress (20 points max)
+  1091→    const progress = getSubjectProgress(state, subject.id);
+  1092→    const progressScore = (progress / 100) * 20;
+  1093→
+  1094→    // Revision health (20 points max)
+  1095→    const subjectRevisions = state.revisionItems.filter(
+  1096→      (r) => r.subjectId === subject.id
+  1097→    );
+  1098→    const overdueRevisions = subjectRevisions.filter(
+  1099→      (r) => r.nextReview <= todayStr()
+  1100→    ).length;
+  1101→    const revisionScore = subjectRevisions.length > 0
+  1102→      ? Math.max(0, 20 - overdueRevisions * 5)
+  1103→      : 10;
+  1104→
+  1105→    totalScore += attScore + marksScore + progressScore + revisionScore;
+  1106→    maxScore += 100;
+  1107→  }
+  1108→
+  1109→  return Math.round((totalScore / maxScore) * 100);
+  1110→}
+  1111→
+  1112→/** Total study time this week (in seconds) */
+  1113→export function getStudyTimeThisWeek(
+  1114→  state: Pick<AppState, 'studySessions'>
+  1115→): number {
+  1116→  const now = new Date();
+  1117→  const dayOfWeek = now.getDay(); // 0=Sun
+  1118→   // Start of week: Monday (day 1) or Sunday (day 0) — we use Sunday as start
+  1119→  const startOfWeek = new Date(now);
+  1120→  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  1121→  startOfWeek.setHours(0, 0, 0, 0);
+  1122→
+  1123→  const startStr = startOfWeek.toISOString().split('T')[0];
+  1124→
+  1125→  return state.studySessions
+  1126→    .filter((s) => s.date >= startStr)
+  1127→    .reduce((sum, s) => sum + s.duration, 0);
+  1128→}
+  1129→
+  1130→/** Current consecutive day study streak (days with >= 1 session) */
+  1131→export function getStudyStreak(
+  1132→  state: Pick<AppState, 'studySessions'>
+  1133→): number {
+  1134→  const today = new Date();
+  1135→  const sessionsByDate = new Map<string, number>();
+  1136→  for (const s of state.studySessions) {
+  1137→    sessionsByDate.set(s.date, (sessionsByDate.get(s.date) || 0) + 1);
+  1138→  }
+  1139→
+  1140→  let streak = 0;
+  1141→  for (let i = 0; i < 365; i++) {
+  1142→    const d = new Date(today);
+  1143→    d.setDate(d.getDate() - i);
+  1144→    const dateStr = d.toISOString().split('T')[0];
+  1145→    if ((sessionsByDate.get(dateStr) || 0) >= 1) {
+  1146→      streak++;
+  1147→    } else {
+  1148→      // If today has no sessions, don't count it as breaking the streak
+  1149→      // (streak counts backwards from most recent study day)
+  1150→      if (i === 0) continue;
+  1151→      break;
+  1152→    }
+  1153→  }
+  1154→  return streak;
+  1155→}
+  1156→
+  1157→/** Total study time today (in seconds) */
+  1158→export function getStudyTimeToday(
+  1159→  state: Pick<AppState, 'studySessions'>
+  1160→): number {
+  1161→  const today = todayStr();
+  1162→  return state.studySessions
+  1163→    .filter((s) => s.date === today)
+  1164→    .reduce((sum, s) => sum + s.duration, 0);
+  1165→}
+  1166→
+  1167→/** Study items for today's focus recommendations */
+  1168→export function getTodayFocus(state: AppState): {
+  1169→  subjectId: string;
+  1170→  subjectName: string;
+  1171→  topicName: string;
+  1172→  topicId: string;
+  1173→  reason: string;
+  1174→}[] {
+  1175→  const recommendations: {
+  1176→    subjectId: string;
+  1177→    subjectName: string;
+  1178→    topicName: string;
+  1179→    topicId: string;
+  1180→    reason: string;
+  1181→  }[] = [];
+  1182→
+  1183→  const today = todayStr();
+  1184→
+  1185→  // 1. Overdue revision items
+  1186→  for (const item of state.revisionItems) {
+  1187→    if (item.nextReview < today) {
+  1188→      const subject = state.subjects.find((s) => s.id === item.subjectId);
+  1189→      if (subject) {
+  1190→        recommendations.push({
+  1191→          subjectId: item.subjectId,
+  1192→          subjectName: subject.name,
+  1193→          topicName: item.topicName,
+  1194→          topicId: item.topicId,
+  1195→          reason: 'Overdue revision',
+  1196→        });
+  1197→      }
+  1198→    }
+  1199→  }
+  1200→
+  1201→  // 2. Due revision items (today)
+  1202→  for (const item of state.revisionItems) {
+  1203→    if (item.nextReview === today) {
+  1204→      const subject = state.subjects.find((s) => s.id === item.subjectId);
+  1205→      if (subject) {
+  1206→        recommendations.push({
+  1207→          subjectId: item.subjectId,
+  1208→          subjectName: subject.name,
+  1209→          topicName: item.topicName,
+  1210→          topicId: item.topicId,
+  1211→          reason: 'Due for revision today',
+  1212→        });
+  1213→      }
+  1214→    }
+  1215→  }
+  1216→
+  1217→  // 3. Incomplete syllabus topics for subjects with attention/critical signal
+  1218→  for (const unit of state.syllabusUnits) {
+  1219→    if (state.subjects.find((s) => s.id === unit.subjectId)?.archived) continue;
+  1220→    const signal = getSubjectSignal(state, unit.subjectId);
+  1221→    if (signal === 'attention' || signal === 'critical') {
+  1222→      for (const topic of unit.topics) {
+  1223→        if (!topic.completed) {
+  1224→          const subject = state.subjects.find((s) => s.id === unit.subjectId);
+  1225→          if (subject) {
+  1226→            recommendations.push({
+  1227→              subjectId: unit.subjectId,
+  1228→              subjectName: subject.name,
+  1229→              topicName: topic.name,
+  1230→              topicId: topic.id,
+  1231→              reason: `${signal === 'critical' ? 'Critical' : 'Needs attention'} — incomplete topic`,
+  1232→            });
+  1233→          }
+  1234→        }
+  1235→      }
+  1236→    }
+  1237→  }
+  1238→
+  1239→  // 4. Upcoming tasks due today
+  1240→  const todayTasks = getTodayTasks(state);
+  1241→  for (const task of todayTasks) {
+  1242→    if (task.subjectId) {
+  1243→      const subject = state.subjects.find((s) => s.id === task.subjectId);
+  1244→      if (subject) {
+  1245→        recommendations.push({
+  1246→          subjectId: task.subjectId,
+  1247→          subjectName: subject.name,
+  1248→          topicName: task.title,
+  1249→          topicId: '',
+  1250→          reason: 'Task due today',
+  1251→        });
+  1252→      }
+  1253→    }
+  1254→  }
+  1255→
+  1256→  return recommendations;
+  1257→}
+  1258→

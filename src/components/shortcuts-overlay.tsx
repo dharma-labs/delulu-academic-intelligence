@@ -41,6 +41,7 @@ const SHORTCUTS: ShortcutSection[] = [
   {
     title: 'Actions',
     items: [
+      { keys: '⌘⇧D', label: 'Toggle Dark Mode' },
       { keys: 'Shift + /', label: 'Show Shortcuts' },
       { keys: '1', label: 'Quick Switch → Dashboard' },
       { keys: '2', label: 'Quick Switch → Subjects' },

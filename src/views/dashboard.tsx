@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import {
   ArrowRight,
@@ -30,7 +30,8 @@ import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSu
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, progressColorClass } from '@/components/shared';
+import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, progressColorClass } from '@/components/shared';
+import { useToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
 import type { SignalStatus } from '@/lib/types';
 
@@ -171,6 +172,54 @@ export default function DashboardView() {
   const studyTimeThisWeek = useMemo(() => getStudyTimeThisWeek({ studySessions }), [studySessions]);
 
   const studyStreak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+
+  // -- Streak milestone toast --
+  const { toast } = useToast();
+  const milestoneToastRef = useRef<Set<number> | null>(null);
+
+  useEffect(() => {
+    const milestones = [3, 7, 14, 21, 30, 60, 90];
+    const met = milestones.filter((m) => studyStreak >= m);
+
+    // First run: seed ref with already-reached milestones (no toast)
+    if (milestoneToastRef.current === null) {
+      milestoneToastRef.current = new Set(met);
+      if (studyStreak >= 100) milestoneToastRef.current.add(100);
+      return;
+    }
+
+    const titleMap: Record<number, string> = {
+      3: '3-day streak started!',
+      7: 'One week streak!',
+      14: 'Two weeks strong!',
+      21: 'Three week streak!',
+      30: 'Monthly milestone!',
+      60: 'Two months of consistency!',
+      90: 'Quarter-year streak!',
+    };
+
+    // Check each milestone
+    for (const m of met) {
+      if (!milestoneToastRef.current.has(m)) {
+        milestoneToastRef.current.add(m);
+        toast({
+          variant: 'success',
+          title: titleMap[m] ?? `Incredible ${m}-day streak!`,
+          description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+        });
+      }
+    }
+
+    // 100+ milestone
+    if (studyStreak >= 100 && !milestoneToastRef.current.has(100)) {
+      milestoneToastRef.current.add(100);
+      toast({
+        variant: 'success',
+        title: `Incredible ${studyStreak}-day streak!`,
+        description: 'Keep up the amazing work! Your consistent study habits are paying off.',
+      });
+    }
+  }, [studyStreak, toast]);
 
   const studyTimeToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
 
@@ -343,6 +392,29 @@ export default function DashboardView() {
 
     return patterns;
   }, [studySessions, assessments, activeSubjects]);
+
+  // -- Weekly Study Distribution (per subject) --
+  const weeklyDistribution = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    const cutoff = sevenDaysAgo.toISOString().split('T')[0];
+
+    const weekSessions = studySessions.filter((s) => s.date >= cutoff);
+    const subjectMinutes: Record<string, number> = {};
+
+    for (const s of weekSessions) {
+      subjectMinutes[s.subjectId] = (subjectMinutes[s.subjectId] || 0) + s.duration / 60;
+    }
+
+    return Object.entries(subjectMinutes)
+      .map(([subjectId, minutes]) => {
+        const subject = subjects.find((s) => s.id === subjectId);
+        return subject ? { subjectId: subject.id, name: subject.name, color: subject.color, minutes: Math.round(minutes) } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => b.minutes - a.minutes);
+  }, [studySessions, subjects]);
 
   // -- Greeting --
   const hour = new Date().getHours();
@@ -762,6 +834,41 @@ export default function DashboardView() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Study Distribution */}
+            <div className="metric-card">
+              <SectionHeader title="This Week's Focus" />
+              {weeklyDistribution.length === 0 ? (
+                <EmptyState
+                  icon={BarChart3}
+                  title="No study sessions"
+                  description="Start a focus session to see your weekly study distribution"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {weeklyDistribution.map((d) => {
+                    const maxMin = weeklyDistribution[0].minutes;
+                    const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
+                    return (
+                      <div key={d.subjectId} className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
+                          {d.name}
+                        </span>
+                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)' }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
+                          {d.minutes}m
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Insights */}
             <Card>

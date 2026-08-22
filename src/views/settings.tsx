@@ -9,16 +9,20 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useRef } from 'react';
-import { User, Palette, Database, Info, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor } from 'lucide-react';
+import { User, Palette, Database, Info, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader, SectionHeader, InsightCard } from '@/components/shared';
 import { motion } from 'framer-motion';
+import { useToast } from '@/components/toast';
 
 export default function SettingsView() {
   const { profile, updateProfile } = useStore();
   const { theme, setTheme } = useTheme();
+  const { toast: showToast } = useToast();
   const [localProfile, setLocalProfile] = useState(profile);
   const [resetText, setResetText] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -72,6 +76,15 @@ export default function SettingsView() {
     setLocalProfile(useStore.getState().profile);
     setResetText('');
     toast.success('All data has been reset');
+  };
+
+  const handleDeleteEverything = () => {
+    if (deleteConfirmText !== 'DELETE') return;
+    useStore.getState().resetState();
+    setLocalProfile(useStore.getState().profile);
+    setDeleteConfirmText('');
+    setDeleteDialogOpen(false);
+    showToast({ title: 'All data deleted', description: 'Your account has been wiped clean. Starting fresh.', variant: 'success' });
   };
 
   const themeOptions = [
@@ -338,6 +351,76 @@ export default function SettingsView() {
             </div>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Danger Zone */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.25 }}
+        className="mt-4 mb-8"
+      >
+        <SectionHeader title="Danger Zone" />
+        <div className="metric-card metric-card-accent-danger mt-3 !border-l-red-500 dark:!border-l-red-400">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
+                <h3 className="text-sm font-semibold text-foreground">Reset All Data</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                Permanently delete all your academic data, subjects, notes, and settings. This action cannot be undone.
+              </p>
+            </div>
+            <Dialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmText(''); }}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />Reset Everything
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader className="items-center text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
+                    <XCircle className="h-6 w-6 text-red-500 dark:text-red-400" />
+                  </div>
+                  <DialogTitle className="text-base">Are you absolutely sure?</DialogTitle>
+                  <DialogDescription className="text-center max-w-sm">
+                    This will permanently delete ALL your data including subjects, notes, tasks, exams, assignments, study sessions, and profile settings.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="my-2">
+                  <Input
+                    placeholder='Type "DELETE" to confirm'
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    className="text-center"
+                  />
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setDeleteDialogOpen(false); setDeleteConfirmText(''); }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteEverything}
+                    disabled={deleteConfirmText !== 'DELETE'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete Everything
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
