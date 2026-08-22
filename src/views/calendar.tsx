@@ -230,7 +230,7 @@ export default function CalendarView() {
   };
 
   return (
-    <div className='p-4 md:p-6 content-area animate-fade-slide-in'>
+    <div className='fab-content-pad'>
       {/* Header */}
       <PageHeader
         title='Calendar'
@@ -279,7 +279,7 @@ export default function CalendarView() {
               {WEEK_DAYS.map((day) => (
                 <div
                   key={day}
-                  className='py-2.5 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider'
+                  className='section-label py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider'
                 >
                   {day}
                 </div>
@@ -315,17 +315,23 @@ export default function CalendarView() {
                       {format(day, 'd')}
                     </span>
 
-                    {/* Event dots */}
+                    {/* Event dots - colored by type */}
                     <div className='mt-1 flex flex-wrap gap-[3px]'>
-                      {dayEvents.slice(0, 4).map((ev) => (
-                        <span
-                          key={ev.id}
-                          className='h-1.5 w-1.5 rounded-full shrink-0'
-                          style={{
-                            backgroundColor: ev.color || EVENT_TYPES[ev.type]?.color || '#737373',
-                          }}
-                        />
-                      ))}
+                      {dayEvents.slice(0, 4).map((ev) => {
+                        const typeCfg = EVENT_TYPES[ev.type];
+                        let dotColor = ev.color || typeCfg?.color || '#737373';
+                        // Standardize colors: exam=red, assignment=amber, study=blue
+                        if (ev.type === 'exam' || ev.type === 'deadline') dotColor = '#E5484D';
+                        else if (ev.type === 'assignment') dotColor = '#D99200';
+                        else if (ev.type === 'class') dotColor = '#3478F6';
+                        return (
+                          <span
+                            key={ev.id}
+                            className='h-1.5 w-1.5 rounded-full shrink-0'
+                            style={{ backgroundColor: dotColor }}
+                          />
+                        );
+                      })}
                       {dayEvents.length > 4 && (
                         <span className='text-[9px] text-muted-foreground leading-none ml-0.5'>
                           +{dayEvents.length - 4}
@@ -389,7 +395,7 @@ export default function CalendarView() {
                     <EmptyState
                       icon={CalendarDays}
                       title='No events on this day'
-                      description='Click + to add a new event'
+                      description='Tap + to add an event for this date'
                       action={
                         <Button
                           variant='outline'
@@ -423,7 +429,7 @@ export default function CalendarView() {
                             <motion.div
                               key={event.id}
                               variants={fadeUp}
-                              className='group relative p-3 rounded-lg border border-border hover:border-primary/25 transition-colors'
+                              className='card-interactive group relative p-3'
                             >
                               <div className='flex items-start gap-2.5'>
                                 <div

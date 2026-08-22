@@ -4,9 +4,10 @@ import { useStore, calculateSGPA, calculateCGPA, getSubjectProgress, getSubjectA
 import { Button } from '@/components/ui/button';
 import { PageHeader, MetricCard, SectionHeader, EmptyState } from '@/components/shared';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Download, Printer, GraduationCap, UserCheck, BarChart3, Clock, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function gradeSignal(grade: string): string {
   if (['A+', 'A'].includes(grade)) return 'signal-healthy';
@@ -18,6 +19,7 @@ function gradeSignal(grade: string): string {
 export default function ReportView() {
   const { subjects, assessments, attendance, studySessions, profile, calendarEvents } = useStore();
   const activeSubjects = subjects.filter((s) => !s.archived);
+  const [ready, setReady] = useState(false);
 
   const reportData = useMemo(() => {
     const state = useStore.getState();
@@ -45,6 +47,7 @@ export default function ReportView() {
       ? Math.round(subjectReports.reduce((a, r) => a + r.attendance.percentage, 0) / subjectReports.length)
       : 0;
 
+    setReady(true);
     return { sgpa, cgpa, weekMinutes, subjectReports, totalAssessments, avgAssessmentPct, totalSessions, totalStudyHours, avgAttendance };
   }, [activeSubjects, assessments, attendance, studySessions, profile]);
 
@@ -103,7 +106,7 @@ export default function ReportView() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="fab-content-pad space-y-5">
       <PageHeader
         title="Academic Report"
         subtitle="Professional report of your academic performance"
@@ -119,7 +122,19 @@ export default function ReportView() {
         }
       />
 
-      {activeSubjects.length === 0 ? (
+      {!ready ? (
+        <div className="space-y-4">
+          <div className="h-6 w-40 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-56 bg-muted animate-pulse rounded" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="metric-card h-24 animate-pulse" />
+            ))}
+          </div>
+          <div className="metric-card h-48 animate-pulse" />
+          <div className="metric-card h-20 animate-pulse" />
+        </div>
+      ) : activeSubjects.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No report data"
@@ -128,6 +143,11 @@ export default function ReportView() {
       ) : (
         <div id="report-content" className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-5">
           {/* Report Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold tracking-tight">Delulu 4.0 — Academic Report</h2>
@@ -137,11 +157,17 @@ export default function ReportView() {
             </div>
             <FileText className="size-8 text-muted-foreground/20" />
           </div>
+          </motion.div>
 
           <div className="border-b border-border" />
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+          >
             <MetricCard
               label="CGPA"
               value={reportData.cgpa.toFixed(2)}
@@ -162,11 +188,16 @@ export default function ReportView() {
               value={`${reportData.totalStudyHours}h`}
               icon={Clock}
             />
-          </div>
+          </motion.div>
 
           <div className="border-b border-border" />
 
           {/* Subject Table */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
           <div>
             <SectionHeader title="Subject Performance" />
             <div className="overflow-x-auto scrollbar-thin">
@@ -207,34 +238,51 @@ export default function ReportView() {
               </table>
             </div>
           </div>
+          </motion.div>
 
           <div className="border-b border-border" />
 
           {/* Assessment Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
+          >
           <div>
             <SectionHeader title="Assessment Summary" />
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="metric-card text-center">
-                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.totalAssessments}</div>
-                <p className="metric-context text-center mt-1.5">Total Assessments</p>
-              </div>
-              <div className="metric-card text-center">
-                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.avgAssessmentPct}%</div>
-                <p className="metric-context text-center mt-1.5">Average Score</p>
-              </div>
-              <div className="metric-card text-center">
-                <div className="text-xl font-bold tabular-nums tracking-tight">{reportData.totalSessions}</div>
-                <p className="metric-context text-center mt-1.5">Study Sessions</p>
-              </div>
+              <MetricCard
+                label="Total Assessments"
+                value={reportData.totalAssessments}
+                icon={FileText}
+              />
+              <MetricCard
+                label="Average Score"
+                value={`${reportData.avgAssessmentPct}%`}
+                icon={BarChart3}
+                valueColor={reportData.avgAssessmentPct >= 60 ? 'text-emerald-600 dark:text-emerald-400' : reportData.avgAssessmentPct >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+              />
+              <MetricCard
+                label="Study Sessions"
+                value={reportData.totalSessions}
+                icon={Clock}
+              />
             </div>
           </div>
+          </motion.div>
 
           <div className="border-b border-border" />
 
           {/* Footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
           <div className="text-xs text-muted-foreground text-center py-1">
             Generated by Delulu 4.0 — Academic Operating System · {format(new Date(), 'd MMMM yyyy HH:mm')}
           </div>
+          </motion.div>
         </div>
       )}
     </div>

@@ -12,7 +12,7 @@ import { Plus, FileSearch, AlertTriangle, Clock, CheckCircle2, Circle, Trash2, E
 import { format, parseISO, differenceInDays, isPast } from 'date-fns';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { PageHeader, MetricCard, StatusBadge, EmptyState, SectionHeader } from '@/components/shared';
+import { PageHeader, MetricCard, StatusBadge, EmptyState, SectionHeader, InsightCard } from '@/components/shared';
 import type { ERPaper } from '@/lib/types';
 
 const PRIORITY_CONFIG = {
@@ -33,16 +33,52 @@ export default function ERCenterView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<ERPaper>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterSubject, setFilterSubject] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
 
-  const grouped = useMemo(() => {
-    const groups = { critical: [] as ERPaper[], high: [] as ERPaper[], normal: [] as ERPaper[], low: [] as ERPaper[] };
-    erPapers.sort((a, b) => {
-      const pOrder = { critical: 0, high: 1, normal: 2, low: 3 };
+  // Filter/search logic
+  const filteredPapers = useMemo(() => {
+    let papers = [...erPapers];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      papers = papers.filter((p) =>
+        p.title.toLowerCase().includes(q) ||
+        (p.author && p.author.toLowerCase().includes(q)) ||
+        (p.notes && p.notes.toLowerCase().includes(q))
+      );
+    }
+    if (filterSubject !== 'all') {
+      papers = papers.filter((p) => p.subjectId === filterSubject);
+    }
+    if (filterYear !== 'all') {
+      papers = papers.filter((p) => {
+        if (!p.deadline) return false;
+        return p.deadline.startsWith(filterYear);
+      });
+    }
+    const pOrder = { critical: 0, high: 1, normal: 2, low: 3 };
+    papers.sort((a, b) => {
       if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
       return (a.deadline || 'z').localeCompare(b.deadline || 'z');
     });
-    for (const p of erPapers) groups[p.priority].push(p);
+    return papers;
+  }, [erPapers, searchQuery, filterSubject, filterYear]);
+
+  // Group filtered papers
+  const grouped = useMemo(() => {
+    const groups = { critical: [] as ERPaper[], high: [] as ERPaper[], normal: [] as ERPaper[], low: [] as ERPaper[] };
+    for (const p of filteredPapers) groups[p.priority].push(p);
     return groups;
+  }, [filteredPapers]);
+
+  // Extract unique years for filter
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    for (const p of erPapers) {
+      if (p.deadline) years.add(p.deadline.slice(0, 4));
+    }
+    return [...years].sort().reverse();
   }, [erPapers]);
 
   const getSubject = (id?: string) => subjects.find((s) => s.id === id);
@@ -89,7 +125,7 @@ export default function ERCenterView() {
   const inProgressCount = erPapers.filter((p) => p.status === 'in_progress').length;
 
   return (
-    <div className="p-4 md:p-6 content-area animate-fade-slide-in">
+    <div className="fab-content-pad">
       <PageHeader
         title="ER Command Center"
         subtitle="Track and manage exam preparation papers"
@@ -106,7 +142,7 @@ export default function ERCenterView() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
       >
         <MetricCard
           label="Critical"
@@ -137,6 +173,49 @@ export default function ERCenterView() {
         />
       </motion.div>
 
+      {/* Search & Filter Bar */}
+      {totalCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.1 }}
+          className="metric-card p-3 flex flex-col sm:flex-row gap-2 sm:gap-3"
+        >
+          <Input
+            placeholder="Search papers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 text-xs flex-1"
+          />
+          <div className="flex gap-2">
+            <Select value={filterSubject} onValueChange={setFilterSubject}>
+              <SelectTrigger className="h-8 text-xs w-[130px]">
+                <SelectValue placeholder="All Subjects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {subjects.filter((s) => !s.archived).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availableYears.length > 0 && (
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger className="h-8 text-xs w-[100px]">
+                  <SelectValue placeholder="All Years" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* Papers by priority */}
       {totalCount === 0 ? (
         <EmptyState
@@ -149,8 +228,24 @@ export default function ERCenterView() {
             </Button>
           }
         />
+      ) : filteredPapers.length === 0 ? (
+        <EmptyState
+          icon={FileSearch}
+          title="No matching papers"
+          description="Try adjusting your search or filters"
+          action={
+            <Button variant='outline' size='sm' onClick={() => { setSearchQuery(''); setFilterSubject('all'); setFilterYear('all'); }}>
+              Clear Filters
+            </Button>
+          }
+        />
       ) : (
-        <div className="space-y-5">
+        <motion.div
+          variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
+          initial="hidden"
+          animate="show"
+          className="space-y-5"
+        >
           {(['critical', 'high', 'normal', 'low'] as const).map((pri) => {
             if (grouped[pri].length === 0) return null;
             return (
@@ -161,13 +256,11 @@ export default function ERCenterView() {
                 transition={{ duration: 0.25 }}
               >
                 <div className="flex items-center gap-2 mb-3">
+                  <span className="section-label">{PRIORITY_CONFIG[pri].label}</span>
                   <StatusBadge
                     status={PRIORITY_CONFIG[pri].signal}
-                    label={PRIORITY_CONFIG[pri].label}
+                    label={`${grouped[pri].length} paper${grouped[pri].length > 1 ? 's' : ''}`}
                   />
-                  <span className="text-xs text-muted-foreground">
-                    {grouped[pri].length} paper{grouped[pri].length > 1 ? 's' : ''}
-                  </span>
                 </div>
                 <div className="space-y-2">
                   {grouped[pri].map((paper) => {
@@ -229,7 +322,7 @@ export default function ERCenterView() {
               </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Add/Edit Dialog */}

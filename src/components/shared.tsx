@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
@@ -150,9 +150,22 @@ export function InsightCard({
   action,
   className,
 }: InsightCardProps) {
+  const bgMap = {
+    positive: 'bg-emerald-50/60 dark:bg-emerald-950/30',
+    warning: 'bg-amber-50/60 dark:bg-amber-950/30',
+    critical: 'bg-red-50/60 dark:bg-red-950/30',
+    info: 'bg-blue-50/60 dark:bg-blue-950/30',
+  };
+  const iconColorMap = {
+    positive: 'text-emerald-600 dark:text-emerald-400',
+    warning: 'text-amber-600 dark:text-amber-400',
+    critical: 'text-red-600 dark:text-red-400',
+    info: 'text-blue-600 dark:text-blue-400',
+  };
+
   return (
-    <div className={cn('insight-card', type, className)}>
-      <Icon className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+    <div className={cn('insight-card rounded-2xl p-4', bgMap[type], type, className)}>
+      <Icon className={cn('size-4 shrink-0 mt-0.5', iconColorMap[type])} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm leading-snug">{title}</p>
         {description && (
@@ -344,11 +357,11 @@ interface CompactProgressProps {
 }
 
 const PROGRESS_COLORS: Record<string, string> = {
-  green: 'bg-emerald-500 dark:bg-emerald-400',
-  blue: 'bg-blue-500 dark:bg-blue-400',
-  amber: 'bg-amber-500 dark:bg-amber-400',
-  red: 'bg-red-500 dark:bg-red-400',
-  purple: 'bg-purple-500 dark:bg-purple-400',
+  green: 'progress-gradient-green',
+  blue: 'progress-gradient',
+  amber: 'progress-gradient-amber',
+  red: 'progress-gradient-red',
+  purple: 'progress-gradient',
 };
 
 function progressColorClass(value: number): 'green' | 'blue' | 'amber' | 'red' {
@@ -381,9 +394,8 @@ export function CompactProgress({
           {displayValue || `${value}%`}
         </span>
       </div>
-      <div className="progress-thin progress-animate">
+      <div className={cn('progress-thin progress-animate', PROGRESS_COLORS[color])}>
         <div
-          className={PROGRESS_COLORS[color]}
           style={{ width: `${Math.min(100, value)}%` }}
         />
       </div>
@@ -394,4 +406,65 @@ export function CompactProgress({
   );
 }
 
+// ─── Animated Counter ──────────────────────────────────────────
+
+interface AnimatedCounterProps {
+  value: number;
+  className?: string;
+  duration?: number;
+  decimals?: number;
+}
+
+export function AnimatedCounter({ value, className, duration = 1000, decimals = 0 }: AnimatedCounterProps) {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    startTimeRef.current = null;
+    const animate = (timestamp: number) => {
+      if (startTimeRef.current === null) startTimeRef.current = timestamp;
+      const elapsed = timestamp - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(eased * value);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [value, duration]);
+
+  return (
+    <span className={cn('tabular-nums', className)}>
+      {decimals > 0 ? display.toFixed(decimals) : Math.round(display)}
+    </span>
+  );
+}
+
 export { progressColorClass, progressStatusLabel, PROGRESS_COLORS };
+
+// ─── Gradient Badge ─────────────────────────────────────────────
+
+interface GradientBadgeProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function GradientBadge({ children, className }: GradientBadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase text-white',
+        'bg-gradient-to-r from-primary to-[var(--delulu-purple)]',
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}

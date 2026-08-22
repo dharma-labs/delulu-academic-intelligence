@@ -25,6 +25,8 @@ import {
   Bot,
   Trophy,
   Settings2,
+  FileText,
+  GraduationCap,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -32,7 +34,7 @@ import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSu
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, progressColorClass } from '@/components/shared';
+import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, AnimatedCounter, progressColorClass } from '@/components/shared';
 import { useToast } from '@/components/toast';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { AchievementsDialog } from '@/components/achievements-dialog';
@@ -126,7 +128,7 @@ function HealthRing({ score, config }: { score: number; config: ReturnType<typeo
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
-        <span className="text-3xl font-extrabold tracking-tighter leading-none">{score}</span>
+        <AnimatedCounter value={score} className="text-3xl font-extrabold tracking-tighter leading-none" />
         <span className="text-[10px] text-muted-foreground font-medium mt-0.5">/ 100</span>
       </div>
     </div>
@@ -703,9 +705,13 @@ export default function DashboardView() {
                     <span className="text-xs font-medium truncate">{subject.name}</span>
                     <span className="text-[11px] font-semibold tabular-nums text-muted-foreground ml-1.5">{progress}%</span>
                   </div>
-                  <div className="progress-thin progress-animate">
+                  <div className={cn('progress-thin progress-animate',
+                    progress >= 75 ? 'progress-gradient-green'
+                      : progress >= 50 ? 'progress-gradient'
+                      : progress >= 30 ? 'progress-gradient-amber'
+                      : 'progress-gradient-red'
+                  )}>
                     <div
-                      className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
                       style={{ width: `${Math.min(100, progress)}%` }}
                     />
                   </div>
@@ -753,18 +759,22 @@ export default function DashboardView() {
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
           <div className="grid grid-cols-5 gap-2">
             {[
-              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400' },
-              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
-              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
-              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' },
-              { label: 'Achieve', icon: Trophy, action: true, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400' },
+              { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400', hoverGrad: 'hover:from-blue-500/15 hover:to-blue-600/5' },
+              { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400', hoverGrad: 'hover:from-purple-500/15 hover:to-purple-600/5' },
+              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400', hoverGrad: 'hover:from-amber-500/15 hover:to-amber-600/5' },
+              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400', hoverGrad: 'hover:from-emerald-500/15 hover:to-emerald-600/5' },
+              { label: 'Achieve', icon: Trophy, action: true, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400', hoverGrad: 'hover:from-orange-500/15 hover:to-orange-600/5' },
             ].map((a) => {
               const Icon = a.icon;
               return (
                 <button
                   key={'view' in a ? a.view : 'achievements'}
                   onClick={() => 'view' in a ? navigate(a.view as import('@/lib/types').ViewId) : setAchievementsOpen(true)}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border/40 active:scale-95 transition-transform"
+                  className={cn(
+                    'flex flex-col items-center gap-1.5 py-4 rounded-xl bg-card border border-border/40 active:scale-95 transition-all duration-200',
+                    'bg-gradient-to-b hover:bg-gradient-to-t',
+                    a.hoverGrad,
+                  )}
                 >
                   <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', a.color)}>
                     <Icon className="size-4" />
@@ -837,7 +847,7 @@ export default function DashboardView() {
                 <span className="section-label">Academic Health</span>
                 <div className="mt-3 mb-2">
                   <span className="text-5xl font-extrabold tracking-tighter leading-none text-gradient">
-                    {healthScore}
+                    <AnimatedCounter value={healthScore} />
                   </span>
                   <span className="text-lg font-medium text-muted-foreground ml-1">/100</span>
                 </div>
@@ -896,7 +906,7 @@ export default function DashboardView() {
             <div className="grid grid-cols-2 gap-3">
               <MetricCard
                 label="Streak"
-                value={studyStreak}
+                value={<AnimatedCounter value={studyStreak} />}
                 context={`${studyStreak} day streak`}
                 icon={Flame}
                 iconColor={studyStreak > 0 ? 'text-orange-500' : undefined}
@@ -1034,9 +1044,13 @@ export default function DashboardView() {
                             <span className="text-sm font-medium truncate">{subject.name}</span>
                             <span className="text-xs font-semibold tabular-nums text-muted-foreground ml-2">{progress}%</span>
                           </div>
-                          <div className="progress-thin progress-animate">
+                          <div className={cn('progress-thin progress-animate',
+                            progress >= 75 ? 'progress-gradient-green'
+                              : progress >= 50 ? 'progress-gradient'
+                              : progress >= 30 ? 'progress-gradient-amber'
+                              : 'progress-gradient-red'
+                          )}>
                             <div
-                              className={progress >= 75 ? 'bg-emerald-500' : progress >= 50 ? 'bg-blue-500' : progress >= 30 ? 'bg-amber-500' : 'bg-red-500'}
                               style={{ width: `${Math.min(100, progress)}%` }}
                             />
                           </div>
@@ -1097,24 +1111,41 @@ export default function DashboardView() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {weeklyDistribution.map((d) => {
+                  {weeklyDistribution.map((d, i) => {
                     const maxMin = weeklyDistribution[0].minutes;
                     const pct = maxMin > 0 ? Math.max(8, (d.minutes / maxMin) * 100) : 0;
+                    const totalMinutes = weeklyDistribution.reduce((s, x) => s + x.minutes, 0);
+                    const sharePct = totalMinutes > 0 ? Math.round((d.minutes / totalMinutes) * 100) : 0;
+                    const subjectColor = d.color || 'var(--color-primary)';
                     return (
-                      <div key={d.subjectId} className="flex items-center gap-3 group">
+                      <motion.div
+                        key={d.subjectId}
+                        className="flex items-center gap-3 group"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.06, ease: 'easeOut' }}
+                      >
                         <span className="text-xs font-medium text-muted-foreground w-24 truncate shrink-0" title={d.name}>
                           {d.name}
                         </span>
                         <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
-                          <div
+                          <motion.div
                             className="h-full rounded-full transition-all duration-500 group-hover:opacity-100"
-                            style={{ width: `${pct}%`, backgroundColor: d.color || 'var(--color-primary)', opacity: 0.65 }}
+                            style={{ background: `linear-gradient(90deg, ${subjectColor}, ${subjectColor}88)` }}
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ duration: 0.6, delay: i * 0.06 + 0.1, ease: [0.22, 1, 0.36, 1] }}
+                            role="progressbar"
+                            aria-valuenow={pct}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
                           />
                         </div>
-                        <span className="text-xs font-semibold tabular-nums text-muted-foreground w-12 text-right shrink-0">
+                        <span className="text-[11px] font-semibold tabular-nums text-muted-foreground w-14 text-right shrink-0">
                           {d.minutes}m
+                          <span className="text-[10px] text-muted-foreground/60 ml-0.5">({sharePct}%)</span>
                         </span>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -1173,22 +1204,36 @@ export default function DashboardView() {
                   <div className="space-y-2">
                     {upcomingDeadlines.map((d, i) => {
                       const daysUntil = Math.ceil((new Date(d.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                      const TypeIcon = d.type === 'exam' ? GraduationCap : FileText;
+                      const urgencyClass = daysUntil <= 1
+                        ? 'text-red-600 dark:text-red-400'
+                        : daysUntil <= 5
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-muted-foreground';
+                      const relativeDate = daysUntil === 0
+                        ? 'Today'
+                        : daysUntil === 1
+                          ? 'Tomorrow'
+                          : `In ${daysUntil}d`;
                       return (
                         <div
                           key={i}
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
                           onClick={() => navigate(d.type === 'exam' ? 'exams' : 'assignments')}
                         >
-                          <div className="h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                          <TypeIcon className={cn('size-3.5 shrink-0', urgencyClass)} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{d.title}</p>
                             <p className="text-[10px] text-muted-foreground">{d.subjectName}</p>
                           </div>
                           <Badge
-                            variant={daysUntil <= 2 ? 'destructive' : 'secondary'}
-                            className="text-[10px] px-1.5 py-0 shrink-0"
+                            variant={daysUntil <= 1 ? 'destructive' : daysUntil <= 5 ? 'outline' : 'secondary'}
+                            className={cn(
+                              'text-[10px] px-1.5 py-0 shrink-0 tabular-nums',
+                              daysUntil <= 5 && daysUntil > 1 && 'border-amber-500/40 text-amber-600 dark:text-amber-400',
+                            )}
                           >
-                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}d`}
+                            {relativeDate}
                           </Badge>
                         </div>
                       );
@@ -1205,11 +1250,11 @@ export default function DashboardView() {
               <CardContent className="p-4">
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: 'Focus', icon: Timer, view: 'focus' as const },
-                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const },
-                    { label: 'Notes', icon: BookOpen, view: 'notes' as const },
-                    { label: 'Report', icon: BarChart3, view: 'report' as const },
-                    { label: 'Achievements', icon: Trophy, action: true },
+                    { label: 'Focus', icon: Timer, view: 'focus' as const, gradient: 'from-blue-500/10 to-blue-600/5' },
+                    { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, gradient: 'from-purple-500/10 to-purple-600/5' },
+                    { label: 'Notes', icon: BookOpen, view: 'notes' as const, gradient: 'from-emerald-500/10 to-emerald-600/5' },
+                    { label: 'Report', icon: BarChart3, view: 'report' as const, gradient: 'from-amber-500/10 to-amber-600/5' },
+                    { label: 'Achievements', icon: Trophy, action: true, gradient: 'from-orange-500/10 to-orange-600/5' },
                   ].map((a) => {
                     const Icon = a.icon;
                     const handleClick = 'view' in a ? () => navigate(a.view) : () => setAchievementsOpen(true);
@@ -1217,7 +1262,11 @@ export default function DashboardView() {
                       <button
                         key={'view' in a ? a.view : 'achievements'}
                         onClick={handleClick}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-muted-foreground transition-all duration-200',
+                          'hover:text-primary bg-transparent hover:bg-gradient-to-r',
+                          a.gradient,
+                        )}
                       >
                         <Icon className="size-3.5" />
                         {a.label}
@@ -1226,7 +1275,7 @@ export default function DashboardView() {
                   })}
                   <button
                     onClick={() => setQuickNoteOpen(true)}
-                    className="col-span-3 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors border border-dashed border-amber-500/30"
+                    className="col-span-3 flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-gradient-to-r from-amber-500/15 to-amber-500/5 transition-all duration-200 border border-dashed border-amber-500/30"
                   >
                     <StickyNote className="size-3.5" />
                     Quick Note

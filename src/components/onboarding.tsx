@@ -31,16 +31,19 @@ import { cn } from '@/lib/utils';
 
 const slideVariants = {
   enter: (direction: number) => ({
-    x: direction > 0 ? 80 : -80,
+    x: direction > 0 ? 60 : -60,
     opacity: 0,
+    scale: 0.98,
   }),
   center: {
     x: 0,
     opacity: 1,
+    scale: 1,
   },
   exit: (direction: number) => ({
-    x: direction > 0 ? -80 : 80,
+    x: direction > 0 ? -60 : 60,
     opacity: 0,
+    scale: 0.98,
   }),
 };
 
@@ -133,25 +136,40 @@ export function Onboarding() {
         showCloseButton={step === 0}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
-        {/* Step dots indicator */}
-        <div className="flex items-center justify-center gap-2 pt-5 pb-1">
+        {/* Subtle gradient overlay for visual depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.03] via-transparent to-[var(--delulu-purple)]/[0.03] pointer-events-none rounded-lg" aria-hidden="true" />
+        {/* Step indicator: numbered circles with connecting lines */}
+        <div className="flex items-center justify-center gap-0 pt-5 pb-2 px-8">
           {Array.from({ length: totalSteps }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setDirection(i > step ? 1 : -1);
-                setStep(i);
-              }}
-              className={cn(
-                'h-1.5 rounded-full transition-all duration-300',
-                i === step
-                  ? 'w-6 bg-primary'
-                  : i < step
-                    ? 'w-1.5 bg-primary/40'
-                    : 'w-1.5 bg-muted-foreground/20'
+            <React.Fragment key={i}>
+              <button
+                onClick={() => {
+                  setDirection(i > step ? 1 : -1);
+                  setStep(i);
+                }}
+                className={cn(
+                  'relative z-10 h-7 w-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-all duration-300 shrink-0',
+                  i === step
+                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                    : i < step
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-muted text-muted-foreground'
+                )}
+                aria-label={`Go to step ${i + 1}`}
+              >
+                {i < step ? <Check className="size-3.5" /> : i + 1}
+              </button>
+              {i < totalSteps - 1 && (
+                <div className="flex-1 h-px mx-1.5 min-w-[24px]">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      i < step ? 'bg-primary/40' : 'bg-border'
+                    )}
+                  />
+                </div>
               )}
-              aria-label={`Go to step ${i + 1}`}
-            />
+            </React.Fragment>
           ))}
         </div>
 
@@ -167,7 +185,7 @@ export function Onboarding() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="flex flex-col items-center text-center"
               >
                 <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
@@ -203,7 +221,7 @@ export function Onboarding() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="flex flex-col"
               >
                 <DialogHeader className="mb-5 text-center">
@@ -302,7 +320,7 @@ export function Onboarding() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="flex flex-col"
               >
                 <DialogHeader className="mb-5 text-center">

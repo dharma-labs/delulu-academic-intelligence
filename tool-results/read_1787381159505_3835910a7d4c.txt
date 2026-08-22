@@ -1,0 +1,844 @@
+   200→
+   201→  return (
+   202→    <button
+   203→      onClick={() => navigate(item.id as ViewId)}
+   204→      className={cn(
+   205→        'group relative flex w-full items-center gap-2.5 rounded-md text-[13px] transition-all duration-200',
+   206→        collapsed ? 'relative justify-center px-2 py-2' : 'px-2.5 py-1.5 border-l-2',
+   207→        isActive
+   208→          ? 'sidebar-active'
+   209→          : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
+   210→      )}
+   211→    >
+   212→      <Icon className="size-[16px] shrink-0" />
+   213→      {!collapsed && <span className="truncate">{item.label}</span>}
+   214→      {!collapsed && badge !== undefined && badge > 0 && <NavBadge count={badge} />}
+   215→      {collapsed && badge !== undefined && badge > 0 && (
+   216→        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[8px] h-2 rounded-full bg-red-500" />
+   217→      )}
+   218→      {collapsed && (
+   219→        <span className="absolute left-full ml-3 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity shadow-md z-50">
+   220→          {item.label}
+   221→        </span>
+   222→      )}
+   223→    </button>
+   224→  );
+   225→}
+   226→
+   227→// ─── Mobile bottom nav ───────────────────────────────────────────────
+   228→
+   229→function MobileBottomNav({
+   230→  onMoreOpen,
+   231→}: {
+   232→  onMoreOpen: () => void;
+   233→}) {
+   234→  const currentView = useStore((s) => s.currentView);
+   235→  const navigate = useStore((s) => s.navigate);
+   236→  const badges = useNavBadges();
+   237→  const totalBadges = Object.values(badges).reduce((s, v) => s + (v || 0), 0);
+   238→
+   239→  return (
+   240→    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border glass md:hidden safe-area-bottom">
+   241→      <div className="flex h-[60px] items-center justify-around px-1">
+   242→        {MOBILE_NAV_ITEMS.map((item) => {
+   243→          const Icon = item.icon;
+   244→          const isActive = item.id === 'more' ? false : currentView === item.id;
+   245→
+   246→          return (
+   247→            <button
+   248→              key={item.id}
+   249→              onClick={() => {
+   250→                if (item.id === 'more') {
+   251→                  onMoreOpen();
+   252→                } else {
+   253→                  navigate(item.id as ViewId);
+   254→                }
+   255→              }}
+   256→              className={cn(
+   257→                'bottom-nav-item relative flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-all duration-200',
+   258→                isActive ? 'active text-primary' : 'text-muted-foreground active:scale-95'
+   259→              )}
+   260→            >
+   261→              <Icon className={cn('bottom-nav-icon size-[18px] mb-0.5 transition-transform duration-200')} />
+   262→              <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
+   263→              {item.id === 'more' && totalBadges > 0 && (
+   264→                <span className="absolute top-1 right-1/2 translate-x-3 flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-red-500 text-[8px] font-bold text-white leading-none">
+   265→                  {totalBadges > 9 ? '9+' : totalBadges}
+   266→                </span>
+   267→              )}
+   268→              {isActive && (
+   269→                <span className="bottom-nav-indicator" />
+   270→              )}
+   271→            </button>
+   272→          );
+   273→        })}
+   274→      </div>
+   275→    </nav>
+   276→  );
+   277→}
+   278→
+   279→// ─── Mobile more sheet ───────────────────────────────────────────────
+   280→
+   281→function MobileMoreSheet({
+   282→  open,
+   283→  onOpenChange,
+   284→}: {
+   285→  open: boolean;
+   286→  onOpenChange: (open: boolean) => void;
+   287→}) {
+   288→  const currentView = useStore((s) => s.currentView);
+   289→  const navigate = useStore((s) => s.navigate);
+   290→  const badges = useNavBadges();
+   291→
+   292→  return (
+   293→    <Sheet open={open} onOpenChange={onOpenChange}>
+   294→      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+   295→        <SheetHeader className="mb-2">
+   296→          <SheetTitle className="text-base">Navigation</SheetTitle>
+   297→          <SheetDescription className="text-xs">
+   298→            Jump to any section
+   299→          </SheetDescription>
+   300→        </SheetHeader>
+   301→        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-4 pb-8">
+   302→          {NAV_GROUPS.map((group) => (
+   303→            <div key={group.label} className="mb-3">
+   304→              <p className="section-label px-1 mb-1.5 mt-3 first:mt-0">
+   305→                {group.label}
+   306→              </p>
+   307→              <div className="grid grid-cols-2 gap-1.5">
+   308→                {group.items.map((item) => {
+   309→                  const Icon = item.icon;
+   310→                  const isActive = currentView === item.id;
+   311→                  return (
+   312→                    <button
+   313→                      key={item.id}
+   314→                      onClick={() => {
+   315→                        navigate(item.id as ViewId);
+   316→                        onOpenChange(false);
+   317→                      }}
+   318→                      className={cn(
+   319→                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 text-left',
+   320→                        isActive
+   321→                          ? 'bg-primary/10 text-primary font-medium'
+   322→                          : 'text-foreground hover:bg-accent'
+   323→                      )}
+   324→                    >
+   325→                      <Icon className="size-4 shrink-0" />
+   326→                      <span className="truncate">{item.label}</span>
+   327→                      {badges[item.id as ViewId] !== undefined && badges[item.id as ViewId]! > 0 && (
+   328→                        <span className="ml-auto flex items-center justify-center min-w-[18px] h-5 px-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-semibold tabular-nums">
+   329→                          {badges[item.id as ViewId]}
+   330→                        </span>
+   331→                      )}
+   332→                    </button>
+   333→                  );
+   334→                })}
+   335→              </div>
+   336→            </div>
+   337→          ))}
+   338→          <div className="border-t border-border pt-3 mt-2">
+   339→            {BOTTOM_NAV_ITEMS.map((item) => {
+   340→              const Icon = item.icon;
+   341→              const isActive = currentView === item.id;
+   342→              return (
+   343→                <button
+   344→                  key={item.id}
+   345→                  onClick={() => {
+   346→                    navigate(item.id as ViewId);
+   347→                    onOpenChange(false);
+   348→                  }}
+   349→                  className={cn(
+   350→                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+   351→                    isActive
+   352→                      ? 'bg-primary/10 text-primary font-medium'
+   353→                      : 'text-foreground hover:bg-accent'
+   354→                  )}
+   355→                >
+   356→                  <Icon className="size-4 shrink-0" />
+   357→                  <span>{item.label}</span>
+   358→                </button>
+   359→              );
+   360→            })}
+   361→          </div>
+   362→        </div>
+   363→      </SheetContent>
+   364→    </Sheet>
+   365→  );
+   366→}
+   367→
+   368→// ─── View meta for command palette recent views ──────────────────
+   369→
+   370→const _recentViews: string[] = [];
+   371→let _lastTrackedView = '';
+   372→
+   373→function trackRecentView(viewId: string) {
+   374→  if (viewId === _lastTrackedView) return;
+   375→  _lastTrackedView = viewId;
+   376→  const idx = _recentViews.indexOf(viewId);
+   377→  if (idx !== -1) _recentViews.splice(idx, 1);
+   378→  _recentViews.unshift(viewId);
+   379→  if (_recentViews.length > 3) _recentViews.length = 3;
+   380→}
+   381→
+   382→const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
+   383→  'dashboard': { label: 'Dashboard', icon: LayoutDashboard },
+   384→  'subjects': { label: 'Subjects', icon: BookOpen },
+   385→  'subject-detail': { label: 'Subject Detail', icon: BookOpen },
+   386→  'syllabus': { label: 'Syllabus', icon: BookOpen },
+   387→  'marks': { label: 'Marks & CA', icon: BarChart3 },
+   388→  'attendance': { label: 'Attendance', icon: UserCheck },
+   389→  'focus': { label: 'Focus', icon: Timer },
+   390→  'revision': { label: 'Revision', icon: BrainCircuit },
+   391→  'notes': { label: 'Notes', icon: StickyNote },
+   392→  'calendar': { label: 'Calendar', icon: CalendarDays },
+   393→  'timetable': { label: 'Timetable', icon: Clock },
+   394→  'tasks': { label: 'Tasks', icon: CheckSquare },
+   395→  'analytics': { label: 'Analytics', icon: TrendingUp },
+   396→  'er-center': { label: 'ER Center', icon: FileSearch },
+   397→  'exams': { label: 'Exams', icon: FileText },
+   398→  'assignments': { label: 'Assignments', icon: ClipboardList },
+   399→  'settings': { label: 'Settings', icon: Settings },
+   400→  'ai-tutor': { label: 'AI Tutor', icon: Bot },
+   401→  'report': { label: 'Report', icon: GraduationCap },
+   402→};
+   403→
+   404→// ─── Command palette ─────────────────────────────────────────────────
+   405→
+   406→function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+   407→  const commandOpen = useStore((s) => s.commandOpen);
+   408→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   409→  const navigate = useStore((s) => s.navigate);
+   410→  // Track navigation into recent views
+   411→  const currentView = useStore((s) => s.currentView);
+   412→  trackRecentView(currentView);
+   413→  const recentViewsSnapshot = useMemo(() => {
+   414→    return _recentViews.filter((v) => v !== currentView);
+   415→  }, [currentView]);
+   416→  const subjects = useStore((s) => s.subjects);
+   417→  const tasks = useStore((s) => s.tasks);
+   418→  const notes = useStore((s) => s.notes);
+   419→  const exams = useStore((s) => s.exams);
+   420→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   421→
+   422→  const handleSelect = useCallback(
+   423→    (action: () => void) => {
+   424→      setCommandOpen(false);
+   425→      action();
+   426→    },
+   427→    [setCommandOpen]
+   428→  );
+   429→
+   430→  if (!commandOpen) return null;
+   431→
+   432→  const filteredRecents = recentViewsSnapshot;
+   433→
+   434→  return (
+   435→    <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+   436→      <CommandInput placeholder="Search subjects, tasks, notes, or type a command..." />
+   437→      <CommandList>
+   438→        <CommandEmpty>No results found.</CommandEmpty>
+   439→
+   440→        {/* Recent Views */}
+   441→        {filteredRecents.length > 0 && (
+   442→          <>
+   443→            <CommandGroup heading="Recent Views">
+   444→              {filteredRecents.map((viewId) => {
+   445→                const meta = VIEW_META[viewId];
+   446→                if (!meta) return null;
+   447→                const Icon = meta.icon;
+   448→                return (
+   449→                  <CommandItem
+   450→                    key={`recent-${viewId}`}
+   451→                    onSelect={() => handleSelect(() => navigate(viewId as ViewId))}
+   452→                    className="bg-secondary/50"
+   453→                  >
+   454→                    <Icon className="size-4" />
+   455→                    <span>{meta.label}</span>
+   456→                    <span className="ml-auto text-[10px] text-muted-foreground font-medium tracking-wide">RECENT</span>
+   457→                  </CommandItem>
+   458→                );
+   459→              })}
+   460→            </CommandGroup>
+   461→            <CommandSeparator />
+   462→          </>
+   463→        )}
+   464→
+   465→        <CommandGroup heading="Commands">
+   466→          <CommandItem onSelect={() => handleSelect(() => navigate('tasks'))}>
+   467→            <CheckSquare className="size-4" />
+   468→            <span>Add Task</span>
+   469→          </CommandItem>
+   470→          <CommandItem onSelect={() => handleSelect(() => navigate('focus'))}>
+   471→            <Timer className="size-4" />
+   472→            <span>Start Focus</span>
+   473→          </CommandItem>
+   474→          <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
+   475→            <BarChart3 className="size-4" />
+   476→            <span>Go to Marks</span>
+   477→          </CommandItem>
+   478→          <CommandItem onSelect={() => handleSelect(() => navigate('attendance'))}>
+   479→            <UserCheck className="size-4" />
+   480→            <span>Go to Attendance</span>
+   481→          </CommandItem>
+   482→        </CommandGroup>
+   483→
+   484→        <CommandSeparator />
+   485→
+   486→        {subjects.length > 0 && (
+   487→          <CommandGroup heading="Subjects">
+   488→            {subjects.map((s) => (
+   489→              <CommandItem
+   490→                key={s.id}
+   491→                onSelect={() =>
+   492→                  handleSelect(() => {
+   493→                    useStore.getState().selectSubject(s.id);
+   494→                    navigate('subject-detail');
+   495→                  })
+   496→                }
+   497→              >
+   498→                <BookOpen className="size-4" />
+   499→                <span>
+   500→                  {s.name}
+   501→                  <span className="ml-2 text-muted-foreground">{s.code}</span>
+   502→                </span>
+   503→              </CommandItem>
+   504→            ))}
+   505→          </CommandGroup>
+   506→        )}
+   507→
+   508→        {tasks.length > 0 && (
+   509→          <CommandGroup heading="Tasks">
+   510→            {tasks
+   511→              .filter((t) => !t.completed)
+   512→              .slice(0, 5)
+   513→              .map((t) => (
+   514→                <CommandItem
+   515→                  key={t.id}
+   516→                  onSelect={() => handleSelect(() => navigate('tasks'))}
+   517→                >
+   518→                  <CheckSquare className="size-4" />
+   519→                  <span>{t.title}</span>
+   520→                </CommandItem>
+   521→              ))}
+   522→          </CommandGroup>
+   523→        )}
+   524→
+   525→        {notes.length > 0 && (
+   526→          <CommandGroup heading="Notes">
+   527→            {notes.slice(0, 5).map((n) => (
+   528→              <CommandItem
+   529→                key={n.id}
+   530→                onSelect={() => handleSelect(() => navigate('notes'))}
+   531→              >
+   532→                <StickyNote className="size-4" />
+   533→                <span>{n.title}</span>
+   534→              </CommandItem>
+   535→            ))}
+   536→          </CommandGroup>
+   537→        )}
+   538→
+   539→        {exams.length > 0 && (
+   540→          <CommandGroup heading="Exams">
+   541→            {exams
+   542→              .filter((e) => e.status === 'upcoming')
+   543→              .slice(0, 5)
+   544→              .map((e) => (
+   545→                <CommandItem
+   546→                  key={e.id}
+   547→                  onSelect={() => handleSelect(() => navigate('exams'))}
+   548→                >
+   549→                  <FileText className="size-4" />
+   550→                  <span>{e.name}</span>
+   551→                </CommandItem>
+   552→              ))}
+   553→          </CommandGroup>
+   554→        )}
+   555→
+   556→        {syllabusUnits.length > 0 && (
+   557→          <CommandGroup heading="Syllabus Topics">
+   558→            {syllabusUnits
+   559→              .flatMap((u) =>
+   560→                u.topics.map((t) => ({
+   561→                  ...t,
+   562→                  unitName: u.name,
+   563→                  subjectId: u.subjectId,
+   564→                }))
+   565→              )
+   566→              .slice(0, 5)
+   567→              .map((t) => (
+   568→                <CommandItem
+   569→                  key={t.id}
+   570→                  onSelect={() =>
+   571→                    handleSelect(() => {
+   572→                      useStore.getState().selectSubject(t.subjectId);
+   573→                      navigate('subject-detail');
+   574→                    })
+   575→                  }
+   576→                >
+   577→                  <BookOpen className="size-4" />
+   578→                  <span>
+   579→                    {t.name}
+   580→                    <span className="ml-2 text-muted-foreground">
+   581→                      {t.unitName}
+   582→                    </span>
+   583→                  </span>
+   584→                </CommandItem>
+   585→              ))}
+   586→          </CommandGroup>
+   587→        )}
+   588→
+   589→        <CommandSeparator />
+   590→
+   591→        <CommandGroup heading="Help">
+   592→          <CommandItem onSelect={() => handleSelect(onShowShortcuts)}>
+   593→            <Keyboard className="size-4" />
+   594→            <span>Show all shortcuts</span>
+   595→            <ArrowRight className="ml-auto size-3 text-muted-foreground" />
+   596→            <kbd className="pointer-events-none ml-1 hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   597→              ?
+   598→            </kbd>
+   599→          </CommandItem>
+   600→        </CommandGroup>
+   601→      </CommandList>
+   602→      {/* Footer with keyboard hints */}
+   603→      <div className="border-t border-border/50 px-3 py-2 flex items-center justify-center gap-3">
+   604→        <span className="text-[10px] text-muted-foreground/60">↑↓ Navigate</span>
+   605→        <span className="text-[10px] text-muted-foreground/60">↵ Select</span>
+   606→        <span className="text-[10px] text-muted-foreground/60">Esc Close</span>
+   607→      </div>
+   608→    </CommandDialog>
+   609→  );
+   610→}
+   611→
+   612→// ─── Desktop Sidebar ─────────────────────────────────────────────────
+   613→
+   614→function DesktopSidebar() {
+   615→  const collapsed = useStore((s) => s.sidebarCollapsed);
+   616→  const toggleSidebar = useStore((s) => s.toggleSidebar);
+   617→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   618→  const badges = useNavBadges();
+   619→
+   620→  return (
+   621→    <aside
+   622→      className={cn(
+   623→        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+   624→        collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
+   625→      )}
+   626→    >
+   627→      {/* Brand */}
+   628→      <div className="flex items-center h-12 px-3 shrink-0 border-b border-border/50">
+   629→        {!collapsed && (
+   630→          <span className="text-sm font-bold tracking-tight text-foreground select-none">
+   631→            DELULU
+   632→          </span>
+   633→        )}
+   634→        <button
+   635→          onClick={toggleSidebar}
+   636→          className={cn(
+   637→            'flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+   638→            collapsed ? 'mx-auto' : 'ml-auto'
+   639→          )}
+   640→          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+   641→        >
+   642→          {collapsed ? (
+   643→            <PanelLeftOpen className="size-3.5" />
+   644→          ) : (
+   645→            <PanelLeftClose className="size-3.5" />
+   646→          )}
+   647→        </button>
+   648→      </div>
+   649→
+   650→      {/* Search */}
+   651→      <div className={cn('px-2 pt-2 pb-1 shrink-0', collapsed && 'px-1.5')}>
+   652→        <button
+   653→          onClick={() => setCommandOpen(true)}
+   654→          className={cn(
+   655→            'flex w-full items-center gap-2 rounded-md border border-border bg-background/50 text-muted-foreground hover:border-primary/30 hover:bg-accent transition-all duration-200',
+   656→            collapsed ? 'justify-center px-1.5 py-1.5' : 'px-2.5 py-1.5'
+   657→          )}
+   658→          aria-label="Open command palette"
+   659→        >
+   660→          <Search className="size-3.5 shrink-0" />
+   661→          {!collapsed && (
+   662→            <span className="flex-1 text-left text-xs">Search...</span>
+   663→          )}
+   664→          {!collapsed && (
+   665→            <kbd className="pointer-events-none hidden sm:inline-flex h-4 select-none items-center rounded border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+   666→              ⌘K
+   667→            </kbd>
+   668→          )}
+   669→        </button>
+   670→      </div>
+   671→
+   672→      {/* Nav */}
+   673→      <nav className={cn(
+   674→        'scrollbar-thin flex-1 px-1.5 pt-1',
+   675→        collapsed ? 'overflow-visible' : 'overflow-y-auto'
+   676→      )}>
+   677→        {NAV_GROUPS.map((group, gi) => (
+   678→          <div key={group.label}>
+   679→            {!collapsed && (
+   680→              <p className="section-label px-2.5 mt-4 mb-1.5">{group.label}</p>
+   681→            )}
+   682→            {collapsed && gi > 0 && (
+   683→              <div className="border-t border-border/50 my-2 mx-2" />
+   684→            )}
+   685→            {group.items.map((item) => (
+   686→              <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   687→            ))}
+   688→          </div>
+   689→        ))}
+   690→      </nav>
+   691→
+   692→      {/* Bottom */}
+   693→      <div className="border-t border-border/50 px-1.5 py-2 shrink-0">
+   694→        {BOTTOM_NAV_ITEMS.map((item) => (
+   695→          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} badge={badges[item.id as ViewId]} />
+   696→        ))}
+   697→      </div>
+   698→    </aside>
+   699→  );
+   700→}
+   701→
+   702→// ─── Theme Toggle (mobile) ─────────────────────────────────────
+   703→
+   704→function ThemeToggle() {
+   705→  const { theme, setTheme } = useTheme();
+   706→  return (
+   707→    <button
+   708→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   709→      className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+   710→      aria-label="Toggle theme"
+   711→    >
+   712→      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+   713→    </button>
+   714→  );
+   715→}
+   716→
+   717→// ─── Mobile Streak Badge ─────────────────────────────────────────
+   718→
+   719→function MobileStreakBadge() {
+   720→  const studySessions = useStore((s) => s.studySessions);
+   721→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   722→
+   723→  if (streak <= 0) return null;
+   724→
+   725→  return (
+   726→    <span className="md:hidden inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 dark:text-orange-400 text-[10px] font-semibold tabular-nums">
+   727→      <Flame className="size-3" />
+   728→      {streak}
+   729→    </span>
+   730→  );
+   731→}
+   732→
+   733→// ─── Desktop Top Bar ───────────────────────────────────────────────
+   734→
+   735→function DesktopTopBar() {
+   736→  const { theme, setTheme } = useTheme();
+   737→  const studySessions = useStore((s) => s.studySessions);
+   738→  const subjects = useStore((s) => s.subjects);
+   739→  const syllabusUnits = useStore((s) => s.syllabusUnits);
+   740→  const assessments = useStore((s) => s.assessments);
+   741→  const attendance = useStore((s) => s.attendance);
+   742→  const revisionItems = useStore((s) => s.revisionItems);
+   743→  const profile = useStore((s) => s.profile);
+   744→
+   745→  const healthScore = useMemo(
+   746→    () => getSemesterHealth({ subjects, syllabusUnits, assessments, attendance, revisionItems, profile } as never),
+   747→    [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
+   748→  );
+   749→  const streak = useMemo(() => getStudyStreak({ studySessions }), [studySessions]);
+   750→  const studyToday = useMemo(() => getStudyTimeToday({ studySessions }), [studySessions]);
+   751→
+   752→  const todayMinutes = Math.floor(studyToday / 60);
+   753→  const todayH = Math.floor(todayMinutes / 60);
+   754→  const todayM = todayMinutes % 60;
+   755→  const todayStr = todayH === 0 ? `${todayM}m` : todayM === 0 ? `${todayH}h` : `${todayH}h ${todayM}m`;
+   756→
+   757→  return (
+   758→    <div className="top-bar hidden md:flex items-center gap-3 px-4 lg:px-6 py-1.5">
+   759→      <span className="text-xs text-muted-foreground tabular-nums">{format(new Date(), 'EEE, d MMM · HH:mm')}</span>
+   760→      <span className="text-border">·</span>
+   761→      <div className="flex items-center gap-3">
+   762→        <span className={cn(
+   763→          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wide',
+   764→          healthScore >= 75 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : healthScore >= 50 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : healthScore >= 30 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
+   765→        )}>
+   766→          Health {healthScore}
+   767→        </span>
+   768→        {streak > 0 && (
+   769→          <span className="inline-flex items-center gap-1 text-orange-500 dark:text-orange-400">
+   770→            <Flame className="size-3" />
+   771→            <span className="font-semibold tabular-nums">{streak}d</span>
+   772→          </span>
+   773→        )}
+   774→        <span className="inline-flex items-center gap-1 text-muted-foreground">
+   775→          <Clock className="size-3" />
+   776→          <span className="tabular-nums">{todayStr}</span>
+   777→        </span>
+   778→      </div>
+   779→      <div className="flex-1" />
+   780→      <div className="flex items-center gap-2">
+   781→        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
+   782→          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   783→        </button>
+   784→      </div>
+   785→    </div>
+   786→  );
+   787→}
+   788→
+   789→// ─── Mobile FAB ──────────────────────────────────────────────────
+   790→
+   791→const FAB_ACTIONS: ({ label: string; icon: LucideIcon; view?: ViewId; color: string; customAction?: string })[] = [
+   792→  { label: 'Quick Note', icon: StickyNote, color: 'bg-amber-500 dark:bg-amber-400', customAction: 'quick-note' },
+   793→  { label: 'New Subject', icon: BookOpen, view: 'subjects', color: 'bg-violet-500 dark:bg-violet-400' },
+   794→  { label: 'New Task', icon: CheckSquare, view: 'tasks', color: 'bg-blue-500 dark:bg-blue-400' },
+   795→  { label: 'Start Focus', icon: Timer, view: 'focus', color: 'bg-orange-500 dark:bg-orange-400' },
+   796→];
+   797→
+   798→function MobileFAB() {
+   799→  const [open, setOpen] = useState(false);
+   800→  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+   801→  const navigate = useStore((s) => s.navigate);
+   802→  const currentView = useStore((s) => s.currentView);
+   803→  const fabRef = useRef<HTMLDivElement>(null);
+   804→
+   805→  // Auto-close when navigating away (store currentView is external state)
+   806→  const prevViewRef = useRef(currentView);
+   807→  /* eslint-disable react-hooks/set-state-in-effect */
+   808→  useEffect(() => {
+   809→    if (prevViewRef.current !== currentView) {
+   810→      prevViewRef.current = currentView;
+   811→      setOpen(false);
+   812→    }
+   813→  }, [currentView]);
+   814→  /* eslint-enable react-hooks/set-state-in-effect */
+   815→
+   816→  const handleClose = useCallback(() => setOpen(false), []);
+   817→
+   818→  // Close on outside click
+   819→  useEffect(() => {
+   820→    if (!open) return;
+   821→    const handleClick = (e: MouseEvent) => {
+   822→      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+   823→        setOpen(false);
+   824→      }
+   825→    };
+   826→    // Delay to avoid immediate close from the toggle click
+   827→    const timer = setTimeout(() => {
+   828→      document.addEventListener('mousedown', handleClick);
+   829→    }, 0);
+   830→    return () => {
+   831→      clearTimeout(timer);
+   832→      document.removeEventListener('mousedown', handleClick);
+   833→    };
+   834→  }, [open]);
+   835→
+   836→  const handleAction = (action: typeof FAB_ACTIONS[number]) => {
+   837→    setOpen(false);
+   838→    if (action.customAction === 'quick-note') {
+   839→      setQuickNoteOpen(true);
+   840→    } else if (action.view) {
+   841→      navigate(action.view);
+   842→    }
+   843→  };
+   844→
+   845→  return (
+   846→    <div ref={fabRef} className="fixed bottom-[76px] right-4 z-30 md:hidden">
+   847→      {/* Backdrop overlay when open */}
+   848→      <AnimatePresence>
+   849→        {open && (
+   850→          <motion.div
+   851→            initial={{ opacity: 0 }}
+   852→            animate={{ opacity: 1 }}
+   853→            exit={{ opacity: 0 }}
+   854→            transition={{ duration: 0.15 }}
+   855→            className="fixed inset-0 z-[-1]"
+   856→            onClick={() => setOpen(false)}
+   857→          />
+   858→        )}
+   859→      </AnimatePresence>
+   860→
+   861→      {/* Radial menu items */}
+   862→      <AnimatePresence>
+   863→        {open && (
+   864→          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2.5">
+   865→            {FAB_ACTIONS.map((action, i) => {
+   866→              const Icon = action.icon;
+   867→              return (
+   868→                <motion.div
+   869→                  key={action.label}
+   870→                  initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   871→                  animate={{ opacity: 1, scale: 1, y: 0 }}
+   872→                  exit={{ opacity: 0, scale: 0.5, y: 10 }}
+   873→                  transition={{ duration: 0.2, delay: i * 0.04 }}
+   874→                  className="flex items-center gap-2.5"
+   875→                >
+   876→                  <span className="text-xs font-medium text-foreground whitespace-nowrap bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-sm">
+   877→                    {action.label}
+   878→                  </span>
+   879→                  <button
+   880→                    onClick={() => handleAction(action)}
+   881→                    className={cn(
+   882→                      'h-10 w-10 rounded-full flex items-center justify-center shadow-lg press-scale transition-colors',
+   883→                      action.color,
+   884→                      'text-white'
+   885→                    )}
+   886→                    aria-label={action.label}
+   887→                  >
+   888→                    <Icon className="size-4" />
+   889→                  </button>
+   890→                </motion.div>
+   891→              );
+   892→            })}
+   893→          </div>
+   894→        )}
+   895→      </AnimatePresence>
+   896→
+   897→      {/* Main FAB button */}
+   898→      <motion.button
+   899→        onClick={() => setOpen((prev) => !prev)}
+   900→        whileTap={{ scale: 0.92 }}
+   901→        className="h-12 w-12 rounded-full bg-primary text-primary-foreground fab-shadow press-scale flex items-center justify-center"
+   902→        aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+   903→        style={{ rotate: open ? 45 : 0 }}
+   904→        transition={{ duration: 0.2 }}
+   905→      >
+   906→        <Plus className="size-5" />
+   907→      </motion.button>
+   908→
+   909→      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
+   910→    </div>
+   911→  );
+   912→}
+   913→
+   914→// ─── App Shell ───────────────────────────────────────────────────────
+   915→
+   916→export function AppShell() {
+   917→  const subjects = useStore((s) => s.subjects);
+   918→  const setCommandOpen = useStore((s) => s.setCommandOpen);
+   919→  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+   920→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   921→  const { theme, setTheme } = useTheme();
+   922→
+   923→  const showShortcuts = useCallback(() => {
+   924→    setCommandOpen(false);
+   925→    setShortcutsOpen(true);
+   926→  }, [setCommandOpen]);
+   927→
+   928→  // ── Auto-collapse sidebar on tablet (768–1024) ──
+   929→  useEffect(() => {
+   930→    const mql = window.matchMedia('(min-width: 768px) and (max-width: 1024px)');
+   931→    const handler = (e: MediaQueryListEvent) => {
+   932→      if (e.matches) {
+   933→        useStore.setState({ sidebarCollapsed: true });
+   934→      }
+   935→    };
+   936→    // Collapse immediately if already in tablet range
+   937→    if (mql.matches) {
+   938→      useStore.setState({ sidebarCollapsed: true });
+   939→    }
+   940→    mql.addEventListener('change', handler);
+   941→    return () => mql.removeEventListener('change', handler);
+   942→  }, []);
+   943→
+   944→  useEffect(() => {
+   945→    const NUMBER_KEY_VIEWS: Record<string, ViewId> = {
+   946→      '1': 'dashboard',
+   947→      '2': 'subjects',
+   948→      '3': 'marks',
+   949→      '4': 'attendance',
+   950→      '5': 'exams',
+   951→      '6': 'focus',
+   952→      '7': 'revision',
+   953→      '8': 'notes',
+   954→      '9': 'tasks',
+   955→    };
+   956→
+   957→    const handleKeyDown = (e: KeyboardEvent) => {
+   958→      // Don't capture when typing in inputs
+   959→      const tag = (e.target as HTMLElement)?.tagName;
+   960→      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+   961→      const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+   962→
+   963→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   964→        e.preventDefault();
+   965→        setCommandOpen(true);
+   966→      }
+   967→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+   968→        e.preventDefault();
+   969→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   970→      }
+   971→      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+   972→        e.preventDefault();
+   973→        useStore.getState().navigate('settings');
+   974→      }
+   975→      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+   976→        e.preventDefault();
+   977→        setShortcutsOpen((prev) => !prev);
+   978→      }
+   979→      // Number keys 1-9 for view navigation (no modifiers, not in input)
+   980→      if (!isInput && !hasModifier && !e.shiftKey && NUMBER_KEY_VIEWS[e.key]) {
+   981→        e.preventDefault();
+   982→        useStore.getState().navigate(NUMBER_KEY_VIEWS[e.key]);
+   983→      }
+   984→      // D key for theme toggle (no modifiers, not in input)
+   985→      if (!isInput && !hasModifier && e.key === 'd') {
+   986→        e.preventDefault();
+   987→        setTheme(theme === 'dark' ? 'light' : 'dark');
+   988→      }
+   989→      // N key for context-sensitive new action (no modifiers, not in input)
+   990→      if (!isInput && !hasModifier && e.key === 'n') {
+   991→        e.preventDefault();
+   992→        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
+   993→      }
+   994→    };
+   995→    document.addEventListener('keydown', handleKeyDown);
+   996→    return () => document.removeEventListener('keydown', handleKeyDown);
+   997→  }, [setCommandOpen, theme, setTheme]);
+   998→
+   999→  return (
+  1000→    <ToastProvider>
+  1001→    <MobileFAB />
+  1002→    <div className="flex min-h-screen">
+  1003→      <DesktopSidebar />
+  1004→
+  1005→      <main className="flex-1 min-w-0 flex flex-col">
+  1006→        <DesktopTopBar />
+  1007→        <div className="content-area flex-1 px-4 md:px-5 lg:px-6 py-5 pb-[76px] md:pb-6">
+  1008→          {/* Mobile header */}
+  1009→          <div className="flex items-center justify-between mb-5 md:mb-0">
+  1010→            <div className="flex items-center gap-2">
+  1011→              <span className="md:hidden text-sm font-bold tracking-tight text-foreground">
+  1012→                DELULU
+  1013→              </span>
+  1014→              <MobileStreakBadge />
+  1015→            </div>
+  1016→            <div className="flex items-center gap-1.5 ml-auto">
+  1017→              <ThemeToggle />
+  1018→              <button
+  1019→                onClick={() => setCommandOpen(true)}
+  1020→                className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg border border-border bg-background/50 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95 transition-all duration-150"
+  1021→                aria-label="Search"
+  1022→              >
+  1023→                <Search className="size-4" />
+  1024→              </button>
+  1025→            </div>
+  1026→          </div>
+  1027→
+  1028→          {/* Onboarding — shows when no subjects exist */}
+  1029→          {subjects.length === 0 && <Onboarding />}
+  1030→
+  1031→          <ViewRouter />
+  1032→        </div>
+  1033→      </main>
+  1034→
+  1035→      <MobileBottomNav onMoreOpen={() => setMoreSheetOpen(true)} />
+  1036→      <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
+  1037→      <CommandPalette onShowShortcuts={showShortcuts} />
+  1038→      <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+  1039→    </div>
+  1040→    </ToastProvider>
+  1041→  );
+  1042→}
+  1043→

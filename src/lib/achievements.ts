@@ -15,6 +15,7 @@ export interface AchievementState {
   completedTasks: number;
   perfectWeekDays: number; // consecutive days with 100% attendance where classes occurred
   hasAnyAttendance: boolean;
+  nightSessions: number; // study sessions started after 10 PM (22:00)
 }
 
 export interface Achievement {
@@ -185,6 +186,44 @@ export const ACHIEVEMENTS: Achievement[] = [
     xpReward: 50,
     condition: (s) => s.totalSessions >= 5,
   },
+
+  // ── Extended Achievements ──
+  {
+    id: 'perfect_attendance_week',
+    name: 'Perfect Week',
+    description: 'Attended every class this week',
+    icon: '📅',
+    category: 'attendance',
+    xpReward: 175,
+    condition: (s) => s.hasAnyAttendance && s.perfectWeekDays >= 7,
+  },
+  {
+    id: 'syllabus_complete',
+    name: 'Syllabus Master',
+    description: 'All topics completed across all subjects',
+    icon: '🏆',
+    category: 'academic',
+    xpReward: 350,
+    condition: (s) => s.subjects.length > 0 && s.subjects.every((sub) => sub.syllabusCompletion >= 100),
+  },
+  {
+    id: 'centurion',
+    name: '100-Hour Club',
+    description: 'Over 100 hours of focused study',
+    icon: '💎',
+    category: 'study',
+    xpReward: 400,
+    condition: (s) => s.totalStudyMinutes >= 6000,
+  },
+  {
+    id: 'night_owl',
+    name: 'Night Owl',
+    description: '10 late-night study sessions',
+    icon: '🦉',
+    category: 'study',
+    xpReward: 200,
+    condition: (s) => s.nightSessions >= 10,
+  },
 ];
 
 // ─── Category Metadata ─────────────────────────────────────────
@@ -244,7 +283,7 @@ export function getLevel(xp: number): {
 
 /** Build AchievementState from store data */
 export function buildAchievementState(data: {
-  studySessions: { duration: number; date: string }[];
+  studySessions: { duration: number; date: string; startTime?: string }[];
   attendance: { present: boolean; totalClasses: number; date: string }[];
   syllabusUnits: { subjectId: string; topics: { completed: boolean }[] }[];
   subjects: { id: string; name: string }[];
@@ -311,6 +350,17 @@ export function buildAchievementState(data: {
     a.maxMarks > 0 ? (a.obtainedMarks / a.maxMarks) * 100 : 0,
   );
 
+  // Night sessions: sessions started after 10 PM (22:00)
+  const nightSessions = data.studySessions.filter((s) => {
+    if (!s.startTime) return false;
+    try {
+      const hour = new Date(s.startTime).getHours();
+      return hour >= 22 || hour === 0;
+    } catch {
+      return false;
+    }
+  }).length;
+
   return {
     totalSessions,
     totalStudyMinutes,
@@ -324,5 +374,6 @@ export function buildAchievementState(data: {
     completedTasks: data.tasks.filter((t) => t.completed).length,
     perfectWeekDays: maxPerfectDays,
     hasAnyAttendance: data.attendance.length > 0,
+    nightSessions,
   };
 }

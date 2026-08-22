@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
-import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity, Download } from 'lucide-react';
+import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity, Download, TrendingUp, AlertTriangle, Users } from 'lucide-react';
 import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import {
@@ -11,13 +11,19 @@ import {
 } from 'recharts';
 import { PageHeader, MetricCard, SectionHeader, EmptyState, InsightCard, CompactProgress } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { exportAnalyticsCSV } from '@/lib/csv-export';
 import { progressColorClass } from '@/components/shared';
 
 type SubjectSummary = { id: string; name: string; color: string; percentage: number };
 type HeatmapDay = { dateStr: string; minutes: number };
 type StudyDistItem = { subjectId: string; name: string; color: string; minutes: number };
 type AssessSummary = { id: string; name: string; obtainedMarks: number; maxMarks: number };
+
+type SubjectSummaryExport = { name: string; attendance: number; syllabus: number; avgScore: number; studyMinutes: number; sessions: number; signal: string };
+
+function escapeField(value: string): string {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
 
 export default function AnalyticsView() {
   const [ready, setReady] = useState(false);
@@ -37,6 +43,9 @@ export default function AnalyticsView() {
   const [threshold, setThreshold] = useState(75);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'semester'>('week');
   const [chartTheme, setChartTheme] = useState({ primary: '#3B82F6', primaryRgb: '59, 130, 246', card: '#FFFFFF', foreground: '#0F172A', border: '#E2E8F0' });
+  const [totalStudyHours, setTotalStudyHours] = useState(0);
+  const [onTrackCount, setOnTrackCount] = useState(0);
+  const [atRiskCount, setAtRiskCount] = useState(0);
 
   useEffect(() => {
     const compute = () => {
@@ -81,6 +90,26 @@ export default function AnalyticsView() {
       const syllabusProgresses = active.map((sub) => getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id));
       setCompletionRate(active.length > 0 ? Math.round(syllabusProgresses.reduce((a, p) => a + p, 0) / active.length) : 0);
       setThreshold(s.profile.attendanceThreshold);
+
+      // Compute summary card data
+      const allTotalSec = s.studySessions.reduce((a, x) => a + x.duration, 0);
+      setTotalStudyHours(Math.round(allTotalSec / 3600 * 10) / 10);
+
+      const avgAtt = active.length > 0
+        ? Math.round(active.reduce((a, sub) => {
+            const att = getSubjectAttendance({ attendance: s.attendance }, sub.id);
+            return a + att.percentage;
+          }, 0) / active.length)
+        : 0;
+
+      const onTrack = active.filter((sub) => {
+        const att = getSubjectAttendance({ attendance: s.attendance }, sub.id);
+        const prog = getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id);
+        return att.percentage >= threshold && prog >= 50;
+      }).length;
+      setOnTrackCount(onTrack);
+      setAtRiskCount(active.length - onTrack);
+
       setReady(true);
     };
     compute();
@@ -187,11 +216,36 @@ export default function AnalyticsView() {
               className="text-xs"
               onClick={() => {
                 const s = useStore.getState();
-                exportAnalyticsCSV(s.studySessions, s.subjects);
+                // Export CSV with summary columns: Subject, Attendance%, Syllabus%, Avg Score, Study Time (min), Sessions, Signal
+                const active = s.subjects.filter(x => !x.archived);
+                const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+                const wsList = s.studySessions.filter(x => parseISO(x.date) >= ws);
+                const rows: SubjectSummaryExport[] = active.map(sub => {
+                  const att = getSubjectAttendance({ attendance: s.attendance }, sub.id);
+                  const prog = getSubjectProgress({ syllabusUnits: s.syllabusUnits }, sub.id);
+                  const subSessions = wsList.filter(x => x.subjectId === sub.id);
+                  const subAssessments = s.assessments.filter(a => a.subjectId === sub.id);
+                  const avgScore = subAssessments.length > 0
+                    ? Math.round(subAssessments.reduce((a, c) => a + (c.obtainedMarks / c.maxMarks) * 100, 0) / subAssessments.length)
+                    : 0;
+                  const studyMin = Math.round(subSessions.reduce((a, x) => a + x.duration, 0) / 60);
+                  let signal = 'On Track';
+                  if (att.percentage < 75) signal = 'At Risk';
+                  else if (prog < 30) signal = 'Needs Attention';
+                  return { name: sub.name, attendance: att.percentage, syllabus: prog, avgScore, studyMinutes: studyMin, sessions: subSessions.length, signal };
+                });
+                const headers = ['Subject', 'Attendance%', 'Syllabus%', 'Avg Score', 'Study Time (min)', 'Sessions', 'Signal'];
+                const csvBody = rows.map(r => [r.name, `${r.attendance}%`, `${r.syllabus}%`, `${r.avgScore}%`, String(r.studyMinutes), String(r.sessions), r.signal].map(escapeField).join(',')).join('\n');
+                const csv = headers.map(escapeField).join(',') + '\n' + csvBody;
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `analytics_summary_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
               }}
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
-              Export Report
+              Export CSV
             </Button>
             <div className="flex items-center bg-secondary rounded-lg p-0.5">
               {(['week', 'month', 'semester'] as const).map((range) => (
@@ -212,21 +266,43 @@ export default function AnalyticsView() {
         }
       />
 
-      {/* Mobile KPI Strip */}
-      <div className="md:hidden flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-3">
-        {[
-          { label: 'This Week', value: `${(weekMinutes / 60).toFixed(1)}h`, sub: 'study time' },
-          { label: 'Avg Session', value: `${avgSession}m`, sub: 'per session' },
-          { label: 'Subjects', value: `${uniqueSubjects}`, sub: 'studied' },
-          { label: 'Completion', value: `${completionRate}%`, sub: 'syllabus' },
-        ].map(kpi => (
-          <div key={kpi.label} className="shrink-0 bg-card border border-border/50 rounded-xl px-3 py-2.5 min-w-[100px]">
-            <p className="text-sm font-bold tracking-tight tabular-nums">{kpi.value}</p>
-            <p className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5">{kpi.label}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{kpi.sub}</p>
-          </div>
-        ))}
-      </div>
+      {/* Animated Summary Cards - 2x2 mobile, 4-col desktop */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6"
+      >
+        <MetricCard
+          label="Total Study Hours"
+          value={totalStudyHours.toFixed(1)}
+          icon={Clock}
+          iconColor="text-blue-500"
+          accent="primary"
+        />
+        <MetricCard
+          label="Avg Attendance"
+          value={`${attendanceTrend.length > 0 ? Math.round(attendanceTrend.reduce((a, x) => a + x.percentage, 0) / attendanceTrend.length) : 0}%`}
+          icon={Users}
+          iconColor="text-emerald-500"
+          accent="success"
+        />
+        <MetricCard
+          label="Subjects On-Track"
+          value={onTrackCount}
+          icon={TrendingUp}
+          iconColor="text-emerald-500"
+          accent="success"
+          context={`${atRiskCount} at risk`}
+        />
+        <MetricCard
+          label="Subjects At-Risk"
+          value={atRiskCount}
+          icon={AlertTriangle}
+          iconColor="text-red-500"
+          accent={atRiskCount > 0 ? 'danger' : 'success'}
+        />
+      </motion.div>
 
       {/* Summary Metric Cards */}
       <motion.div

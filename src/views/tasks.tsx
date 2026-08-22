@@ -14,6 +14,7 @@ import {
   Sparkles,
   CheckCheck,
   AlertTriangle,
+  Flag,
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 
@@ -60,6 +61,7 @@ import {
   SectionHeader,
   MetricCard,
 } from '@/components/shared';
+import { cn } from '@/lib/utils';
 
 // --- Animation helpers ---
 const container = {
@@ -95,25 +97,6 @@ function formatDueDate(dateStr: string): string {
   return format(date, 'MMM d');
 }
 
-function priorityStyle(priority: Task['priority']): string {
-  switch (priority) {
-    case 'high':
-      return 'signal-critical';
-    case 'medium':
-      return 'signal-attention';
-    case 'low':
-      return 'signal-healthy';
-  }
-}
-
-function priorityLabel(priority: Task['priority']): string {
-  switch (priority) {
-    case 'high': return 'HIGH';
-    case 'medium': return 'MED';
-    case 'low': return 'LOW';
-  }
-}
-
 // --- Task Card ---
 function TaskCard({
   task,
@@ -130,10 +113,16 @@ function TaskCard({
     ? subjects.find((s) => s.id === task.subjectId)
     : null;
 
+  const isOverdue = task.dueDate && !task.completed && task.dueDate < todayStr();
+
   return (
     <motion.div variants={fadeUp} layout>
       <div
-        className={`metric-card group flex items-start gap-3 p-3 ${task.completed ? 'opacity-50' : ''}`}
+        className={cn(
+          'metric-card group flex items-start gap-3 p-3',
+          task.completed && 'opacity-50',
+          isOverdue && 'border-l-2 border-l-red-500',
+        )}
       >
         <button
           onClick={() => toggleComplete(task.id)}
@@ -141,15 +130,27 @@ function TaskCard({
           aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
         >
           {task.completed ? (
-            <CheckCircle2 className='h-[18px] w-[18px] text-emerald-500' />
+            <motion.div
+              key={`check-${task.id}`}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.05 }}
+            >
+              <CheckCircle2 className='h-[18px] w-[18px] text-emerald-500' />
+            </motion.div>
           ) : (
-            <Circle className='h-[18px] w-[18px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors' />
+            <motion.div
+              whileHover={{ scale: 1.15 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Circle className='h-[18px] w-[18px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors' />
+            </motion.div>
           )}
         </button>
 
         <div className='flex-1 min-w-0'>
           <span
-            className={`text-sm leading-tight ${task.completed ? 'line-through text-muted-foreground' : 'font-medium'}`}
+            className={cn('text-sm leading-tight', task.completed ? 'line-through text-muted-foreground' : 'font-medium')}
           >
             {task.title}
           </span>
@@ -161,8 +162,14 @@ function TaskCard({
           )}
 
           <div className='flex items-center gap-2 mt-1.5 flex-wrap'>
-            <span className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold tracking-wider uppercase ${priorityStyle(task.priority)}`}>
-              {priorityLabel(task.priority)}
+            <span className={cn(
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider uppercase',
+              task.priority === 'high' && 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
+              task.priority === 'medium' && 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+              task.priority === 'low' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+            )}>
+              <Flag className='h-2 w-2' />
+              {task.priority === 'high' ? 'HIGH' : task.priority === 'medium' ? 'MED' : 'LOW'}
             </span>
             {subject && (
               <span
@@ -177,7 +184,7 @@ function TaskCard({
               </span>
             )}
             {task.dueDate && (
-              <span className='text-[10px] text-muted-foreground flex items-center gap-1'>
+              <span className={cn('text-[10px] flex items-center gap-1', isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground')}>
                 <Clock className='h-2.5 w-2.5' />
                 {formatDueDate(task.dueDate)}
               </span>
@@ -450,28 +457,44 @@ export default function TasksView() {
   const current = tabData[activeTab];
 
   return (
-    <div className='content-area px-4 sm:px-6 py-6 space-y-5'>
+    <div className='fab-content-pad'>
       {/* Header */}
       <PageHeader
         title='Tasks'
         subtitle={`${remainingCount} remaining, ${doneTasks.length} completed`}
         actions={
-          <Button
-            onClick={() => {
-              setEditingTask(null);
-              setDialogOpen(true);
-            }}
-            size='sm'
-            className='h-8'
-          >
-            <Plus className='mr-1.5 h-3.5 w-3.5' />
-            <span className='hidden sm:inline text-xs'>Add Task</span>
-          </Button>
+          <div className='flex items-center gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-8 text-xs'
+              onClick={() => setActiveTab('today')}
+            >
+              <Inbox className='mr-1 h-3.5 w-3.5' />
+              <span className='hidden sm:inline'>Today</span>
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingTask(null);
+                setDialogOpen(true);
+              }}
+              size='sm'
+              className='h-8'
+            >
+              <Plus className='mr-1.5 h-3.5 w-3.5' />
+              <span className='hidden sm:inline text-xs'>Add Task</span>
+            </Button>
+          </div>
         }
       />
 
       {/* Summary metrics */}
-      <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className='grid grid-cols-2 sm:grid-cols-4 gap-3'
+      >
         <MetricCard
           label='Today'
           value={todayTasks.length}
@@ -495,7 +518,7 @@ export default function TasksView() {
           context='of {tasks.length} total'
           valueColor='text-emerald-600 dark:text-emerald-400'
         />
-      </div>
+      </motion.div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

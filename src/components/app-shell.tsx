@@ -620,7 +620,7 @@ function DesktopSidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
+        'no-print hidden md:flex flex-col border-r border-border bg-sidebar h-screen sticky top-0 transition-all duration-200 shrink-0',
         collapsed ? 'w-[52px]' : 'w-[180px] lg:w-[220px]'
       )}
     >

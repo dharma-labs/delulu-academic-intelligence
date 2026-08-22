@@ -15,6 +15,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 import { useStore } from '@/lib/store';
 import type { Exam, PYQ } from '@/lib/types';
@@ -642,6 +643,7 @@ export default function ExamsView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'completed' | 'missed'>('all');
 
   const today = todayStr();
 
@@ -661,9 +663,21 @@ export default function ExamsView() {
     [exams],
   );
 
+  const missedExams = useMemo(
+    () =>
+      exams.filter((e) => e.status === 'upcoming' && e.date < today),
+    [exams, today],
+  );
+
+  const filteredUpcoming = statusFilter === 'all' || statusFilter === 'upcoming' ? upcomingExams : [];
+  const filteredCompleted = statusFilter === 'all' || statusFilter === 'completed' ? completedExams : [];
+  const filteredMissed = statusFilter === 'all' || statusFilter === 'missed' ? missedExams : [];
+
+  const hasFilteredResults = filteredUpcoming.length > 0 || filteredCompleted.length > 0 || filteredMissed.length > 0;
+
   if (exams.length === 0) {
     return (
-      <div className='p-4 md:p-6 content-area space-y-4'>
+      <div className='fab-content-pad'>
         <PageHeader
           title='Exams'
           actions={
@@ -689,11 +703,11 @@ export default function ExamsView() {
   }
 
   return (
-    <div className='p-4 md:p-6 content-area space-y-6'>
+    <div className='fab-content-pad'>
       {/* Header */}
       <PageHeader
         title='Exams'
-        subtitle={`${upcomingExams.length} upcoming, ${completedExams.length} completed`}
+        subtitle={`${upcomingExams.length} upcoming, ${completedExams.length} completed${missedExams.length > 0 ? `, ${missedExams.length} missed` : ''}`}
         actions={
           <Button size='sm' className='gap-1.5' onClick={() => setDialogOpen(true)}>
             <Plus className='h-4 w-4' />
@@ -702,19 +716,43 @@ export default function ExamsView() {
         }
       />
 
+      {/* Status Filter Pills */}
+      <motion.div
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05, duration: 0.2 }}
+        className='flex items-center gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0'
+      >
+        {(['all', 'upcoming', 'completed', 'missed'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setStatusFilter(f)}
+            className={cn(
+              'shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
+              statusFilter === f
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {f === 'all' ? `All (${exams.length})` : f === 'upcoming' ? `Upcoming (${upcomingExams.length})` : f === 'completed' ? `Completed (${completedExams.length})` : `Missed (${missedExams.length})`}
+          </button>
+        ))}
+      </motion.div>
+
       {/* Upcoming Exams */}
+      {(statusFilter === 'all' || statusFilter === 'upcoming') && (
       <section>
         <SectionHeader title='Upcoming Exams' />
 
-        {upcomingExams.length === 0 ? (
+        {filteredUpcoming.length === 0 && statusFilter !== 'completed' && statusFilter !== 'missed' ? (
           <EmptyState
             icon={CalendarDays}
             title='No upcoming exams'
             description='All exams have been completed.'
           />
-        ) : (
-          <motion.div variants={container} initial='hidden' animate='show' className='space-y-2'>
-            {upcomingExams.map((exam) => {
+        ) : filteredUpcoming.length === 0 ? null : (
+          <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 stagger-children'>
+            {filteredUpcoming.map((exam) => {
               const subject = subjects.find((s) => s.id === exam.subjectId);
               const typeConf = examTypeConfig(exam.type);
               const daysRemaining = differenceInDays(parseISO(exam.date), new Date());
@@ -726,7 +764,11 @@ export default function ExamsView() {
                     <ExamDetail exam={exam} onCollapse={() => setExpandedId(null)} />
                   ) : (
                     <div
-                      className='card-interactive p-4 group'
+                      className={cn(
+                        'card-interactive p-4 group',
+                        daysRemaining <= 2 && 'border-l-2 border-l-red-500',
+                        daysRemaining > 2 && daysRemaining <= 7 && 'border-l-2 border-l-amber-500',
+                      )}
                       onClick={() => setExpandedId(exam.id)}
                     >
                       <div className='flex items-start justify-between gap-3'>
@@ -745,8 +787,14 @@ export default function ExamsView() {
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeConf.signalClass}`}>
                               {typeConf.label}
                             </span>
-                            <span className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400'>
-                              UPCOMING
+                            <span className={cn(
+                              'inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase',
+                              daysRemaining <= 0 ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400' :
+                              daysRemaining <= 2 ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400' :
+                              daysRemaining <= 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' :
+                              'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400'
+                            )}>
+                              {daysRemaining <= 0 ? 'Today' : daysRemaining === 1 ? 'Tomorrow' : `In ${daysRemaining}d`}
                             </span>
                           </div>
                         </div>
@@ -756,9 +804,6 @@ export default function ExamsView() {
                             <p className='text-[11px] text-muted-foreground flex items-center gap-1'>
                               <CalendarDays className='h-3 w-3' />
                               {format(parseISO(exam.date), 'MMM d')}
-                            </p>
-                            <p className={`text-[11px] font-medium mt-0.5 ${daysRemaining <= 3 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
-                              {daysRemaining === 0 ? 'Today' : daysRemaining === 1 ? 'Tomorrow' : `${daysRemaining} days left`}
                             </p>
                           </div>
                           <span className='text-[10px] text-muted-foreground'>{exam.totalMarks} marks</span>
@@ -789,8 +834,54 @@ export default function ExamsView() {
           </motion.div>
         )}
       </section>
+      )}
+
+      {/* Missed Exams */}
+      {(statusFilter === 'all' || statusFilter === 'missed') && missedExams.length > 0 && (
+      <section>
+        <SectionHeader title={`Missed Exams (${missedExams.length})`} />
+        <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 stagger-children'>
+          {missedExams.map((exam) => {
+            const subject = subjects.find((s) => s.id === exam.subjectId);
+            const typeConf = examTypeConfig(exam.type);
+            return (
+              <motion.div key={exam.id} variants={fadeUp}>
+                <div className='card-interactive p-4 group opacity-60 border-l-2 border-l-red-500' onClick={() => setExpandedId(exam.id)}>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='flex-1 min-w-0'>
+                      <p className='text-sm font-medium'>{exam.name}</p>
+                      <div className='flex items-center gap-2 mt-2 flex-wrap'>
+                        {subject && (
+                          <span className='inline-flex items-center gap-1.5 text-[10px] font-medium' style={{ color: subject.color }}>
+                            <div className='status-dot' style={{ backgroundColor: subject.color }} />
+                            {subject.code}
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase ${typeConf.signalClass}`}>
+                          {typeConf.label}
+                        </span>
+                        <span className='inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase signal-critical'>
+                          MISSED
+                        </span>
+                      </div>
+                    </div>
+                    <div className='text-right shrink-0'>
+                      <p className='text-[11px] text-muted-foreground flex items-center gap-1'>
+                        <CalendarDays className='h-3 w-3' />
+                        {format(parseISO(exam.date), 'MMM d')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </section>
+      )}
 
       {/* Completed Exams */}
+      {(statusFilter === 'all' || statusFilter === 'completed') && (
       <section>
         <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
           <CollapsibleTrigger className='flex items-center gap-2 w-full group cursor-pointer py-1'>
@@ -806,11 +897,9 @@ export default function ExamsView() {
           </CollapsibleTrigger>
 
           <CollapsibleContent>
-            {completedExams.length === 0 ? (
-              <p className='text-xs text-muted-foreground py-8 text-center'>No completed exams.</p>
-            ) : (
-              <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 mt-3'>
-                {completedExams.map((exam) => {
+            {filteredCompleted.length === 0 ? null : (
+              <motion.div variants={container} initial='hidden' animate='show' className='space-y-2 mt-3 stagger-children'>
+                {filteredCompleted.map((exam) => {
                   const subject = subjects.find((s) => s.id === exam.subjectId);
                   const typeConf = examTypeConfig(exam.type);
                   const percentage =
@@ -882,6 +971,16 @@ export default function ExamsView() {
           </CollapsibleContent>
         </Collapsible>
       </section>
+      )}
+
+      {/* No results for filter */}
+      {statusFilter !== 'all' && !hasFilteredResults && (
+        <EmptyState
+          icon={GraduationCap}
+          title={`No ${statusFilter} exams`}
+          description={statusFilter === 'upcoming' ? 'No upcoming exams found.' : statusFilter === 'completed' ? 'No completed exams found.' : 'No missed exams found.'}
+        />
+      )}
 
       <AddExamDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
