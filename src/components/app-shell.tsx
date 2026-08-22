@@ -57,6 +57,7 @@ import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
 import { Onboarding } from '@/components/onboarding';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { ToastProvider } from '@/components/toast';
+import { PwaInstallPrompt } from '@/components/pwa-install';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── Notification badges hook ──────────────────────────────────────
@@ -1036,6 +1037,7 @@ export function AppShell() {
       <MobileMoreSheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen} />
       <CommandPalette onShowShortcuts={showShortcuts} />
       <ShortcutsOverlay open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <PwaInstallPrompt />
     </div>
     </ToastProvider>
   );

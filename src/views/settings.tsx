@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useRef } from 'react';
-import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader, InsightCard } from '@/components/shared';
 import { motion } from 'framer-motion';
@@ -348,6 +348,58 @@ export default function SettingsView() {
             </p>
           </div>
         </SettingsSection>
+      </div>
+
+      {/* ── INSTALL APP ── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
+            <MonitorSmartphone className="size-3.5 text-primary" />
+          </div>
+          <span className="section-label">INSTALL APP</span>
+        </div>
+        <div className="metric-card metric-card-accent-primary">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <MonitorSmartphone className="w-4 h-4 text-primary shrink-0" />
+                <h3 className="text-sm font-semibold text-foreground">Install as App</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                Install Delulu as a standalone app on your phone or desktop. Works offline with cached data.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-2">
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Smartphone className="size-3" /> Mobile (Android/iOS)
+                </span>
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Monitor className="size-3" /> Desktop (Chrome/Edge)
+                </span>
+              </div>
+            </div>
+            <Button
+              onClick={async () => {
+                // Try the deferred prompt first
+                const evt = (window as unknown as { _deferredPrompt?: { prompt: () => Promise<void> } })._deferredPrompt;
+                if (evt) { await evt.prompt(); return; }
+                // Fallback: show browser instructions
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isIOS) {
+                  showToast({ title: 'How to install on iOS', description: 'Tap the Share button (square with arrow) → Scroll down → "Add to Home Screen"', variant: 'info' });
+                } else if (isMobile) {
+                  showToast({ title: 'How to install on Android', description: 'Tap the three-dot menu (⋮) in Chrome → "Install app" or "Add to Home Screen"', variant: 'info' });
+                } else {
+                  showToast({ title: 'How to install on Desktop', description: 'Click the install icon (⊕) in the address bar, or use menu (⋮) → "Install Delulu"', variant: 'info' });
+                }
+              }}
+              size="sm"
+              className="shrink-0"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />Install App
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* ── DANGER ZONE ── */}
