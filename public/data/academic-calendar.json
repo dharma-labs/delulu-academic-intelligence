@@ -1,0 +1,45 @@
+{
+  "academicYear": "2026-27",
+  "sourceUrl": "https://www.du.ac.in/uploads/2026/11082026-AC-Appendix-41.pdf",
+  "sourceDate": "2026-07-01",
+  "verified": true,
+  "note": "Official DU notification dated 01.07.2026, notification no. Acad.I/299/Academic Calendar. Applies to all UG and PG programmes across colleges/departments unless a specific faculty has issued its own separate calendar. MUST be re-fetched every July.",
+  "oddSemester": {
+    "appliesTo": "Semesters I, III, V, VII",
+    "classesBegin": "2026-07-28",
+    "autumnVacation": {
+      "start": "2026-10-18",
+      "end": "2026-10-25"
+    },
+    "classesResumeAfterAutumnVacation": "2026-10-26",
+    "dispersalPrepLeavePracticalExamBegin": "2026-11-20",
+    "theoryExaminationsBegin": "2026-12-04",
+    "winterVacation": {
+      "start": "2026-12-25",
+      "end": "2026-12-31"
+    }
+  },
+  "evenSemester": {
+    "appliesTo": "Semesters II, IV, VI, VIII",
+    "classesBegin": "2027-01-01",
+    "midSemesterVacation": {
+      "start": "2027-03-21",
+      "end": "2027-03-28"
+    },
+    "classesResumeAfterMidSemVacation": "2027-03-29",
+    "dispersalPrepLeavePracticalExamBegin": "2027-04-30",
+    "theoryExaminationsBegin": "2027-05-13",
+    "summerVacation": {
+      "start": "2027-06-03",
+      "end": "2027-07-20"
+    }
+  },
+  "resultDeclarationWindows": {
+    "verified": false,
+    "note": "DU issues result dates via separate Examination Branch notifications per exam cycle. Not in the main academic calendar."
+  },
+  "reEvaluationDeadlines": {
+    "verified": false,
+    "note": "Published per-exam-cycle by the Examination Branch, typically within 15 days of result declaration. Must be fetched per cycle."
+  }
+}

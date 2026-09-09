@@ -1,119 +1,178 @@
-// Delulu — Academic Intelligence (Electron desktop shell)
-// Boots the bundled Next.js standalone server and loads it in a native window.
+// Delulu — Academic Intelligence · Desktop app (Electron)
+//
+// Serves the static export (desktop/dist, copied from ../out) over a tiny local
+// HTTP server, then loads it in a native window. This keeps the app fully
+// offline-first (all data lives in localStorage) and avoids file:// asset-path
+// issues with Next.js's absolute `/_next/...` URLs.
 
-const { app, BrowserWindow, shell } = require('electron');
-const { spawn } = require('child_process');
+const { app, BrowserWindow, shell, Menu, nativeImage } = require('electron');
 const http = require('http');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
-const PORT = Number(process.env.PORT || 3210);
+const PORT = process.env.DELULU_PORT ? Number(process.env.DELULU_PORT) : 4571;
 const HOST = '127.0.0.1';
 
-let serverProcess = null;
-let mainWindow = null;
-let logStream = null;
+// Resolve the static bundle: prefer desktop/dist (packaged), fall back to ../out (dev)
+const DIST = fs.existsSync(path.join(__dirname, 'dist'))
+  ? path.join(__dirname, 'dist')
+  : path.join(__dirname, '..', 'out');
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
 function startServer() {
-  const serverDir = path.join(__dirname, 'server');
-  const serverEntry = path.join(serverDir, 'server.js');
+  const server = http.createServer((req, res) => {
+    let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    if (urlPath === '/') urlPath = '/index.html';
 
-  if (!fs.existsSync(serverEntry)) {
-    console.error('Missing bundled server.js at', serverEntry);
-    return;
-  }
+    const filePath = path.normalize(path.join(DIST, urlPath));
+    if (!filePath.startsWith(DIST)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
 
-  // Run the Node server with Electron's embedded Node runtime.
-  serverProcess = spawn(process.execPath, [serverEntry], {
-    cwd: serverDir,
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '1',
-      NODE_ENV: 'production',
-      PORT: String(PORT),
-      HOSTNAME: HOST,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
-
-  const logDir = app.getPath('userData');
-  logStream = fs.createWriteStream(path.join(logDir, 'server.log'), { flags: 'a' });
-  serverProcess.stdout.pipe(logStream);
-  serverProcess.stderr.pipe(logStream);
-
-  serverProcess.on('error', (err) => {
-    try { logStream.write(`[electron] server spawn error: ${err.message}\n`); } catch {}
-  });
-  serverProcess.on('exit', (code) => {
-    serverProcess = null;
-  });
-}
-
-function waitForServer(url, timeoutMs = 40000) {
-  const start = Date.now();
-  return new Promise((resolve) => {
-    const attempt = () => {
-      const req = http.get(url, (res) => {
-        res.resume();
-        resolve(true);
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        // SPA fallback: serve index.html for unknown routes
+        fs.readFile(path.join(DIST, 'index.html'), (e2, html) => {
+          if (e2) {
+            res.writeHead(404);
+            res.end('Not found');
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': MIME['.html'] });
+          res.end(html);
+        });
+        return;
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
       });
-      req.on('error', () => retry());
-      req.setTimeout(1500, () => { req.destroy(); retry(); });
-    };
-    const retry = () => {
-      if (Date.now() - start > timeoutMs) return resolve(false);
-      setTimeout(attempt, 400);
-    };
-    attempt();
+      res.end(data);
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    server.on('error', reject);
+    server.listen(PORT, HOST, () => resolve(server));
   });
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1280,
-    height: 840,
-    minWidth: 820,
-    minHeight: 600,
+    height: 820,
+    minWidth: 960,
+    minHeight: 640,
     title: 'Delulu — Academic Intelligence',
-    autoHideMenuBar: true,
     backgroundColor: '#0B1120',
+    show: false,
+    autoHideMenuBar: true,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      spellcheck: false,
     },
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  win.once('ready-to-show', () => win.show());
+
+  // Open external links in the system browser instead of new Electron windows
+  win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  mainWindow.loadURL(`http://${HOST}:${PORT}`);
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  win.loadURL(`http://${HOST}:${PORT}/`);
+  return win;
 }
 
-app.whenReady().then(async () => {
-  startServer();
-  const ok = await waitForServer(`http://${HOST}:${PORT}`);
-  if (!ok) console.error('Server did not become ready in time.');
-  createWindow();
+// Minimal application menu (keeps standard shortcuts like copy/paste/zoom working)
+function buildMenu() {
+  const template = [
+    {
+      label: 'File',
+      submenu: [{ role: 'quit', label: 'Quit Delulu' }],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Single-instance lock: focus the existing window instead of opening a second one
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const [win] = BrowserWindow.getAllWindows();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(async () => {
+    buildMenu();
+    try {
+      await startServer();
+      createWindow();
+    } catch (err) {
+      console.error('Failed to start local server:', err);
+      app.quit();
+    }
 
-app.on('quit', () => {
-  if (serverProcess) {
-    try { serverProcess.kill(); } catch {}
-  }
-});
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}

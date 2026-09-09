@@ -1,0 +1,118 @@
+{
+  "gradePoints": {
+    "sourceUrl": "https://openeducat.org/articles/cgpa-to-percentage-conversion-india",
+    "verified": true,
+    "table": [
+      {
+        "grade": "O",
+        "gradePoint": 10,
+        "percentRange": [
+          90,
+          100
+        ]
+      },
+      {
+        "grade": "A+",
+        "gradePoint": 9,
+        "percentRange": [
+          80,
+          89
+        ]
+      },
+      {
+        "grade": "A",
+        "gradePoint": 8,
+        "percentRange": [
+          70,
+          79
+        ]
+      },
+      {
+        "grade": "B+",
+        "gradePoint": 7,
+        "percentRange": [
+          60,
+          69
+        ]
+      },
+      {
+        "grade": "B",
+        "gradePoint": 6,
+        "percentRange": [
+          55,
+          59
+        ]
+      },
+      {
+        "grade": "C",
+        "gradePoint": 5,
+        "percentRange": [
+          50,
+          54
+        ]
+      },
+      {
+        "grade": "D",
+        "gradePoint": 4,
+        "percentRange": [
+          40,
+          49
+        ]
+      },
+      {
+        "grade": "F",
+        "gradePoint": 0,
+        "percentRange": [
+          0,
+          39
+        ]
+      }
+    ],
+    "caveat": "Exact cutoffs can vary slightly by faculty/programme ordinance (e.g. B.Tech-style courses under other faculties sometimes use different bands). Treat this table as the correct DEFAULT for CBCS/UGCF undergraduate arts/commerce/science programmes; do not assume it applies unmodified to professional courses (BMS, B.El.Ed, law) without checking that programme's specific ordinance."
+  },
+  "cgpaToPercentageFormula": {
+    "sourceUrl": "https://www.dailypioneer.com/2018/delhi/new-rule-for-converting-cgpa.html",
+    "sourceDate": "2018-04-16 (still current per multiple 2024-2025 corroborating student-forum answers)",
+    "verified": true,
+    "formula": "CGPA * 9.5",
+    "officialContext": "DU adopted the UGC-recommended 'multiplier factor of 9.5' from the 2018-19 session onward, specifically for converting CBCS CGPA into percentage for PG admission cutoffs (DU reserves 50% of PG seats for its own graduates on a percentage-based cutoff).",
+    "correctionNotice": "An earlier version of this spec used the formula (CGPA - 0.5) x 10. That formula is real but belongs to a DIFFERENT university (confirmed source: Jharkhand University of Technology, Ranchi ordinance). It does not apply to DU. Use CGPA x 9.5 for all DU-facing CGPA-to-percentage conversions in this app."
+  },
+  "attendanceOrdinance": {
+    "sourceUrl": "https://www.du.ac.in/index.php?page=acts-statutes-and-ordinances",
+    "verified": "partially — 66.67% minimum attendance is the figure consistently cited across DU college handbooks and student-facing DU documentation, but the fetch agent was not able to pull the exact ordinance clause number and text in this pass",
+    "minimumAttendancePercent": 66.67,
+    "note": "Individual colleges may grant condonation for medical/documented reasons per DU ordinance provisions on attendance shortage; exact condonation process varies by college and should not be hardcoded as a single university-wide workflow."
+  },
+  "nepExitPoints": {
+    "sourceUrl": "https://www.theweek.in/wire-updates/national/2025/07/31/des109-dl-du-fyup-guidelines.html",
+    "verified": true,
+    "exitPoints": [
+      {
+        "afterSemester": 2,
+        "yearsCompleted": 1,
+        "creditsRequired": 44,
+        "award": "Undergraduate Certificate"
+      },
+      {
+        "afterSemester": 4,
+        "yearsCompleted": 2,
+        "creditsRequired": 88,
+        "award": "Undergraduate Diploma"
+      },
+      {
+        "afterSemester": 6,
+        "yearsCompleted": 3,
+        "creditsRequired": 132,
+        "award": "Bachelor's Degree"
+      },
+      {
+        "afterSemester": 8,
+        "yearsCompleted": 4,
+        "creditsRequired": 176,
+        "award": "Bachelor's Degree with Honours / Honours with Research / Honours with Entrepreneurship"
+      }
+    ],
+    "reEntry": "Students may re-enter within 7 years of exit; earned-credit validity is 2-4 years depending on the exit qualification. This applies only to UGCF 2022 (NEP, 4-year) batches, not legacy 3-year programmes."
+  }
+}

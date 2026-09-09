@@ -1,0 +1,42 @@
+appId: com.delulu.desktop
+productName: Delulu
+copyright: Copyright © 2026 Delulu
+directories:
+  output: release
+  buildResources: desktop/build
+files:
+  - desktop/main.js
+  - desktop/preload.js
+  - desktop/dist/**/*
+  - package.json
+asar: true
+npmRebuild: false
+electronLanguages:
+  - en-US
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Delulu
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+mac:
+  category: public.app-category.education
+  target:
+    - dmg
+  artifactName: ${productName}-${version}-${arch}.${ext}
+dmg:
+  title: ${productName} ${version}
+linux:
+  category: Education
+  target:
+    - AppImage
+    - deb
+  artifactName: ${productName}-${version}-${arch}.${ext}

@@ -1,0 +1,42 @@
+export type AttendanceState = 'comfortable' | 'getting_tight' | 'at_risk';
+
+export type ThreeStateAttendance = 'on-track' | 'below-threshold' | 'needs-attention';
+
+export interface AttendanceDisplay {
+  label: string;
+  colorClass: string;
+  bgClass: string;
+  variant: ThreeStateAttendance;
+}
+
+export function classifyAttendance(percentage: number, threshold: number = 66.67): AttendanceState {
+  if (percentage >= threshold + 10) return 'comfortable';
+  if (percentage >= threshold) return 'getting_tight';
+  return 'at_risk';
+}
+
+export function classesCanBeMissed(present: number, total: number, threshold: number = 66.67): number {
+  if (total === 0) return 0;
+  const maxTotal = present / (threshold / 100);
+  return Math.max(0, Math.floor(maxTotal - total));
+}
+
+export const ATTENDANCE_STATE_CONFIG: Record<AttendanceState, { label: string; className: string }> = {
+  comfortable: { label: 'Comfortable buffer', className: 'text-[var(--delulu-success)]' },
+  getting_tight: { label: 'Getting tight', className: 'text-[var(--delulu-warning)]' },
+  at_risk: { label: 'Below 66.67%', className: 'text-[var(--delulu-danger)]' },
+};
+
+// -- Three-state attendance display (behavioral: no red, no alarm language) --
+const THREE_STATE_THRESHOLD = 66.67;
+const THREE_STATE_CRITICAL = 50;
+
+export function getAttendanceState(percentage: number): AttendanceDisplay {
+  if (percentage >= THREE_STATE_THRESHOLD) {
+    return { label: 'On Track', colorClass: 'text-emerald-600', bgClass: 'bg-emerald-50', variant: 'on-track' };
+  }
+  if (percentage >= THREE_STATE_CRITICAL) {
+    return { label: 'Below Threshold', colorClass: 'text-amber-600', bgClass: 'bg-amber-50', variant: 'below-threshold' };
+  }
+  return { label: 'Needs Attention', colorClass: 'text-slate-600', bgClass: 'bg-slate-50', variant: 'needs-attention' };
+}

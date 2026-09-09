@@ -1,0 +1,588 @@
+{
+  "sourceUrl": "https://exam.du.ac.in/exam/datesheetnd25/",
+  "sourceDate": "2026-09-08",
+  "verified": true,
+  "note": "UPC codes extracted from DU Examination Branch date sheets (Dec/Jan 2025-26, May/June 2026). Course structures from UGCF 2022 framework. Marks split defaults to 25+75 per DU CBCS standard unless a specific ordinance specifies otherwise.",
+  "programmes": [
+    {
+      "name": "B.A. (Hons) English",
+      "code": "BAHE",
+      "department": "English",
+      "faculty": "Arts",
+      "durationYears": 4,
+      "totalCredits": 176,
+      "sourceUrl": "https://www.du.ac.in/index.php?page=nep-ugcf-2022-syllabi",
+      "verified": true,
+      "semesters": [
+        {
+          "semester": 1,
+          "papers": [
+            {
+              "name": "Indian Classical Literature",
+              "upcCode": "2032201102",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "European Classical Literature",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "UPC code not found in extracted date sheets â€” Sem I BA Hons English papers may use different codes than BA Programme"
+            },
+            {
+              "name": "Introduction to Literary Studies",
+              "upcCode": "2032201101",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "Academic Writing and Composition",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "AECC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "AECC paper â€” UPC code varies by language (Hindi/English/Urdu etc). English AECC code not confirmed in this pass"
+            },
+            {
+              "name": "Value Addition Course",
+              "upcCode": "6967000002",
+              "credits": 2,
+              "courseType": "VAC",
+              "internalMarksMax": 15,
+              "endSemMarksMax": 35,
+              "verified": true
+            }
+          ]
+        },
+        {
+          "semester": 2,
+          "papers": [
+            {
+              "name": "Indian Writing in English",
+              "upcCode": "12031201",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "British Poetry and Drama: 14th to 17th Centuries",
+              "upcCode": "12031202",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "American Literature",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "UPC code not found in extracted date sheets"
+            },
+            {
+              "name": "Language, Literature and Culture",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "AECC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "AECC paper â€” UPC not confirmed"
+            },
+            {
+              "name": "Skill Enhancement Course",
+              "upcCode": null,
+              "credits": 2,
+              "courseType": "SEC",
+              "internalMarksMax": 15,
+              "endSemMarksMax": 35,
+              "verified": false,
+              "verifiedNote": "SEC UPC code not found in this pass"
+            }
+          ]
+        },
+        {
+          "semester": 3,
+          "papers": [
+            {
+              "name": "British Literature: 18th Century",
+              "upcCode": "12031401",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "British Romantic Literature",
+              "upcCode": "12031402",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "British Literature: 19th Century",
+              "upcCode": "12031403",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "Indian Writing in English (Post-independence)",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "DSE option â€” UPC varies by college offering"
+            }
+          ]
+        },
+        {
+          "semester": 4,
+          "papers": [
+            {
+              "name": "Women's Writing",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "UPC code not found in extracted date sheets"
+            },
+            {
+              "name": "World Literatures",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false,
+              "verifiedNote": "UPC code not found in extracted date sheets"
+            },
+            {
+              "name": "Translation Studies",
+              "upcCode": "12033904",
+              "credits": 4,
+              "courseType": "DSE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "Literature in Cross-Cultural Encounters",
+              "upcCode": "12033910",
+              "credits": 4,
+              "courseType": "DSE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "B.Com (Hons)",
+      "code": "BCH",
+      "department": "Commerce",
+      "faculty": "Commerce & Business Studies",
+      "durationYears": 4,
+      "totalCredits": 176,
+      "sourceUrl": "https://www.du.ac.in/index.php?page=nep-ugcf-2022-syllabi",
+      "verified": true,
+      "semesters": [
+        {
+          "semester": 1,
+          "papers": [
+            {
+              "name": "Financial Accounting",
+              "upcCode": "2412081103",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Business Laws",
+              "upcCode": "2412081102",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Business Mathematics",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Business Organisation",
+              "upcCode": "2412081101",
+              "credits": 4,
+              "courseType": "GE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Environmental Science",
+              "upcCode": "2181001001",
+              "credits": 4,
+              "courseType": "AECC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        },
+        {
+          "semester": 2,
+          "papers": [
+            {
+              "name": "Corporate Accounting",
+              "upcCode": "2412081201",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 May-June 2026 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Company Law",
+              "upcCode": "2412081202",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Business Statistics",
+              "upcCode": "2412082401",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): MJ26 Sem4"
+            },
+            {
+              "name": "Microeconomics",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "GE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            }
+          ]
+        },
+        {
+          "semester": 3,
+          "papers": [
+            {
+              "name": "Auditing and Corporate Governance",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Income Tax Law and Practice",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Cost Accounting",
+              "upcCode": "2412082402",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): MJ26 Sem4"
+            },
+            {
+              "name": "General Management",
+              "upcCode": "2414002001",
+              "credits": 4,
+              "courseType": "GE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU B.Com (Hons) NEP-UGCF-2022 date sheet"
+            }
+          ]
+        },
+        {
+          "semester": 4,
+          "papers": [
+            {
+              "name": "Indirect Tax Laws",
+              "upcCode": "2412083603",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): MJ26 Sem6 GST"
+            },
+            {
+              "name": "Management Accounting",
+              "upcCode": "2412083503",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): DJ2526 Sem5"
+            },
+            {
+              "name": "Business Communication",
+              "upcCode": "2416000001",
+              "credits": 2,
+              "courseType": "SEC",
+              "internalMarksMax": 15,
+              "endSemMarksMax": 35,
+              "verified": true
+            },
+            {
+              "name": "Finance for Everyone",
+              "upcCode": "2416000002",
+              "credits": 2,
+              "courseType": "SEC",
+              "internalMarksMax": 15,
+              "endSemMarksMax": 35,
+              "verified": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "B.Sc (Hons) Computer Science",
+      "code": "BSHCS",
+      "department": "Computer Science",
+      "faculty": "Science",
+      "durationYears": 4,
+      "totalCredits": 176,
+      "sourceUrl": "https://cs.du.ac.in/programmes/ug_syllabi/",
+      "verified": true,
+      "semesters": [
+        {
+          "semester": 1,
+          "papers": [
+            {
+              "name": "Programming Fundamentals Using C++",
+              "upcCode": "2342571101",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "Introduction to Programming using Python",
+              "upcCode": "2342201102",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            },
+            {
+              "name": "Mathematical Foundations of Computer Science",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Environmental Science",
+              "upcCode": "2181001001",
+              "credits": 4,
+              "courseType": "AECC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        },
+        {
+          "semester": 2,
+          "papers": [
+            {
+              "name": "Data Structures",
+              "upcCode": "2342012301",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): DJ2526 Sem3"
+            },
+            {
+              "name": "Discrete Mathematics",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Computer Organisation",
+              "upcCode": null,
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": false
+            },
+            {
+              "name": "Programming Fundamentals Using Python",
+              "upcCode": "2342201102",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        },
+        {
+          "semester": 3,
+          "papers": [
+            {
+              "name": "Operating Systems",
+              "upcCode": "2342012302",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Database Management Systems",
+              "upcCode": "2342012402",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): MJ26 Sem4"
+            },
+            {
+              "name": "Design and Analysis of Algorithms",
+              "upcCode": "2342012401",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): MJ26 Sem4"
+            },
+            {
+              "name": "Differential Equations",
+              "upcCode": "2352572301",
+              "credits": 4,
+              "courseType": "GE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        },
+        {
+          "semester": 4,
+          "papers": [
+            {
+              "name": "Object Oriented Programming with Java",
+              "upcCode": "2343012004",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 date sheet (exam.du.ac.in): DJ2526 Sem3"
+            },
+            {
+              "name": "Software Engineering",
+              "upcCode": "2343012010",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 May-June 2026 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Computer Networks",
+              "upcCode": "2342012403",
+              "credits": 4,
+              "courseType": "DSC",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true,
+              "verifiedNote": "Verified from DU NEP-UGCF-2022 May-June 2026 date sheet (exam.du.ac.in)"
+            },
+            {
+              "name": "Theory of Equations and Symmetries",
+              "upcCode": "2354001002",
+              "credits": 4,
+              "courseType": "GE",
+              "internalMarksMax": 25,
+              "endSemMarksMax": 75,
+              "verified": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,433 @@
+{
+  "sourceUrl": "https://www.du.ac.in/index.php?page=colleges-at-du",
+  "sourceDate": "2026-09-08",
+  "verified": true,
+  "note": "Scraped from official DU colleges directory. This is the constituent/affiliated college list as published; course offerings per college are NOT yet mapped (see courses.json note). Evening colleges and specialized institutes (nursing/medical/dental) included as separate entries since DU lists them separately.",
+  "colleges": [
+    {
+      "name": "Acharya Narendra Dev College",
+      "campus": "South",
+      "website": "http://andcollege.du.ac.in/"
+    },
+    {
+      "name": "Aditi Mahavidyalaya",
+      "campus": "North",
+      "website": "http://aditi.du.ac.in/"
+    },
+    {
+      "name": "Ahilya Bai College of Nursing",
+      "campus": "Other",
+      "website": "http://www.abconlnhdu.com/"
+    },
+    {
+      "name": "Amar Jyoti Institute of Physiotherapy",
+      "campus": "Other",
+      "website": "http://www.ajipt.org/"
+    },
+    {
+      "name": "Aryabhatta College",
+      "campus": "South",
+      "website": "http://aryabhattacollege.ac.in/"
+    },
+    {
+      "name": "Atma Ram Sanatan Dharma College",
+      "campus": "South",
+      "website": "http://arsdcollege.ac.in/"
+    },
+    {
+      "name": "Ayurvedic & Unani Tibia College",
+      "campus": "Other",
+      "website": "https://autch.delhi.gov.in/"
+    },
+    {
+      "name": "Bhagini Nivedita College",
+      "campus": "West",
+      "website": "https://bhagininiveditadu.ac.in/"
+    },
+    {
+      "name": "Bharati College",
+      "campus": "West",
+      "website": "https://www.bharaticollege.du.ac.in/"
+    },
+    {
+      "name": "Bhaskaracharya College of Applied Sciences",
+      "campus": "West",
+      "website": "http://www.bcas.du.ac.in/"
+    },
+    {
+      "name": "Bhim Rao Ambedkar College",
+      "campus": "East",
+      "website": "http://www.drbrambedkarcollege.ac.in/"
+    },
+    {
+      "name": "Chacha Nehru Bal Chikitsalaya",
+      "campus": "Other",
+      "website": "http://www.cnbchospital.in/"
+    },
+    {
+      "name": "College of Art",
+      "campus": "Central",
+      "website": "http://colart.delhigovt.nic.in/"
+    },
+    {
+      "name": "College of Nursing at Army Hospital (R&R)",
+      "campus": "Other",
+      "website": "http://www.acn.co.in/"
+    },
+    {
+      "name": "College of Vocational Studies",
+      "campus": "South",
+      "website": "http://www.cvs.edu.in/"
+    },
+    {
+      "name": "Daulat Ram College",
+      "campus": "North",
+      "website": "http://www.dr.du.ac.in/"
+    },
+    {
+      "name": "Deen Dayal Upadhyaya College",
+      "campus": "South/West (Dwarka)",
+      "website": "http://dducollegedu.ac.in/"
+    },
+    {
+      "name": "Delhi College of Arts & Commerce",
+      "campus": "South",
+      "website": "http://dcac.du.ac.in/"
+    },
+    {
+      "name": "Delhi Institute of Pharmaceutical Sciences and Research",
+      "campus": "Other",
+      "website": "http://www.dipsar.ac.in/"
+    },
+    {
+      "name": "Deshbandhu College (Morning)",
+      "campus": "South",
+      "website": "http://www.deshbandhucollege.ac.in/"
+    },
+    {
+      "name": "Durga Bai Deshmukh College of Special Education (VI)",
+      "campus": "Other",
+      "website": "http://www.durgabaideshmukhcollege.org/"
+    },
+    {
+      "name": "Dyal Singh College",
+      "campus": "North",
+      "website": "http://www.dsc.du.ac.in/"
+    },
+    {
+      "name": "Dyal Singh College (Evening)",
+      "campus": "North",
+      "website": "http://www.dsce.du.ac.in/"
+    },
+    {
+      "name": "Florence Nightingale College of Nursing",
+      "campus": "Other",
+      "website": "http://www.collegeofnursinggtbh.in/"
+    },
+    {
+      "name": "Gargi College",
+      "campus": "South",
+      "website": "https://gargicollege.in/"
+    },
+    {
+      "name": "Hans Raj College",
+      "campus": "North",
+      "website": "http://www.hansrajcollege.ac.in/"
+    },
+    {
+      "name": "Hindu College",
+      "campus": "North",
+      "website": "http://www.hinducollege.ac.in/"
+    },
+    {
+      "name": "Holy Family College of Nursing",
+      "campus": "Other",
+      "website": "http://www.hfcondelhi.edu.in/"
+    },
+    {
+      "name": "Indira Gandhi Institute of Physical Education & Sports Sciences",
+      "campus": "Other",
+      "website": "http://igipess.du.ac.in"
+    },
+    {
+      "name": "Indraprastha College for Women",
+      "campus": "North",
+      "website": "http://www.ipcollege.ac.in/"
+    },
+    {
+      "name": "Institute of Home Economics",
+      "campus": "South",
+      "website": "https://ihe.du.ac.in/"
+    },
+    {
+      "name": "Janki Devi Memorial College",
+      "campus": "Central",
+      "website": "http://jdm.du.ac.in/"
+    },
+    {
+      "name": "Jesus & Mary College",
+      "campus": "Central",
+      "website": "http://www.jmc.ac.in/"
+    },
+    {
+      "name": "Kalindi College for Women",
+      "campus": "West",
+      "website": "http://kalindi.du.ac.in/"
+    },
+    {
+      "name": "Kamla Nehru College for Women",
+      "campus": "South",
+      "website": "https://knc.du.ac.in/"
+    },
+    {
+      "name": "Keshav Mahavidyalaya",
+      "campus": "West",
+      "website": "http://keshav.du.ac.in/"
+    },
+    {
+      "name": "Kirori Mal College",
+      "campus": "North",
+      "website": "http://kmc.du.ac.in/"
+    },
+    {
+      "name": "Lady Hardinge Medical College",
+      "campus": "Other",
+      "website": "http://fmsc.ac.in/lady.htm"
+    },
+    {
+      "name": "Lady Irwin College",
+      "campus": "South",
+      "website": "https://ladyirwin.edu.in/"
+    },
+    {
+      "name": "Lady Shri Ram College for Women",
+      "campus": "South",
+      "website": "https://lsr.edu.in/"
+    },
+    {
+      "name": "Lakshmi Bai College for Women",
+      "campus": "North",
+      "website": "https://lakshmibaicollege.in/"
+    },
+    {
+      "name": "Maharaja Agrasen College",
+      "campus": "West",
+      "website": "http://mac.du.ac.in/"
+    },
+    {
+      "name": "Maharshi Valmiki College of Education",
+      "campus": "Other",
+      "website": "http://www.mvce.ac.in/"
+    },
+    {
+      "name": "Maitreyi College for Women",
+      "campus": "South",
+      "website": "http://maitreyi.ac.in/"
+    },
+    {
+      "name": "Mata Sundri College for Women",
+      "campus": "Central",
+      "website": "http://mscw.ac.in/"
+    },
+    {
+      "name": "Maulana Azad Institute of Dental Sciences",
+      "campus": "Other",
+      "website": "http://www.maids.ac.in/"
+    },
+    {
+      "name": "Maulana Azad Medical College",
+      "campus": "Other",
+      "website": "http://www.mamc.ac.in/"
+    },
+    {
+      "name": "Miranda House",
+      "campus": "North",
+      "website": "http://www.mirandahouse.ac.in/"
+    },
+    {
+      "name": "Moti Lal Nehru College",
+      "campus": "South",
+      "website": "http://www.mlncdu.ac.in/"
+    },
+    {
+      "name": "Moti Lal Nehru College (Evening)",
+      "campus": "South",
+      "website": "http://www.mlnce.org/"
+    },
+    {
+      "name": "University College of Medical Sciences",
+      "campus": "Other",
+      "website": "https://ucms.ac.in/"
+    },
+    {
+      "name": "Nehru Homeopathic Medical College & Hospital",
+      "campus": "Other",
+      "website": "http://nhmc.delhigovt.nic.in/"
+    },
+    {
+      "name": "P.G.D.A.V. College",
+      "campus": "North",
+      "website": "https://www.pgdavcollege.in/"
+    },
+    {
+      "name": "P.G.D.A.V. College (Evening)",
+      "campus": "North",
+      "website": "https://pgdavecollege.in/"
+    },
+    {
+      "name": "Pt. Deendayal Upadhyaya Institute of Physically Handicapped",
+      "campus": "Other",
+      "website": "http://iphnewdelhi.in/"
+    },
+    {
+      "name": "Rajdhani College",
+      "campus": "West",
+      "website": "http://www.rajdhanicollege.ac.in/"
+    },
+    {
+      "name": "Rajkumari Amrit Kaur College of Nursing",
+      "campus": "Other",
+      "website": "http://rakcon.com/"
+    },
+    {
+      "name": "Ram Lal Anand College",
+      "campus": "South",
+      "website": "https://rlacollege.edu.in/"
+    },
+    {
+      "name": "Ramanujan College",
+      "campus": "South",
+      "website": "https://ramanujancollege.ac.in/"
+    },
+    {
+      "name": "Ramjas College",
+      "campus": "North",
+      "website": "http://ramjas.du.ac.in/"
+    },
+    {
+      "name": "Satyawati College",
+      "campus": "North",
+      "website": "http://satyawati.du.ac.in/"
+    },
+    {
+      "name": "Satyawati College (Evening)",
+      "campus": "North",
+      "website": "http://satyawatievedu.ac.in/"
+    },
+    {
+      "name": "School of Open Learning",
+      "campus": "North",
+      "website": "https://sol.du.ac.in"
+    },
+    {
+      "name": "School of Rehabilitation Sciences",
+      "campus": "Other",
+      "website": null
+    },
+    {
+      "name": "Shaheed Bhagat Singh College",
+      "campus": "South",
+      "website": "http://www.sbsc.in/"
+    },
+    {
+      "name": "Shaheed Bhagat Singh College (Evening)",
+      "campus": "South",
+      "website": "http://www.sbsec.org/"
+    },
+    {
+      "name": "Shaheed Rajguru College of Applied Sciences for Women",
+      "campus": "North",
+      "website": "http://www.rajgurucollege.com/"
+    },
+    {
+      "name": "Shaheed Sukhdev College of Business Studies",
+      "campus": "North",
+      "website": "http://sscbs.du.ac.in/"
+    },
+    {
+      "name": "Shivaji College",
+      "campus": "West",
+      "website": "http://www.shivajicollege.ac.in/"
+    },
+    {
+      "name": "Shri Ram College of Commerce",
+      "campus": "North",
+      "website": "http://www.srcc.edu/"
+    },
+    {
+      "name": "Shyam Lal College",
+      "campus": "East",
+      "website": "http://www.slc.du.ac.in/"
+    },
+    {
+      "name": "Shyam Lal College (Evening)",
+      "campus": "East",
+      "website": "http://shyamlale.du.ac.in/"
+    },
+    {
+      "name": "Shyama Prasad Mukherji College for Women",
+      "campus": "South",
+      "website": "http://spm.du.ac.in/"
+    },
+    {
+      "name": "Sri Aurobindo College",
+      "campus": "South",
+      "website": "http://www.aurobindo.du.ac.in/"
+    },
+    {
+      "name": "Sri Aurobindo College (Evening)",
+      "campus": "South",
+      "website": "https://www.aurobindoe.du.ac.in/"
+    },
+    {
+      "name": "Sri Guru Gobind Singh College of Commerce",
+      "campus": "North",
+      "website": "http://www.sggscc.ac.in/"
+    },
+    {
+      "name": "Sri Guru Nanak Dev Khalsa College",
+      "campus": "North",
+      "website": "https://www.sgndkc.org"
+    },
+    {
+      "name": "Sri Guru Tegh Bahadur Khalsa College",
+      "campus": "North",
+      "website": "http://sgtbkhalsadu.ac.in/"
+    },
+    {
+      "name": "Sri Venkateswara College",
+      "campus": "South",
+      "website": "http://www.svc.ac.in/"
+    },
+    {
+      "name": "St. Stephen's College",
+      "campus": "North",
+      "website": "https://www.ststephens.edu/"
+    },
+    {
+      "name": "Swami Shraddhanand College",
+      "campus": "North",
+      "website": "http://ss.du.ac.in/"
+    },
+    {
+      "name": "Vallabhbhai Patel Chest Institute",
+      "campus": "North",
+      "website": "http://www.vpci.org.in/"
+    },
+    {
+      "name": "Vivekananda College",
+      "campus": "South",
+      "website": "https://www.vivekanandacollege.edu.in/"
+    },
+    {
+      "name": "Zakir Husain Delhi College",
+      "campus": "Central",
+      "website": "http://www.zakirhusaindelhicollege.ac.in/"
+    },
+    {
+      "name": "Zakir Husain Post Graduate Evening College",
+      "campus": "Central",
+      "website": "https://zhdce.ac.in/"
+    }
+  ]
+}

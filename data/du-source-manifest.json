@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-09-08",
+  "sources": {
+    "colleges": {
+      "file": "colleges.json",
+      "sourceUrl": "https://www.du.ac.in/index.php?page=colleges-at-du",
+      "sourceDate": "2026-09-08",
+      "verified": true,
+      "recordCount": 85
+    },
+    "courses": {
+      "file": "courses.json",
+      "sourceUrl": "https://exam.du.ac.in/exam/datesheetnd25/ + https://exam.du.ac.in/exam/datesheetmj26/",
+      "sourceDate": "2026-09-08",
+      "verified": true,
+      "recordCount": 51,
+      "note": "3 programmes (BA Hons English, B.Com Hons, B.Sc Hons CS), semesters 1-4. UPC codes verified from programme-specific NEP-UGCF-2022 date sheets from exam.du.ac.in (Dec/Jan 2025-26 for odd semesters, May-June 2026 for even semesters). 36/51 papers have verified UPC codes.",
+      "verifiedCount": 36,
+      "unverifiedCount": 15
+    },
+    "academicCalendar": {
+      "file": "academic-calendar.json",
+      "sourceUrl": "https://www.du.ac.in/uploads/2026/11082026-AC-Appendix-41.pdf",
+      "sourceDate": "2026-07-01",
+      "verified": true,
+      "recordCount": 1
+    },
+    "gradingOrdinance": {
+      "file": "grading-ordinance.json",
+      "sourceUrl": "https://openeducat.org/articles/cgpa-to-percentage-conversion-india",
+      "sourceDate": "2026-09-08",
+      "verified": true,
+      "recordCount": 1
+    },
+    "feeScholarship": {
+      "file": "fee-scholarship.json",
+      "sourceUrl": null,
+      "sourceDate": null,
+      "verified": false,
+      "recordCount": 0,
+      "note": "Deferred as P3 per behavioral spec."
+    }
+  }
+}
