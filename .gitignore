@@ -107,3 +107,12 @@ server.log
 /bump-version.js
 
 /release-notes-5.md
+
+/server-test.js
+/smoke-test.ps1
+/smoke-test2.ps1
+/smoke-out.log
+/smoke-err.log
+/show-saferesolve.js
+/fix-urlpath.js
+/fix-dotfile.js

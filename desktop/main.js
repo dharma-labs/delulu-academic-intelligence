@@ -28,12 +28,13 @@ const isDev = !app.isPackaged;
 const DEV_PORT = process.env.DELULU_PORT ? Number(process.env.DELULU_PORT) : null;
 
 // Per-launch capability token for the local server.
-const CAP_TOKEN = crypto.randomBytes(32).toString('hex');
 
 // Resolve the static bundle: prefer desktop/dist (packaged), fall back to ../out (dev)
 const DIST = fs.existsSync(path.join(__dirname, 'dist'))
   ? path.join(__dirname, 'dist')
   : path.join(__dirname, '..', 'out');
+
+const root = path.resolve(DIST);
 
 // The real port is assigned after the server binds (stored here for the window)
 let ACTIVE_PORT = DEV_PORT || 0;
@@ -82,9 +83,44 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+// Inline <script> bodies found in the exported HTML get hash-pinned so
+// next-themes / theme-flash bootstrap scripts keep working under strict CSP.
+function computeInlineScriptHashes() {
+  const hashes = [];
+  try {
+    const collect = (dir) => {
+      for (const f of fs.readdirSync(dir)) {
+        const full = path.join(dir, f);
+        const st = fs.statSync(full);
+        if (st.isDirectory()) collect(full);
+        else if (f.endsWith('.html')) {
+          const html = fs.readFileSync(full, 'utf8');
+          const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+          let m;
+          while ((m = re.exec(html)) !== null) {
+            const body = m[1];
+            if (!body.trim()) continue;
+            const hash = crypto.createHash('sha256').update(body).digest('base64');
+            if (!hashes.includes("'sha256-" + hash + "'")) hashes.push("'sha256-" + hash + "'");
+          }
+        }
+      }
+    };
+    collect(root);
+  } catch (e) {
+    // On any failure, fall back to unsafe-inline for scripts rather than
+    // producing a black screen — logged for visibility.
+    console.warn('CSP hash computation failed; allowing inline scripts:', e && e.message);
+    return ["'unsafe-inline'"];
+  }
+  return hashes;
+}
+
+const INLINE_SCRIPT_HASHES = computeInlineScriptHashes();
+
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' " + INLINE_SCRIPT_HASHES.join(' '),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
@@ -108,17 +144,6 @@ function securityHeaders(extra) {
   };
 }
 
-function parseCookies(header) {
-  const out = {};
-  if (!header) return out;
-  for (const part of header.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq < 0) continue;
-    out[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
-  }
-  return out;
-}
-
 // Strict path containment: resolve, then require the result to live inside root.
 function safeResolve(requestPath) {
   let decoded;
@@ -137,16 +162,13 @@ function safeResolve(requestPath) {
   }
   const target = path.resolve(root, '.' + decoded.replace(/\\/g, '/'));
   if (target !== root && !target.startsWith(root + path.sep)) return null;
-  if (path.basename(target).startsWith('.')) {
-    // block dotfiles except well-known ones
-    const allowedDotfiles = new Set(['.well-known']);
-    const rel = path.relative(root, target);
-    if (!rel.split(path.sep).some((seg) => allowedDotfiles.has(seg))) return null;
+  // Block dotfiles and dot-directories (.git, .env, ...) in any segment.
+  const rel = path.relative(root, target);
+  if (rel.split(path.sep).some((seg) => seg.startsWith('.') && seg !== '.' && seg !== '.well-known')) {
+    return null;
   }
   return target;
 }
-
-const root = path.resolve(DIST);
 
 function startServer() {
   const server = http.createServer((req, res) => {
@@ -181,33 +203,16 @@ function startServer() {
       return;
     }
 
-    // Capability check: bootstrap = index with valid ?auth token; everything
-    // else requires the HttpOnly capability cookie set at bootstrap.
-    let parsed;
-    try {
-      parsed = new URL(req.url, 'http://x');
-    } catch {
-      res.writeHead(400);
-      res.end('Bad request');
-      return;
-    }
-    const cookies = parseCookies(req.headers.cookie);
-    const hasCapability = cookies.delulu_cap === CAP_TOKEN;
-    const queryToken = parsed.searchParams.get('auth');
-    const isIndexPath = parsed.pathname === '/' || parsed.pathname === '/index.html';
-    const isBootstrap = isIndexPath && queryToken === CAP_TOKEN;
-    if (!isDev && !hasCapability && !isBootstrap) {
+    // Origin check: browsers always attach Origin on cross-origin requests and
+    // cannot forge it, so malicious web pages / DNS-rebinding probes are blocked
+    // even though same-machine native processes could spoof it (accepted risk).
+    if (req.headers.origin && req.headers.origin !== appOrigin()) {
       res.writeHead(403, { 'Content-Type': 'text/plain' });
       res.end('Forbidden');
       return;
     }
-    if (req.headers.origin && !isTrustedAppUrl(req.headers.origin) && req.headers.origin !== appOrigin()) {
-      res.writeHead(403);
-      res.end('Forbidden');
-      return;
-    }
 
-    let urlPath = parsed.pathname;
+    let urlPath = (req.url || '/').split('?')[0];
     if (urlPath === '/') urlPath = '/index.html';
 
     const filePath = safeResolve(urlPath);
@@ -215,12 +220,6 @@ function startServer() {
       res.writeHead(403, securityHeaders());
       res.end('Forbidden');
       return;
-    }
-
-    const extra = {};
-    if (isBootstrap) {
-      // Hand out the capability cookie for subsequent same-origin requests.
-      extra['Set-Cookie'] = `delulu_cap=${CAP_TOKEN}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`;
     }
 
     fs.readFile(filePath, (err, data) => {
@@ -241,7 +240,6 @@ function startServer() {
           res.writeHead(200, securityHeaders({
             'Content-Type': MIME['.html'],
             'Cache-Control': 'no-cache',
-            ...extra,
           }));
           res.end(html);
         });
@@ -251,7 +249,6 @@ function startServer() {
       res.writeHead(200, securityHeaders({
         'Content-Type': MIME[ext] || 'application/octet-stream',
         'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
-        ...extra,
       }));
       if (req.method === 'HEAD') { res.end(); return; }
       res.end(data);
@@ -326,7 +323,7 @@ function createWindow() {
 
   win.once('ready-to-show', () => win.show());
   attachWindowSecurity(win);
-  win.loadURL(`${appOrigin()}/?auth=${CAP_TOKEN}}`);
+  win.loadURL(appOrigin());
   return win;
 }
 
