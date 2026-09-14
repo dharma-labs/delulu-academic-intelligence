@@ -27,6 +27,8 @@ const viewComponents: Record<ViewId, React.ComponentType> = {
   settings: dynamic(() => import('@/views/settings'), { ssr: false }),
   'ai-tutor': dynamic(() => import('@/views/ai-tutor'), { ssr: false }),
   report: dynamic(() => import('@/views/report'), { ssr: false }),
+  files: dynamic(() => import('@/components/file-manager'), { ssr: false }),
+  now: dynamic(() => import('@/views/now'), { ssr: false }),
 };
 
 function ViewLoadingFallback() {

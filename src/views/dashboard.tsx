@@ -22,7 +22,7 @@ import {
   Flame,
   Zap,
   StickyNote,
-  Bot,
+
   Trophy,
   Settings2,
   FileText,
@@ -31,6 +31,12 @@ import {
 import { motion } from 'framer-motion';
 
 import { useStore, getSemesterHealth, calculateCGPA, getSubjectAttendance, getSubjectProgress, getStudyTimeThisWeek, getStudyStreak, getStudyTimeToday, getDueRevisionItems, getSubjectSignal } from '@/lib/store';
+import { cgpaToPercentage } from '@/lib/types';
+import { NEPExitCalculator } from '@/components/nep-exit-calculator';
+import { SocietyTracker, SocietyWidget } from '@/components/society-tracker';
+import { IAESplitView } from '@/components/ia-ese-split';
+import { classifyAttendance, classesCanBeMissed, ATTENDANCE_STATE_CONFIG, getAttendanceState } from '@/lib/attendance-helpers';
+import { useSemesterFilter } from '@/lib/use-semester-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -235,11 +241,20 @@ export default function DashboardView() {
   const navigate = useStore((s) => s.navigate);
   const selectSubject = useStore((s) => s.selectSubject);
 
+  const {
+    activeSemester,
+    selectedSemester,
+    setSelectedSemester,
+    availableSemesters,
+    semesterSubjects,
+  } = useSemesterFilter();
+
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [societyExpanded, setSocietyExpanded] = useState(false);
   const [hiddenWidgets, toggleWidget] = useHiddenWidgets();
 
-  const activeSubjects = useMemo(() => subjects.filter((s) => !s.archived), [subjects]);
+  const activeSubjects = semesterSubjects;
 
   // -- Core metrics --
   const healthScore = useMemo(
@@ -247,7 +262,7 @@ export default function DashboardView() {
     [subjects, syllabusUnits, assessments, attendance, revisionItems, profile]
   );
 
-  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments }), [subjects, assessments]);
+  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments, profile }), [subjects, assessments, profile]);
 
   const avgAttendance = useMemo(() => {
     if (activeSubjects.length === 0) return 0;
@@ -319,6 +334,11 @@ export default function DashboardView() {
   const weeklyGoalSeconds = weeklyGoalHours * 3600;
   const weeklyGoalProgress = weeklyGoalSeconds > 0 ? Math.min(100, Math.round((studyTimeThisWeek / weeklyGoalSeconds) * 100)) : 0;
   const weeklyHoursThisWeek = (studyTimeThisWeek / 3600).toFixed(1);
+
+  // -- Cumulative credits for NEP Exit Calculator --
+  const completedCredits = useMemo(() => {
+    return subjects.filter((s) => !s.archived).reduce((sum, s) => sum + s.credits, 0);
+  }, [subjects]);
 
   const dueRevisionCount = useMemo(() => getDueRevisionItems({ revisionItems }).length, [revisionItems]);
 
@@ -422,7 +442,7 @@ export default function DashboardView() {
 
     const lowAttSubjects = subjectHealthData.filter((s) => s.att.total > 0 && s.att.percentage < profile.attendanceThreshold);
     if (lowAttSubjects.length > 0) {
-      result.push({ type: lowAttSubjects.some((s) => s.att.percentage < profile.attendanceThreshold - 5) ? 'critical' : 'warning', title: 'Attendance below threshold', description: `${lowAttSubjects.map((s) => `${s.subject.name} (${s.att.percentage}%)`).join(', ')}` });
+      result.push({ type: lowAttSubjects.some((s) => s.att.percentage < profile.attendanceThreshold - 5) ? 'critical' : 'warning', title: 'Attendance below 66.67%', description: `${lowAttSubjects.map((s) => `${s.subject.name} (${s.att.percentage}%)`).join(', ')}` });
     }
 
     const now = new Date();
@@ -602,7 +622,7 @@ export default function DashboardView() {
 
   // -- Mobile micro-metrics --
   const microMetrics = useMemo(() => [
-    { label: 'Att', value: `${avgAttendance}%`, color: avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]', view: 'attendance' as const },
+    { label: 'Att', value: `${avgAttendance}%`, color: getAttendanceState(avgAttendance).colorClass, view: 'attendance' as const },
     { label: 'CGPA', value: cgpa.toFixed(1), color: cgpaTrend === 'up' ? 'text-[var(--delulu-success)]' : cgpaTrend === 'down' ? 'text-[var(--delulu-danger)]' : 'text-foreground', view: 'marks' as const },
     { label: 'Syllabus', value: `${avgSyllabus}%`, color: 'text-foreground', view: 'subjects' as const },
     { label: 'Streak', value: `${studyStreak}d`, color: studyStreak > 0 ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground', view: 'analytics' as const },
@@ -616,12 +636,31 @@ export default function DashboardView() {
           MOBILE DASHBOARD — Intentionally minimal, action-oriented
           ══════════════════════════════════════════════════════════════ */}
       <div className="md:hidden space-y-4 fab-content-pad">
+        {/* Semester filter tabs */}
+        {availableSemesters.length > 1 && (
+          <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 w-fit">
+            {availableSemesters.map((sem) => (
+              <button
+                key={sem}
+                onClick={() => setSelectedSemester(sem === activeSemester ? null : sem)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  sem === activeSemester
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Sem {sem}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Health Ring + Status */}
         <motion.div variants={mobileFade} initial="hidden" animate="show" className="flex items-center gap-5">
           <HealthRing score={healthScore} config={healthConfig} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-xs text-muted-foreground">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+              <p className="text-xs text-muted-foreground truncate min-w-0">{greeting}, <span className="text-foreground font-medium">{profile.name}</span></p>
+              <p className="text-[11px] text-muted-foreground/80">Here's what matters right now.</p>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground">
@@ -658,8 +697,8 @@ export default function DashboardView() {
                 onClick={() => navigate(m.view)}
                 className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-card border border-border/50 min-w-[60px] active:scale-95 transition-transform"
               >
-                <span className={cn('text-base font-bold tracking-tight leading-none tabular-nums', m.color)}>{m.value}</span>
-                <span className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase">{m.label}</span>
+                <span className={cn('text-base font-bold tracking-tight leading-none tabular-nums whitespace-nowrap', m.color)}>{m.value}</span>
+                <span className="text-[9px] text-muted-foreground font-medium tracking-wider uppercase whitespace-nowrap">{m.label}</span>
               </button>
             ))}
           </div>
@@ -726,15 +765,15 @@ export default function DashboardView() {
         {/* Weekly Goal Mini Bar */}
         {!hiddenWidgets.includes('weekly-goal') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.2 }} className="metric-card">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Target className="size-3.5 text-primary" />
-              <span className="text-xs font-medium">Weekly Goal</span>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Target className="size-3.5 text-primary shrink-0" />
+                <span className="text-xs font-medium truncate">Weekly Goal</span>
+              </div>
+              <span className={cn('text-xs font-bold tabular-nums ml-auto shrink-0 whitespace-nowrap text-right', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
+                {weeklyHoursThisWeek}h / {weeklyGoalHours}h
+              </span>
             </div>
-            <span className={cn('text-xs font-bold tabular-nums', weeklyGoalProgress >= 100 ? 'text-[var(--delulu-success)]' : 'text-foreground')}>
-              {weeklyHoursThisWeek}h / {weeklyGoalHours}h
-            </span>
-          </div>
           <div className="progress-thin progress-animate">
             <div className={weeklyGoalProgress >= 100 ? 'bg-emerald-500' : 'bg-primary'} style={{ width: `${Math.min(100, weeklyGoalProgress)}%` }} />
           </div>
@@ -743,13 +782,13 @@ export default function DashboardView() {
 
         {!hiddenWidgets.includes('study-sparkline') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.22 }} className="metric-card">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="size-3.5 text-primary" />
-              <span className="text-xs font-medium">Study This Week</span>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <BarChart3 className="size-3.5 text-primary shrink-0" />
+                <span className="text-xs font-medium truncate">Study This Week</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0 whitespace-nowrap">{weeklyHoursThisWeek}h total</span>
             </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">{weeklyHoursThisWeek}h total</span>
-          </div>
           <WeeklyMiniChart studySessions={studySessions} />
         </motion.div>
         )}
@@ -757,12 +796,11 @@ export default function DashboardView() {
         {/* Quick Actions */}
         {!hiddenWidgets.includes('quick-actions') && (
         <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
               { label: 'Focus', icon: Timer, view: 'focus' as const, color: 'bg-blue-500/10 text-blue-500 dark:text-blue-400', hoverGrad: 'hover:from-blue-500/15 hover:to-blue-600/5' },
               { label: 'Revise', icon: BrainCircuit, view: 'revision' as const, color: 'bg-purple-500/10 text-purple-500 dark:text-purple-400', hoverGrad: 'hover:from-purple-500/15 hover:to-purple-600/5' },
-              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400', hoverGrad: 'hover:from-amber-500/15 hover:to-amber-600/5' },
-              { label: 'AI Tutor', icon: Bot, view: 'ai-tutor' as const, color: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400', hoverGrad: 'hover:from-emerald-500/15 hover:to-emerald-600/5' },
+              { label: 'Notes', icon: StickyNote, view: 'notes' as const, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400', hoverGrad: 'hover:from-amber-500/15 hover:to-amber-600/5' },
               { label: 'Achieve', icon: Trophy, action: true, color: 'bg-amber-500/10 text-amber-500 dark:text-amber-400', hoverGrad: 'hover:from-orange-500/15 hover:to-orange-600/5' },
             ].map((a) => {
               const Icon = a.icon;
@@ -793,6 +831,36 @@ export default function DashboardView() {
             <InsightCard type={insights[0].type} icon={insights[0].type === 'positive' ? CheckCircle2 : insights[0].type === 'critical' ? AlertTriangle : Sparkles} title={insights[0].title} description={insights[0].description} />
           </motion.div>
         )}
+
+        {/* NEP Exit Points — Mobile */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.35 }}>
+          <NEPExitCalculator currentCGPA={cgpa} completedCredits={completedCredits} />
+        </motion.div>
+
+        {/* Societies & ECA — Mobile */}
+        <motion.div variants={mobileFade} initial="hidden" animate="show" transition={{ delay: 0.38 }}>
+          <Card>
+            <CardHeader className="pb-2 pt-3 px-4">
+              <button
+                onClick={() => setSocietyExpanded((v) => !v)}
+                className="flex items-center justify-between w-full"
+              >
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Trophy className="size-4 text-amber-500" />
+                  Societies &amp; ECA
+                </CardTitle>
+                {societyExpanded ? (
+                  <ChevronRight className="size-3.5 text-muted-foreground rotate-90 transition-transform" />
+                ) : (
+                  <ChevronRight className="size-3.5 text-muted-foreground transition-transform" />
+                )}
+              </button>
+            </CardHeader>
+            <CardContent className="px-4 pb-3">
+              {societyExpanded ? <SocietyTracker /> : <SocietyWidget />}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -836,6 +904,25 @@ export default function DashboardView() {
           </div>
         </motion.div>
 
+        {/* Semester filter tabs */}
+        {availableSemesters.length > 1 && (
+          <motion.div variants={fadeUp} className="flex items-center gap-1 bg-secondary/50 rounded-lg p-1 w-fit">
+            {availableSemesters.map((sem) => (
+              <button
+                key={sem}
+                onClick={() => setSelectedSemester(sem === activeSemester ? null : sem)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  sem === activeSemester
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Sem {sem}
+              </button>
+            ))}
+          </motion.div>
+        )}
+
         {/* ── Academic Health + Metrics Row ── */}
         <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-4">
           {/* Health Score */}
@@ -867,13 +954,25 @@ export default function DashboardView() {
                 label="Attendance"
                 value={`${avgAttendance}%`}
                 context={`${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0)} / ${activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0)} classes`}
-                trend={avgAttendance >= profile.attendanceThreshold ? 'up' : avgAttendance >= profile.attendanceThreshold - 10 ? 'neutral' : 'down'}
+                trend={(() => { const s = getAttendanceState(avgAttendance); return s.variant === 'on-track' ? 'up' as const : s.variant === 'below-threshold' ? 'neutral' as const : 'down' as const; })()}
                 icon={UserCheck}
-                valueColor={avgAttendance >= profile.attendanceThreshold ? 'text-[var(--delulu-success)]' : avgAttendance >= profile.attendanceThreshold - 10 ? 'text-[var(--delulu-warning)]' : 'text-[var(--delulu-danger)]'}
+                valueColor={getAttendanceState(avgAttendance).colorClass}
                 sparkline={attendanceSparkline}
                 sparklineColor="#10B981"
                 onClick={() => navigate('attendance')}
               />
+              {(() => {
+                const tCls = activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0);
+                const pCls = activeSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0);
+                const canMiss = classesCanBeMissed(pCls, tCls, profile.attendanceThreshold);
+                return tCls > 0 ? (
+                  <p className="text-[10px] text-muted-foreground px-1">
+                    {canMiss > 0
+                      ? `You can miss ${canMiss} more class${canMiss !== 1 ? 'es' : ''} and stay above ${Math.round(profile.attendanceThreshold)}%`
+                      : `Below ${Math.round(profile.attendanceThreshold)}% threshold — attend all remaining classes`}
+                  </p>
+                ) : null;
+              })()}
               <MetricCard
                 label="Syllabus"
                 value={`${avgSyllabus}%`}
@@ -894,6 +993,22 @@ export default function DashboardView() {
                 sparklineColor={cgpaTrend === 'up' ? '#10B981' : cgpaTrend === 'down' ? '#EF4444' : '#64748B'}
                 onClick={() => navigate('marks')}
               />
+              {cgpa > 0 && (
+                <Card className="border-dashed border-muted-foreground/20">
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <BarChart3 className="w-4 h-4" />
+                        <span>DU Percentage</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold tabular-nums">{cgpaToPercentage(cgpa).toFixed(2)}%</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">CGPA × 9.5</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <MetricCard
                 label="Study Time"
                 value={formatStudyTime(studyTimeThisWeek)}
@@ -1055,7 +1170,10 @@ export default function DashboardView() {
                             />
                           </div>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] text-muted-foreground">Att: {att.total > 0 ? `${att.percentage}%` : '—'}</span>
+                            {(() => {
+                              const attState = att.total > 0 ? getAttendanceState(att.percentage) : null;
+                              return <span className={cn('text-[10px]', attState ? attState.colorClass : 'text-muted-foreground')}>Att: {att.total > 0 ? `${att.percentage}%` : '—'}{attState ? ` · ${attState.label}` : ''}</span>;
+                            })()}
                             <span className="text-[10px] text-muted-foreground">{subject.credits} cr</span>
                           </div>
                         </div>
@@ -1073,7 +1191,7 @@ export default function DashboardView() {
               <div className="signal-legend px-1">
                 <div className="signal-legend-item"><span className="status-dot bg-emerald-500" /> On Track</div>
                 <div className="signal-legend-item"><span className="status-dot bg-blue-500" /> Improving</div>
-                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> At Risk</div>
+                <div className="signal-legend-item"><span className="status-dot bg-amber-500" /> Below Threshold</div>
                 <div className="signal-legend-item"><span className="status-dot bg-red-500" /> Critical</div>
               </div>
             )}
@@ -1286,6 +1404,36 @@ export default function DashboardView() {
             )}
           </motion.div>
         </div>
+
+        {/* NEP Exit Points — Desktop */}
+        <motion.div variants={fadeUp}>
+          <NEPExitCalculator currentCGPA={cgpa} completedCredits={completedCredits} />
+        </motion.div>
+
+        {/* Societies & ECA — Desktop */}
+        <motion.div variants={fadeUp}>
+          <Card>
+            <CardHeader className="pb-2 pt-3 px-5">
+              <button
+                onClick={() => setSocietyExpanded((v) => !v)}
+                className="flex items-center justify-between w-full"
+              >
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Trophy className="size-4 text-amber-500" />
+                  Societies &amp; ECA
+                </CardTitle>
+                {societyExpanded ? (
+                  <ChevronRight className="size-3.5 text-muted-foreground rotate-90 transition-transform" />
+                ) : (
+                  <ChevronRight className="size-3.5 text-muted-foreground transition-transform" />
+                )}
+              </button>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              {societyExpanded ? <SocietyTracker /> : <SocietyWidget />}
+            </CardContent>
+          </Card>
+        </motion.div>
       </motion.div>
 
       <AchievementsDialog open={achievementsOpen} onOpenChange={setAchievementsOpen} />

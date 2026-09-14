@@ -98,10 +98,11 @@ export function AchievementsDialog({ open, onOpenChange }: AchievementsDialogPro
   const assessments = useStore((s) => s.assessments);
   const notes = useStore((s) => s.notes);
   const tasks = useStore((s) => s.tasks);
+  const profile = useStore((s) => s.profile);
 
   const { achievementState, unlocked, totalXP, levelInfo, studyHours, cgpa, streak } = useMemo(() => {
     const storeStreak = getStudyStreak({ studySessions });
-    const storeCGPA = calculateCGPA({ subjects, assessments });
+    const storeCGPA = calculateCGPA({ subjects, assessments, profile });
 
     const state = buildAchievementState({
       studySessions,

@@ -103,6 +103,21 @@
   --sidebar-accent-foreground: #0F172A;
   --sidebar-border: #E8ECF1;
   --sidebar-ring: #3B82F6;
+
+  /* ── Delulu 5.0 semantic design tokens (alias the theme system) ── */
+  --dl-background: var(--background);
+  --dl-surface: var(--card);
+  --dl-surface-secondary: var(--secondary);
+  --dl-surface-elevated: var(--popover);
+  --dl-text-primary: var(--foreground);
+  --dl-text-secondary: var(--muted-foreground);
+  --dl-text-muted: var(--muted-foreground);
+  --dl-primary: var(--primary);
+  --dl-border: var(--border);
+  --dl-radius-sm: 0.5rem;
+  --dl-radius-md: 0.75rem;
+  --dl-radius-lg: 1rem;
+  --dl-radius-xl: 1.5rem;
 }
 
 .dark {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -65,6 +65,10 @@ import {
   StatusBadge,
 } from '@/components/shared';
 
+import { GEDSEAdvisor } from '@/components/ge-dse-advisor';
+import { IAESplitView } from '@/components/ia-ese-split';
+import { useUPCAutoPopulate } from '@/lib/use-upc-autopopulate';
+import { getAttendanceState } from '@/lib/attendance-helpers';
 // -- Animation helpers ------------------------------------------------
 const container = {
   hidden: { opacity: 0 },
@@ -124,6 +128,7 @@ interface SubjectFormData {
   credits: number;
   color: string;
   targetGrade: string;
+  backlog: boolean;
 }
 
 const EMPTY_FORM: SubjectFormData = {
@@ -132,6 +137,7 @@ const EMPTY_FORM: SubjectFormData = {
   credits: 3,
   color: SUBJECT_COLORS[0],
   targetGrade: 'A',
+  backlog: false,
 };
 
 function SubjectFormDialog({
@@ -149,8 +155,32 @@ function SubjectFormDialog({
 
   const [form, setForm] = useState<SubjectFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { lookup } = useUPCAutoPopulate();
+  const [upcSuggestion, setUpcSuggestion] = useState<{upcCode: string; credits: number; courseType: string; name: string; verified: boolean} | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+
 
   const isEditing = !!editing;
+  // Watch subject name for UPC auto-populate suggestion
+  useEffect(() => {
+    if (!form.name || form.name.length < 3 || isEditing || suggestionDismissed) {
+      setUpcSuggestion(null);
+      return;
+    }
+    const result = lookup(form.name);
+    if (result && result.upcCode) {
+      setUpcSuggestion({
+        upcCode: result.upcCode,
+        credits: result.credits || 0,
+        courseType: (result as any).courseType || 'DSC',
+        name: form.name,
+        verified: (result as any).verified !== false,
+      });
+    } else {
+      setUpcSuggestion(null);
+    }
+  }, [form.name, isEditing, suggestionDismissed, lookup]);
+
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && editing) {
@@ -160,6 +190,7 @@ function SubjectFormDialog({
         credits: editing.credits,
         color: editing.color,
         targetGrade: editing.targetGrade || 'A',
+        backlog: editing.backlog || false,
       });
     } else if (isOpen) {
       setForm({ ...EMPTY_FORM, color: SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)] });
@@ -186,17 +217,22 @@ function SubjectFormDialog({
         credits: form.credits,
         color: form.color,
         targetGrade: form.targetGrade,
+      backlog: form.backlog,
       });
     } else {
       const subjectId = crypto.randomUUID();
       addSubject({
-        id: subjectId,
         name: form.name.trim(),
         code: form.code.trim(),
         credits: form.credits,
         color: form.color,
         archived: false,
         targetGrade: form.targetGrade,
+      semester: 1,
+      courseType: 'DSC' as const,
+      internalMarksMax: 25,
+      endSemMarksMax: 75,
+      backlog: form.backlog,
       });
 
       for (let i = 1; i <= 5; i++) {
@@ -233,6 +269,34 @@ function SubjectFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
             {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+        {/* UPC Auto-Populate Suggestion */}
+        {upcSuggestion && !suggestionDismissed && (
+          <div className="flex items-start gap-2 p-2 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 rounded text-xs">
+            <span className="text-blue-600 dark:text-blue-400 flex-1">
+              Looks like UPC {upcSuggestion.upcCode} — {upcSuggestion.name} ({upcSuggestion.credits} cr, {upcSuggestion.courseType}).
+              {!upcSuggestion.verified && ' ⚠ Some fields unconfirmed — check your syllabus.'}
+              Use these details?
+            </span>
+            <button
+              type="button"
+              className="text-blue-600 dark:text-blue-400 font-medium hover:underline shrink-0"
+              onClick={() => {
+                setForm(f => ({
+                  ...f,
+                  credits: upcSuggestion.credits || f.credits,
+                  code: upcSuggestion.upcCode || f.code,
+                }));
+                setUpcSuggestion(null);
+              }}
+            >Accept</button>
+            <button
+              type="button"
+              className="text-muted-foreground hover:underline shrink-0"
+              onClick={() => setSuggestionDismissed(true)}
+            >Dismiss</button>
+          </div>
+        )}
+
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -334,6 +398,7 @@ export default function SubjectsView() {
     { id: string } & SubjectFormData | null
   >(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [expandedIaEse, setExpandedIaEse] = useState<string | null>(null);
 
   const activeSubjects = useMemo(
     () => subjects.filter((s) => !s.archived),
@@ -363,6 +428,7 @@ export default function SubjectsView() {
       credits: subject.credits,
       color: subject.color,
       targetGrade: subject.targetGrade || 'A',
+      backlog: subject.backlog || false,
     });
     setDialogOpen(true);
   };
@@ -534,13 +600,14 @@ export default function SubjectsView() {
                       <span
                         className={`text-sm font-semibold tabular-nums ${
                           att.total > 0
-                            ? att.percentage >= profile.attendanceThreshold
-                              ? 'text-[var(--delulu-success)]'
-                              : 'text-[var(--delulu-danger)]'
+                            ? getAttendanceState(att.percentage).colorClass
                             : 'text-muted-foreground'
                         }`}
                       >
                         {att.total > 0 ? `${att.percentage}%` : '--'}
+                        {att.total > 0 && (
+                          <span className="text-[10px] font-normal ml-1 opacity-70">{getAttendanceState(att.percentage).label}</span>
+                        )}
                       </span>
                     </div>
                     <div className="flex flex-col">
@@ -581,6 +648,36 @@ export default function SubjectsView() {
                     </div>
                   )}
 
+                  {/* IA/ESE Breakdown toggle */}
+                  {subject.internalMarksMax > 0 && subject.endSemMarksMax > 0 && (
+                    <div className="mt-3 ml-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedIaEse(expandedIaEse === subject.id ? null : subject.id);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      >
+                        <BookOpen className="size-3" />
+                        <span>{expandedIaEse === subject.id ? 'Hide' : 'IA/ESE Breakdown'}</span>
+                      </button>
+                      <AnimatePresence>
+                        {expandedIaEse === subject.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden mt-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <IAESplitView subject={subject} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
                   {/* Signal dot in top-right corner area */}
                   <div className="absolute top-4 right-2 flex items-center gap-1.5">
                     <span
@@ -594,6 +691,45 @@ export default function SubjectsView() {
           </AnimatePresence>
         </motion.div>
       )}
+
+      
+      {/* Carryover Papers - dignity-preserving label, same visual weight */}
+      {(() => {
+        const carryover = subjects.filter(s => s.backlog && !s.archived);
+        if (carryover.length === 0) return null;
+        return (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Carryover Papers ({carryover.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {carryover.map((subject) => {
+                const marks = getSubjectMarks({ assessments }, subject.id);
+                const grade = getSubjectGrade({ assessments }, subject.id);
+                return (
+                  <div key={subject.id} className="card-interactive p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium">{subject.name}</h4>
+                        {subject.code && <p className="text-xs text-muted-foreground">{subject.code}</p>}
+                      </div>
+                      <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
+                        {subject.credits} cr
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                      {marks.max > 0 && <span>{marks.obtained}/{marks.max} marks</span>}
+                      {marks.max > 0 && <span>Grade: {grade}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      <GEDSEAdvisor />
 
       {/* Add/Edit Dialog */}
       <SubjectFormDialog

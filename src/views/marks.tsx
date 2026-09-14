@@ -14,12 +14,17 @@ import {
   BookOpen,
   Trash2,
   Download,
+  FileText,
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useStore } from '@/lib/store';
 import {
   getSubjectMarks,
   getSubjectGrade,
+  getSubjectAttendance,
   calculateSGPA,
   calculateCGPA,
 } from '@/lib/store';
@@ -57,7 +62,12 @@ import {
   SectionHeader,
 } from '@/components/shared';
 import { exportMarksCSV } from '@/lib/csv-export';
+import { getAttendanceState } from '@/lib/attendance-helpers';
 import type { Assessment } from '@/lib/types';
+import { GRADE_POINTS, cgpaToPercentage } from '@/lib/types';
+import { useSemesterFilter } from '@/lib/use-semester-filter';
+import { PyqBank } from '@/components/pyq-bank';
+import { ReEvalTracker } from '@/components/reeval-tracker';
 
 // -- Animation helpers ------------------------------------------------
 const container = {
@@ -100,6 +110,7 @@ export default function MarksView() {
   const {
     subjects,
     assessments,
+    attendance,
     profile,
     navigate,
     selectSubject,
@@ -107,12 +118,19 @@ export default function MarksView() {
     deleteAssessment,
   } = useStore();
 
-  const activeSubjects = useMemo(
-    () => subjects.filter((s) => !s.archived),
-    [subjects]
-  );
+  const {
+    activeSemester,
+    selectedSemester,
+    setSelectedSemester,
+    availableSemesters,
+    semesterSubjects,
+  } = useSemesterFilter();
+
+  const activeSubjects = semesterSubjects;
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pyqExpanded, setPyqExpanded] = useState(false);
+  const [reevalExpanded, setReevalExpanded] = useState(false);
   const [formSubject, setFormSubject] = useState('');
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState<Assessment['category']>('ca_test');
@@ -125,7 +143,7 @@ export default function MarksView() {
   const [filterSubject, setFilterSubject] = useState<string>('all');
 
   const sgpa = useMemo(() => calculateSGPA({ subjects, assessments }), [subjects, assessments]);
-  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments }), [subjects, assessments]);
+  const cgpa = useMemo(() => calculateCGPA({ subjects, assessments, profile }), [subjects, assessments]);
 
   const filteredAssessments = useMemo(() => {
     let list = [...assessments];
@@ -205,6 +223,26 @@ export default function MarksView() {
         }
       />
 
+
+      {/* Semester filter tabs */}
+      {availableSemesters.length > 1 && (
+        <div className="flex items-center gap-1 mb-6 bg-secondary/50 rounded-lg p-1 w-fit">
+          {availableSemesters.map((sem) => (
+            <button
+              key={sem}
+              onClick={() => setSelectedSemester(sem === activeSemester ? null : sem)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                sem === activeSemester
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sem {sem}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* SGPA / CGPA / Target Metric Cards */}
       <motion.div
         variants={container}
@@ -265,9 +303,11 @@ export default function MarksView() {
           animate='show'
           className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8'
         >
-          {activeSubjects.map((subject) => {
-            const marks = getSubjectMarks({ assessments }, subject.id);
-            const grade = getSubjectGrade({ assessments }, subject.id);
+              {activeSubjects.map((subject) => {
+	            const marks = getSubjectMarks({ assessments }, subject.id);
+	            const grade = getSubjectGrade({ assessments }, subject.id);
+	            const att = getSubjectAttendance({ attendance }, subject.id);
+	            const attState = att.total > 0 ? getAttendanceState(att.percentage) : null;
 
             return (
               <motion.div key={subject.id} variants={fadeUp}>
@@ -283,7 +323,7 @@ export default function MarksView() {
                       />
                       <div className='min-w-0'>
                         <p className='text-sm font-medium truncate'>{subject.name}</p>
-                        <p className='text-[11px] text-muted-foreground'>{subject.code} · {subject.credits} credits</p>
+                        <p className='text-[11px] text-muted-foreground'>{subject.code} Â· {subject.credits} credits</p>
                       </div>
                     </div>
                     <span className='text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/50'>
@@ -304,8 +344,43 @@ export default function MarksView() {
                     value={marks.percentage}
                     color={progressColorKey(marks.percentage)}
                   />
-                </div>
-              </motion.div>
+                  {/* IA / ESE split */}
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                    <div>
+                      <span className="text-muted-foreground">IA</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-[var(--delulu-success)]" style={{ width: subject.internalMarksMax > 0 ? `${Math.min(100, ((subject.internalMarksObtained ?? 0) / subject.internalMarksMax) * 100)}%` : '0%' }} />
+                        </div>
+                        <span className="tabular-nums">{subject.internalMarksObtained ?? 0}/{subject.internalMarksMax}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">ESE</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: subject.endSemMarksMax > 0 && subject.endSemMarksObtained !== undefined ? `${Math.min(100, (subject.endSemMarksObtained / subject.endSemMarksMax) * 100)}%` : '0%', backgroundColor: subject.endSemMarksObtained !== undefined ? 'var(--delulu-success)' : 'var(--muted)' }} />
+                        </div>
+                        <span className="tabular-nums">{subject.endSemMarksObtained !== undefined ? `${subject.endSemMarksObtained}/${subject.endSemMarksMax}` : `\u2014/${subject.endSemMarksMax}`}</span>
+                      </div>
+	                    </div>
+	                  </div>
+	                  {/* Attendance indicator with three-state */}
+	                  {att.total > 0 && (
+	                    <div className="mt-2 flex items-center gap-1.5 text-[10px]">
+	                      <span className="text-muted-foreground">Attendance:</span>
+	                      <span className={`font-semibold ${attState?.colorClass ?? 'text-muted-foreground'}`}>
+	                        {att.percentage}%
+	                      </span>
+	                      {attState && (
+	                        <span className={`${attState.bgClass} ${attState.colorClass} px-1.5 py-0.5 rounded text-[9px] font-medium`}>
+	                          {attState.label}
+	                        </span>
+	                      )}
+	                    </div>
+	                  )}
+	                </div>
+	              </motion.div>
             );
           })}
         </motion.div>
@@ -451,6 +526,48 @@ export default function MarksView() {
           </div>
         </>
       )}
+
+      {/* PYQ Bank — collapsible */}
+      <div className="mt-8">
+        <button
+          onClick={() => setPyqExpanded((v) => !v)}
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <FileText className="h-4 w-4" />
+          <span>PYQ Bank</span>
+          {pyqExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {pyqExpanded && (
+          <div className="mt-3">
+            <PyqBank />
+          </div>
+        )}
+      </div>
+
+      {/* Re-evaluation — collapsible */}
+      <div className="mt-4">
+        <button
+          onClick={() => setReevalExpanded((v) => !v)}
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RotateCcw className="h-4 w-4" />
+          <span>Re-evaluation</span>
+          {reevalExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {reevalExpanded && (
+          <div className="mt-3">
+            <ReEvalTracker />
+          </div>
+        )}
+      </div>
 
       {/* Add Assessment Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

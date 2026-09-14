@@ -189,7 +189,8 @@ Answer academic questions clearly and concisely using markdown formatting (bulle
     abortRef.current = abortController;
 
     try {
-      const res = await fetch('/api/ai-tutor', {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+      const res = await fetch(`${apiBase}/api/ai-tutor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages, context: buildContext() }),

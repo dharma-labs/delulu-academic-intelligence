@@ -1,25 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type {
-  AppState,
-  Subject,
-  SyllabusUnit,
-  SyllabusTopic,
-  Assessment,
-  AttendanceRecord,
-  StudySession,
-  RevisionItem,
-  Note,
-  Task,
-  TimetableSlot,
-  CalendarEvent,
-  Assignment,
-  Exam,
-  PYQ,
-  ERPaper,
-  UserProfile,
-  SignalStatus,
-} from './types';
+import type { AppState, Subject, SyllabusUnit, SyllabusTopic, Assessment, AttendanceRecord, StudySession, RevisionItem, Note, Task, TimetableSlot, CalendarEvent, Assignment, Exam, PYQ, ERPaper, Society, UserProfile, SignalStatus, ReEvalRequest, CUETScore, UserFile, UserFolder } from './types';
 import { GRADE_POINTS, GRADE_FROM_PERCENTAGE } from './types';
 
 // ─── Default Profile ───────────────────────────────────────────────
@@ -29,8 +10,13 @@ const DEFAULT_PROFILE: UserProfile = {
   branch: '',
   college: '',
   targetCGPA: 8.5,
-  attendanceThreshold: 75,
+  attendanceThreshold: 66.67,
   weeklyStudyGoalHours: 10,
+  course: '',
+  nepBatch: false,
+  currentSemester: 1,
+  category: 'general',
+  pastSemesters: [],
 };
 
 // ─── Date helpers ──────────────────────────────────────────────────
@@ -52,11 +38,11 @@ const uid = () => crypto.randomUUID();
 function seedDemoData() {
   const now = new Date().toISOString();
   const subjects: Subject[] = [
-    { id: 's1', name: 'Data Structures', code: 'CS201', credits: 4, color: '#635BFF', archived: false, createdAt: now },
-    { id: 's2', name: 'Discrete Mathematics', code: 'MA201', credits: 3, color: '#16A36A', archived: false, createdAt: now },
-    { id: 's3', name: 'Digital Logic Design', code: 'EC201', credits: 3, color: '#E5484D', archived: false, createdAt: now },
-    { id: 's4', name: 'Operating Systems', code: 'CS202', credits: 4, color: '#D99200', archived: false, createdAt: now },
-    { id: 's5', name: 'Computer Networks', code: 'CS203', credits: 3, color: '#8B5CF6', archived: false, createdAt: now },
+    { id: 's1', name: 'Data Structures', code: 'CS201', credits: 4, color: '#635BFF', archived: false, createdAt: now, semester: 1, courseType: 'DSC', internalMarksMax: 25, endSemMarksMax: 75 },
+    { id: 's2', name: 'Discrete Mathematics', code: 'MA201', credits: 3, color: '#16A36A', archived: false, createdAt: now, semester: 1, courseType: 'DSC', internalMarksMax: 25, endSemMarksMax: 75 },
+    { id: 's3', name: 'Digital Logic Design', code: 'EC201', credits: 3, color: '#E5484D', archived: false, createdAt: now, semester: 1, courseType: 'DSC', internalMarksMax: 25, endSemMarksMax: 75 },
+    { id: 's4', name: 'Operating Systems', code: 'CS202', credits: 4, color: '#D99200', archived: false, createdAt: now, semester: 1, courseType: 'DSC', internalMarksMax: 25, endSemMarksMax: 75 },
+    { id: 's5', name: 'Computer Networks', code: 'CS203', credits: 3, color: '#8B5CF6', archived: false, createdAt: now, semester: 1, courseType: 'DSC', internalMarksMax: 25, endSemMarksMax: 75 },
   ];
 
   const syllabusUnits: SyllabusUnit[] = [
@@ -257,6 +243,7 @@ function seedDemoData() {
     studySessions,
     pyqs: [] as PYQ[],
     erPapers: [] as ERPaper[],
+    societies: [] as Society[],
   };
 }
 
@@ -292,6 +279,13 @@ export const useStore = create<AppState>()(
         exams: seed.exams,
         pyqs: seed.pyqs,
         erPapers: seed.erPapers,
+        societies: [],
+
+        // ── Re-evaluation & CUET ──
+        reEvalRequests: [],
+        cuetScores: [],
+        fileFolders: [] as UserFolder[],
+        userFiles: [] as UserFile[],
 
         // ── Focus Timer ──
         focusActive: false,
@@ -299,6 +293,10 @@ export const useStore = create<AppState>()(
         focusTopicId: null,
         focusStartTime: null,
         focusElapsed: 0,
+
+        // ── Language & Leaderboard ──
+        language: 'en' as const,
+        leaderboardOptIn: false,
 
         // ═══════════════════════════════════════════════════════════════
         // Navigation Actions
@@ -700,6 +698,150 @@ export const useStore = create<AppState>()(
           })),
 
         // ═══════════════════════════════════════════════════════════════
+        // Society Actions
+        // ═══════════════════════════════════════════════════════════════
+        addSociety: (society) =>
+          set((state) => ({
+            societies: [
+              ...state.societies,
+              { ...society, id: uid() },
+            ],
+          })),
+
+        updateSociety: (id, data) =>
+          set((state) => ({
+            societies: state.societies.map((s) =>
+              s.id === id ? { ...s, ...data } : s
+            ),
+          })),
+
+        removeSociety: (id) =>
+          set((state) => ({
+            societies: state.societies.filter((s) => s.id !== id),
+          })),
+
+        // ═══════════════════════════════════════════════════════════════
+        // Re-evaluation Request Actions
+        // ═══════════════════════════════════════════════════════════════
+        addReEvalRequest: (request) =>
+          set((state) => ({
+            reEvalRequests: [
+              ...state.reEvalRequests,
+              { ...request, id: uid() },
+            ],
+          })),
+
+        updateReEvalRequest: (id, data) =>
+          set((state) => ({
+            reEvalRequests: state.reEvalRequests.map((r) =>
+              r.id === id ? { ...r, ...data } : r
+            ),
+          })),
+
+        removeReEvalRequest: (id) =>
+          set((state) => ({
+            reEvalRequests: state.reEvalRequests.filter((r) => r.id !== id),
+          })),
+
+        // ═══════════════════════════════════════════════════════════════
+        // CUET Score Actions
+        // ═══════════════════════════════════════════════════════════════
+        addCUETScore: (score) =>
+          set((state) => ({
+            cuetScores: [
+              ...state.cuetScores,
+              { ...score, id: uid() },
+            ],
+          })),
+
+        updateCUETScore: (id, data) =>
+          set((state) => ({
+            cuetScores: state.cuetScores.map((s) =>
+              s.id === id ? { ...s, ...data } : s
+            ),
+          })),
+
+        removeCUETScore: (id) =>
+          set((state) => ({
+            cuetScores: state.cuetScores.filter((s) => s.id !== id),
+          })),
+
+        // File manager actions
+        addFolder: (folder) =>
+          set((state) => ({
+            fileFolders: [
+              ...state.fileFolders,
+              { ...folder, id: uid(), createdAt: new Date().toISOString() },
+            ],
+          })),
+
+        renameFolder: (id, name) =>
+          set((state) => ({
+            fileFolders: state.fileFolders.map((f) =>
+              f.id === id ? { ...f, name } : f
+            ),
+          })),
+
+        deleteFolder: (id) =>
+          set((state) => {
+            // Recursively collect folder ids to delete
+            const toDelete = new Set<string>([id]);
+            let changed = true;
+            while (changed) {
+              changed = false;
+              for (const f of state.fileFolders) {
+                if (f.parentId && toDelete.has(f.parentId) && !toDelete.has(f.id)) {
+                  toDelete.add(f.id);
+                  changed = true;
+                }
+              }
+            }
+            return {
+              fileFolders: state.fileFolders.filter((f) => !toDelete.has(f.id)),
+              userFiles: state.userFiles.filter((file) => file.folderId === null || !toDelete.has(file.folderId)),
+            };
+          }),
+
+        moveFolder: (id, parentId) =>
+          set((state) => ({
+            fileFolders: state.fileFolders.map((f) =>
+              f.id === id ? { ...f, parentId } : f
+            ),
+          })),
+
+        addFile: (file) =>
+          set((state) => ({
+            userFiles: [
+              ...state.userFiles,
+              {
+                ...file,
+                id: uid(),
+                createdAt: new Date().toISOString(),
+                blobRef: file.blobRef ?? uid(),
+              } as UserFile,
+            ],
+          })),
+
+        renameFile: (id, name) =>
+          set((state) => ({
+            userFiles: state.userFiles.map((f) =>
+              f.id === id ? { ...f, name } : f
+            ),
+          })),
+
+        deleteFile: (id) =>
+          set((state) => ({
+            userFiles: state.userFiles.filter((f) => f.id !== id),
+          })),
+
+        moveFile: (id, folderId) =>
+          set((state) => ({
+            userFiles: state.userFiles.map((f) =>
+              f.id === id ? { ...f, folderId } : f
+            ),
+          })),
+
+        // ═══════════════════════════════════════════════════════════════
         // Focus Actions
         // ═══════════════════════════════════════════════════════════════
         startFocus: (subjectId, topicId, topicName) =>
@@ -740,6 +882,13 @@ export const useStore = create<AppState>()(
         },
 
         // ═══════════════════════════════════════════════════════════════
+        // Language & Leaderboard Actions
+        // ═══════════════════════════════════════════════════════════════
+        setLanguage: (language) => set({ language }),
+
+        setLeaderboardOptIn: (optIn) => set({ leaderboardOptIn: optIn }),
+
+        // ═══════════════════════════════════════════════════════════════
         // Data Management
         // ═══════════════════════════════════════════════════════════════
         exportData: () => {
@@ -760,6 +909,11 @@ export const useStore = create<AppState>()(
             exams: state.exams,
             pyqs: state.pyqs,
             erPapers: state.erPapers,
+            societies: state.societies,
+            reEvalRequests: state.reEvalRequests,
+            cuetScores: state.cuetScores,
+        fileFolders: state.fileFolders,
+        userFiles: state.userFiles,
           };
           return JSON.stringify(dataToExport, null, 2);
         },
@@ -776,7 +930,8 @@ export const useStore = create<AppState>()(
               'profile', 'subjects', 'syllabusUnits', 'assessments',
               'attendance', 'studySessions', 'revisionItems', 'notes',
               'tasks', 'timetableSlots', 'calendarEvents', 'assignments',
-              'exams', 'pyqs', 'erPapers',
+              'exams', 'pyqs', 'erPapers', 'societies',
+              'reEvalRequests', 'cuetScores',
             ];
 
             const updates: Partial<AppState> = {};
@@ -813,6 +968,9 @@ export const useStore = create<AppState>()(
             exams: seed.exams,
             pyqs: [],
             erPapers: [],
+            societies: [],
+            reEvalRequests: [],
+            cuetScores: [],
             currentView: 'dashboard' as const,
             selectedSubjectId: null,
             previousView: null,
@@ -841,6 +999,9 @@ export const useStore = create<AppState>()(
             exams: [],
             pyqs: [],
             erPapers: [],
+            societies: [],
+            reEvalRequests: [],
+            cuetScores: [],
             currentView: 'dashboard' as const,
             selectedSubjectId: null,
             previousView: null,
@@ -874,14 +1035,49 @@ export const useStore = create<AppState>()(
         exams: state.exams,
         pyqs: state.pyqs,
         erPapers: state.erPapers,
+        societies: state.societies,
+        reEvalRequests: state.reEvalRequests,
+        cuetScores: state.cuetScores,
+        language: state.language,
+        leaderboardOptIn: state.leaderboardOptIn,
       }),
       // Migrate: inject study sessions if existing data has none
       migrate: (persisted) => {
-        if (persisted.studySessions && persisted.studySessions.length === 0) {
+        const p = persisted as any;
+        if (p.studySessions && p.studySessions.length === 0) {
           const seed = seedDemoData();
-          persisted.studySessions = seed.studySessions;
+          p.studySessions = seed.studySessions;
         }
-        return persisted;
+        // DU migration: add new profile fields
+        if (p.profile) {
+          if (p.profile.pastSemesters === undefined) p.profile.pastSemesters = [];
+          if (p.profile.currentSemester === undefined) p.profile.currentSemester = p.profile.semester || 1;
+          if (p.profile.course === undefined) p.profile.course = '';
+          if (p.profile.nepBatch === undefined) p.profile.nepBatch = false;
+          if (p.profile.category === undefined) p.profile.category = 'general';
+          if (p.profile.attendanceThreshold === 75) p.profile.attendanceThreshold = 66.67;
+        }
+        // DU migration: add new subject fields
+        if (Array.isArray(p.subjects)) {
+          for (const s of p.subjects) {
+            if (s.semester === undefined) s.semester = s.archived ? 0 : (p.profile?.currentSemester || p.profile?.semester || 1);
+            if (s.courseType === undefined) s.courseType = 'DSC';
+            if (s.internalMarksMax === undefined) s.internalMarksMax = 25;
+            if (s.endSemMarksMax === undefined) s.endSemMarksMax = 75;
+          }
+        }
+        // Society migration: add societies array if missing
+        if (p.societies === undefined) p.societies = [];
+        // Language & leaderboard migration
+        if (p.language === undefined) p.language = 'en';
+        if (p.leaderboardOptIn === undefined) p.leaderboardOptIn = false;
+        // Re-evaluation & CUET migration
+        if (p.reEvalRequests === undefined) p.reEvalRequests = [];
+        if (p.cuetScores === undefined) p.cuetScores = [];
+        // File manager migration
+        if (p.fileFolders === undefined) p.fileFolders = [];
+        if (p.userFiles === undefined) p.userFiles = [];
+        return p;
       },
     }
   )
@@ -1008,9 +1204,23 @@ export function calculateSGPA(state: Pick<AppState, 'subjects' | 'assessments'>)
     : 0;
 }
 
-/** Overall CGPA (currently same as SGPA for single semester data) */
-export function calculateCGPA(state: Pick<AppState, 'subjects' | 'assessments'>): number {
-  return calculateSGPA(state);
+/** Overall CGPA - weighted average across all past semesters + current */
+export function calculateCGPA(
+  state: Pick<AppState, 'subjects' | 'assessments' | 'profile'>
+): number {
+  const currentSGPA = calculateSGPA(state);
+  const currentSubjects = state.subjects.filter((s) => !s.archived);
+  const currentCredits = currentSubjects.reduce((sum, s) => sum + s.credits, 0);
+
+  const past = state.profile?.pastSemesters || [];
+  if (past.length === 0 && currentCredits === 0) return 0;
+
+  const all = [...past, { sem: -1, sgpa: currentSGPA, credits: currentCredits }];
+  const weightedSum = all.reduce((s, x) => s + x.sgpa * x.credits, 0);
+  const totalCredits = all.reduce((s, x) => s + x.credits, 0);
+  return totalCredits > 0
+    ? Math.round((weightedSum / totalCredits) * 100) / 100
+    : 0;
 }
 
 /** Revision items due today or earlier */

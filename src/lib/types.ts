@@ -1,3 +1,5 @@
+export type DUCourseType = 'DSC' | 'DSE' | 'GE' | 'AECC' | 'SEC' | 'VC' | 'OE';
+
 export interface Subject {
   id: string;
   name: string;
@@ -9,6 +11,15 @@ export interface Subject {
   officialGrade?: string;
   targetGrade?: string;
   createdAt: string;
+  // DU-specific
+  semester: number;
+  courseType: DUCourseType;
+  internalMarksMax: number;
+  endSemMarksMax: number;
+  internalMarksObtained?: number;
+  endSemMarksObtained?: number;
+  backlog?: boolean;
+  upcCode?: string;
 }
 
 export interface SyllabusUnit {
@@ -167,6 +178,67 @@ export interface ERPaper {
   createdAt: string;
 }
 
+export interface ReEvalRequest {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  upcCode?: string;
+  semester: number;
+  originalMarks: number;
+  maxMarks: number;
+  status: 'draft' | 'submitted' | 'result-pending' | 'result-received';
+  resultMarks?: number;
+  feePaid?: boolean;
+  submittedDate?: string;
+  resultDate?: string;
+  notes?: string;
+}
+
+export interface CUETScore {
+  id: string;
+  subject: string;
+  score: number;
+  maxScore: number;
+  percentile?: number;
+  year: number;
+}
+
+export interface Society {
+  id: string;
+  name: string;
+  role: string;
+  startDate: string;
+  active: boolean;
+  category: 'cultural' | 'sports' | 'academic' | 'social' | 'other';
+  notes?: string;
+}
+
+export type FileKind = 'image' | 'pdf' | 'document' | 'video' | 'audio' | 'other';
+
+export interface UserFile {
+  id: string;
+  name: string;           // display name with extension
+  folderId: string | null; // null = root
+  kind: FileKind;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  blobRef: string;        // IndexedDB key (same as id)
+}
+
+export interface UserFolder {
+  id: string;
+  name: string;
+  parentId: string | null; // null = root
+  createdAt: string;
+}
+
+export interface PastSemester {
+  sem: number;
+  sgpa: number;
+  credits: number;
+}
+
 export interface UserProfile {
   name: string;
   semester: number;
@@ -175,6 +247,12 @@ export interface UserProfile {
   targetCGPA: number;
   attendanceThreshold: number;
   weeklyStudyGoalHours: number;
+  // DU-specific
+  course: string;
+  nepBatch: boolean;
+  currentSemester: number;
+  category: 'general' | 'obc' | 'sc' | 'st' | 'ews' | 'pwd';
+  pastSemesters: PastSemester[];
 }
 
 export type ViewId =
@@ -196,7 +274,9 @@ export type ViewId =
   | 'assignments'
   | 'settings'
   | 'ai-tutor'
-  | 'report';
+  | 'report'
+  | 'files'
+  | 'now';
 
 export interface AppState {
   // Navigation
@@ -224,6 +304,11 @@ export interface AppState {
   exams: Exam[];
   pyqs: PYQ[];
   erPapers: ERPaper[];
+  societies: Society[];
+  reEvalRequests: ReEvalRequest[];
+  cuetScores: CUETScore[];
+  fileFolders: UserFolder[];
+  userFiles: UserFile[];
 
   // Focus timer
   focusActive: boolean;
@@ -231,6 +316,10 @@ export interface AppState {
   focusTopicId: string | null;
   focusStartTime: number | null;
   focusElapsed: number;
+
+  // Language & Leaderboard
+  language: 'en' | 'hi';
+  leaderboardOptIn: boolean;
 
   // Navigation actions
   navigate: (view: ViewId) => void;
@@ -315,9 +404,38 @@ export interface AppState {
   updateERPaper: (id: string, data: Partial<ERPaper>) => void;
   deleteERPaper: (id: string) => void;
 
+  // Society actions
+  addSociety: (society: Omit<Society, 'id'>) => void;
+  updateSociety: (id: string, data: Partial<Society>) => void;
+  removeSociety: (id: string) => void;
+
+  // Re-evaluation actions
+  addReEvalRequest: (request: Omit<ReEvalRequest, 'id'>) => void;
+  updateReEvalRequest: (id: string, data: Partial<ReEvalRequest>) => void;
+  removeReEvalRequest: (id: string) => void;
+
+  // CUET score actions
+  addCUETScore: (score: Omit<CUETScore, 'id'>) => void;
+  updateCUETScore: (id: string, data: Partial<CUETScore>) => void;
+  removeCUETScore: (id: string) => void;
+
+  // File manager actions
+  addFolder: (folder: Omit<UserFolder, 'id' | 'createdAt'>) => void;
+  renameFolder: (id: string, name: string) => void;
+  deleteFolder: (id: string) => void;
+  moveFolder: (id: string, parentId: string | null) => void;
+  addFile: (file: Omit<UserFile, 'id' | 'createdAt' | 'blobRef'> & { blobRef?: string }) => void;
+  renameFile: (id: string, name: string) => void;
+  deleteFile: (id: string) => void;
+  moveFile: (id: string, folderId: string | null) => void;
+
   // Focus actions
   startFocus: (subjectId: string, topicId?: string, topicName?: string) => void;
   stopFocus: (notes?: string) => void;
+
+  // Language & Leaderboard actions
+  setLanguage: (language: 'en' | 'hi') => void;
+  setLeaderboardOptIn: (optIn: boolean) => void;
 
   // Data management
   exportData: () => string;
@@ -328,19 +446,17 @@ export interface AppState {
 
 // Grade point mapping
 export const GRADE_POINTS: Record<string, number> = {
-  'O': 10, 'A+': 10, 'A': 9, 'A-': 8, 'B+': 7, 'B': 6, 'B-': 5,
-  'C+': 4, 'C': 3, 'C-': 2, 'D': 1, 'F': 0,
+  O: 10, 'A+': 9, A: 8, 'B+': 7, B: 6, C: 5, D: 4, F: 0,
 };
 
 export const GRADE_FROM_PERCENTAGE = (pct: number): string => {
   if (pct >= 90) return 'O';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'A-';
+  if (pct >= 80) return 'A+';
+  if (pct >= 70) return 'A';
   if (pct >= 60) return 'B+';
   if (pct >= 55) return 'B';
-  if (pct >= 50) return 'B-';
-  if (pct >= 45) return 'C';
-  if (pct >= 40) return 'P';
+  if (pct >= 50) return 'C';
+  if (pct >= 40) return 'D';
   return 'F';
 };
 
@@ -349,6 +465,11 @@ export const SUBJECT_COLORS = [
   '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
   '#84CC16', '#F43F5E', '#A855F7', '#22D3EE', '#FB923C',
 ];
+
+/** CGPA to Percentage: official DU formula % = CGPA × 9.5 (UGC CBCS multiplier, adopted by DU from 2018-19) */
+export function cgpaToPercentage(cgpa: number): number {
+  return Math.round(cgpa * 9.5 * 100) / 100;
+}
 
 export type SignalStatus = 'healthy' | 'improving' | 'attention' | 'critical' | 'upcoming' | 'nodata';
 

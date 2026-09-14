@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
+import { useSemesterFilter } from '@/lib/use-semester-filter';
 import { Clock, BarChart3, BrainCircuit, Target, Flame, Activity, Download, TrendingUp, AlertTriangle, Users } from 'lucide-react';
 import { format, subDays, startOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -230,7 +231,7 @@ export default function AnalyticsView() {
                     : 0;
                   const studyMin = Math.round(subSessions.reduce((a, x) => a + x.duration, 0) / 60);
                   let signal = 'On Track';
-                  if (att.percentage < 75) signal = 'At Risk';
+                  if (att.percentage < 75) signal = 'Below Threshold';
                   else if (prog < 30) signal = 'Needs Attention';
                   return { name: sub.name, attendance: att.percentage, syllabus: prog, avgScore, studyMinutes: studyMin, sessions: subSessions.length, signal };
                 });

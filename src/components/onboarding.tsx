@@ -119,6 +119,10 @@ export function Onboarding() {
         credits: Math.max(1, parseInt(subjectCredits) || 3),
         color: subjectColor,
         archived: false,
+        semester: 1,
+        courseType: 'DSC',
+        internalMarksMax: 25,
+        endSemMarksMax: 75,
       });
     }
 
@@ -194,6 +198,7 @@ export function Onboarding() {
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">
                   Welcome to Delulu
                 </h2>
+                <p className="text-[11px] text-muted-foreground -mt-1 mb-2">by Dharmendra</p>
                 <p className="text-sm text-primary font-medium mt-1 mb-4">
                   Your Academic Intelligence System
                 </p>

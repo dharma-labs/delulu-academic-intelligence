@@ -7,15 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useState, useRef } from 'react';
-import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone, Globe, Trophy, GraduationCap, Crown, AtSign, Mail } from 'lucide-react';
+import { APP_NAME, APP_VERSION, APP_TAGLINE, DEVELOPER_CREDIT, DEVELOPER_INSTAGRAM, DEVELOPER_INSTAGRAM_URL, DEVELOPER_EMAIL } from '@/lib/app-info';
 import { toast } from 'sonner';
 import { PageHeader, InsightCard } from '@/components/shared';
+import { LanguageToggle } from '@/components/language-toggle';
+import { LeaderboardOptIn } from '@/components/leaderboard-opt-in';
+import { CUETTracker } from '@/components/cuet-tracker';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
+import { loadColleges, loadCourses, dataAsOfBadge, findMatchingPaper } from '@/lib/du-data-loader';
+import type { DUCollege, DUProgramme } from '@/lib/du-data-loader';
 
-// ─── Section Wrapper ─────────────────────────────────────────────
+// ─── Section Wrapper ───
 
 function SettingsSection({
   icon: Icon,
@@ -46,7 +52,7 @@ function SettingsSection({
   );
 }
 
-// ─── Settings Input ──────────────────────────────────────────────
+// ─── Settings Input ───
 
 function SettingsInput({
   label,
@@ -71,6 +77,20 @@ export default function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { toast: showToast } = useToast();
   const [localProfile, setLocalProfile] = useState(profile);
+  const [duColleges, setDuColleges] = useState<DUCollege[]>([]);
+  const [collegeSearch, setCollegeSearch] = useState('');
+  const [collegesSourceDate, setCollegesSourceDate] = useState<string | null>(null);
+  const [collegesVerified, setCollegesVerified] = useState(false);
+  const [duProgrammes, setDuProgrammes] = useState<DUProgramme[]>([]);
+  const [courseSearch, setCourseSearch] = useState('');
+  useEffect(() => {
+    loadCourses().then(data => setDuProgrammes(data.programmes));
+    loadColleges().then(data => {
+      setDuColleges(data.colleges);
+      setCollegesSourceDate(data.sourceDate);
+      setCollegesVerified(data.verified);
+    });
+  }, []);
   const [resetText, setResetText] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -151,7 +171,7 @@ export default function SettingsView() {
         subtitle="Manage your profile, appearance, and data"
       />
 
-      {/* ── PROFILE ── */}
+      {/* ─── PROFILE ─── */}
       <SettingsSection icon={User} title="PROFILE" className="mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SettingsInput
@@ -168,17 +188,30 @@ export default function SettingsView() {
             onChange={(e) => setLocalProfile({ ...localProfile, semester: Number(e.target.value) })}
           />
           <SettingsInput
-            label="Branch"
+            label="Course (Programme)"
             placeholder="e.g. Computer Science"
             value={localProfile.branch}
+            list="du-programmes-list"
             onChange={(e) => setLocalProfile({ ...localProfile, branch: e.target.value })}
           />
           <SettingsInput
             label="College"
-            placeholder="Your college name"
+            placeholder="Search or type your college name"
             value={localProfile.college}
-            onChange={(e) => setLocalProfile({ ...localProfile, college: e.target.value })}
+            onChange={(e) => { setLocalProfile({ ...localProfile, college: e.target.value }); setCollegeSearch(e.target.value); }}
+            list="du-colleges-list"
           />
+          <datalist id="du-colleges-list">
+            {duColleges.filter(c => !collegeSearch || c.name.toLowerCase().includes(collegeSearch.toLowerCase())).slice(0, 20).map(c => (
+              <option key={c.name} value={c.name} />
+            ))}
+          </datalist>
+          {collegesSourceDate && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {dataAsOfBadge(collegesSourceDate, collegesVerified).text}
+              {dataAsOfBadge(collegesSourceDate, collegesVerified).stale && ' — consider refreshing'}
+            </p>
+          )}
           <SettingsInput
             label="Target CGPA"
             type="number"
@@ -197,9 +230,14 @@ export default function SettingsView() {
             onChange={(e) => setLocalProfile({ ...localProfile, attendanceThreshold: Number(e.target.value) })}
           />
         </div>
+          <datalist id="du-programmes-list">
+            {duProgrammes.map(p => (
+              <option key={p.code} value={p.name} />
+            ))}
+          </datalist>
       </SettingsSection>
 
-      {/* ── STUDY PREFERENCES ── */}
+      {/* ─── STUDY PREFERENCES ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <SettingsSection icon={Clock} title="STUDY PREFERENCES" className="mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -215,7 +253,7 @@ export default function SettingsView() {
         </SettingsSection>
       </div>
 
-      {/* ── APPEARANCE ── */}
+      {/* ─── APPEARANCE ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <SettingsSection icon={Palette} title="APPEARANCE" className="mb-4">
           <div className="flex gap-3">
@@ -239,7 +277,28 @@ export default function SettingsView() {
         </SettingsSection>
       </div>
 
-      {/* ── DATA MANAGEMENT ── */}
+      {/* ─── LANGUAGE ─── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Globe} title="LANGUAGE" className="mb-4">
+          <LanguageToggle />
+        </SettingsSection>
+      </div>
+
+      {/* ─── LEADERBOARD ─── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={Trophy} title="LEADERBOARD" className="mb-4">
+          <LeaderboardOptIn />
+        </SettingsSection>
+      </div>
+
+      {/* ─── CUET SCORES ─── */}
+      <div className="border-t border-border/50 pt-4 mt-4">
+        <SettingsSection icon={GraduationCap} title="CUET SCORES" className="mb-4">
+          <CUETTracker />
+        </SettingsSection>
+      </div>
+
+      {/* ─── DATA MANAGEMENT ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <SettingsSection icon={Database} title="DATA MANAGEMENT" className="mb-4">
           <div className="flex flex-col sm:flex-row gap-2">
@@ -314,7 +373,7 @@ export default function SettingsView() {
         </SettingsSection>
       </div>
 
-      {/* ── AI TUTOR ── */}
+      {/* ─── AI TUTOR ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <SettingsSection icon={Bot} title="AI TUTOR" className="mb-4">
           <InsightCard
@@ -326,31 +385,58 @@ export default function SettingsView() {
         </SettingsSection>
       </div>
 
-      {/* ── ABOUT ── */}
+      {/* ─── ABOUT ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <SettingsSection icon={Info} title="ABOUT" className="mb-4">
           <div className="space-y-2.5">
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">App</span>
-              <span className="text-xs font-medium">Delulu 4.0</span>
+              <span className="text-xs font-medium">{APP_NAME} {APP_VERSION}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Version</span>
-              <span className="text-xs font-medium">4.0.0</span>
+              <span className="text-xs font-medium">{APP_VERSION}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Data Storage</span>
               <span className="text-xs font-medium">Local (your device only)</span>
             </div>
             <Separator className="my-1" />
+            <div className="flex items-center gap-2 py-1">
+              <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold">{DEVELOPER_CREDIT}</p>
+                <p className="text-[10px] text-muted-foreground">Designed &amp; built with care</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <AtSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <a
+                href={DEVELOPER_INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 hover:text-blue-400 hover:underline"
+              >
+                @d4.5dx
+              </a>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <a
+                href={`mailto:${DEVELOPER_EMAIL}`}
+                className="text-xs text-blue-500 hover:text-blue-400 hover:underline break-all"
+              >
+                {DEVELOPER_EMAIL}
+              </a>
+            </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              An Academic Operating System for serious students. Fun brand. Serious product.
+              {APP_TAGLINE}
             </p>
           </div>
         </SettingsSection>
       </div>
 
-      {/* ── INSTALL APP ── */}
+      {/* ─── INSTALL APP ─── */}
       <div className="border-t border-border/50 pt-4 mt-4">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
@@ -402,7 +488,7 @@ export default function SettingsView() {
         </div>
       </div>
 
-      {/* ── DANGER ZONE ── */}
+      {/* ─── DANGER ZONE ─── */}
       <div className="border-t border-border/50 pt-4 mt-4 mb-4">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="flex items-center justify-center size-7 rounded-lg bg-red-500/10">
@@ -472,7 +558,7 @@ export default function SettingsView() {
         </div>
       </div>
 
-      {/* ── SAVE BUTTON ── */}
+      {/* ─── SAVE BUTTON ─── */}
       <Button onClick={handleSave} className="w-full" size="default">
         <Save className="w-4 h-4 mr-2" />Save Changes
       </Button>

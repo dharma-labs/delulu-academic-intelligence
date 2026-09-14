@@ -21,8 +21,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import {
-  LayoutDashboard,
+import { LayoutDashboard,
   BookOpen,
   BarChart3,
   UserCheck,
@@ -45,11 +44,13 @@ import {
   ClipboardList,
   Flame,
   Keyboard,
+  Sparkles,
   ArrowRight,
   Sun,
   Moon,
   Plus,
   type LucideIcon,
+  FolderOpen,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -128,19 +129,21 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Overview',
+    label: 'Home',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+      { id: 'now', label: 'Now', icon: Sparkles },
     ],
   },
   {
-    label: 'Academic',
+    label: 'Academics',
     items: [
       { id: 'subjects', label: 'Subjects', icon: BookOpen },
-      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
       { id: 'attendance', label: 'Attendance', icon: UserCheck },
+      { id: 'marks', label: 'Marks & CA', icon: BarChart3 },
       { id: 'exams', label: 'Exams', icon: FileText },
       { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+      { id: 'files', label: 'Files', icon: FolderOpen },
     ],
   },
   {
@@ -160,12 +163,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Intelligence',
+    label: 'Insights',
     items: [
       { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+      { id: 'report', label: 'Reports', icon: GraduationCap },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [
       { id: 'er-center', label: 'ER Center', icon: FileSearch },
-      { id: 'ai-tutor', label: 'AI Tutor', icon: Bot },
-      { id: 'report', label: 'Report', icon: GraduationCap },
     ],
   },
 ];

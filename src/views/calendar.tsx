@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   format,
   startOfMonth,
@@ -55,6 +55,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PageHeader, EmptyState } from '@/components/shared';
 import type { CalendarEvent } from '@/lib/types';
+import { loadAcademicCalendar, dataAsOfBadge } from '@/lib/du-data-loader';
+import type { DUAcaCalData } from '@/lib/du-data-loader';
 
 // -- Animation helpers ------------------------------------------------
 const container = {
@@ -93,6 +95,10 @@ export default function CalendarView() {
     useStore();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [duAcaCal, setDuAcaCal] = useState<DUAcaCalData | null>(null);
+  const [showDUCalendar, setShowDUCalendar] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+  useEffect(() => { loadAcademicCalendar().then(d => setDuAcaCal(d)); }, []);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formDate, setFormDate] = useState('');
@@ -242,6 +248,134 @@ export default function CalendarView() {
           </Button>
         }
       />
+
+      
+      {/* DU Official Academic Calendar */}
+      {duAcaCal && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowDUCalendar(!showDUCalendar)}
+            className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            DU Official Calendar ({duAcaCal.academicYear})
+            {showDUCalendar ? ' ▲' : ' ▼'}
+          </button>
+          {showDUCalendar && (
+            <div className="mt-2 p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 rounded-lg text-xs space-y-2">
+              <p className="font-medium text-blue-700 dark:text-blue-300">
+                Source: DU Notification {duAcaCal.sourceDate} · {dataAsOfBadge(duAcaCal.sourceDate, duAcaCal.verified).text}
+              </p>
+              {(() => {
+                const now = new Date();
+                const yearStart = new Date(duAcaCal.oddSemester.classesBegin);
+                const yearEnd = new Date(duAcaCal.evenSemester.summerVacation?.end || duAcaCal.evenSemester.theoryExaminationsBegin);
+                if (now < yearStart || now > new Date(yearEnd.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+                  return <p className="text-amber-600 dark:text-amber-400 font-medium">⚠ Calendar data may be outdated — refresh needed for current academic year.</p>;
+                }
+                return null;
+              })()}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: 'Odd Semester', data: duAcaCal.oddSemester },
+                  { label: 'Even Semester', data: duAcaCal.evenSemester },
+                ].map(({ label, data }) => (
+                  <div key={label} className="space-y-1">
+                    <p className="font-semibold">{label} ({data.appliesTo})</p>
+                    <p>Classes begin: <span className="font-medium">{new Date(data.classesBegin).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                    {data.autumnVacation && <p>Autumn vacation: {new Date(data.autumnVacation.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(data.autumnVacation.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>}
+                    {data.midSemesterVacation && <p>Mid-sem vacation: {new Date(data.midSemesterVacation.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(data.midSemesterVacation.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>}
+                    {data.winterVacation && <p>Winter vacation: {new Date(data.winterVacation.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(data.winterVacation.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>}
+                    {data.summerVacation && <p>Summer vacation: {new Date(data.summerVacation.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(data.summerVacation.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>}
+                    <p>Practical exams from: <span className="font-medium">{new Date(data.dispersalPrepLeavePracticalExamBegin).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                    <p>Theory exams from: <span className="font-medium">{new Date(data.theoryExaminationsBegin).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-muted-foreground italic">
+                Result declaration & re-evaluation dates are published separately by DU's Examination Branch per exam cycle — check their notices for exact dates.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      
+      {/* DU Academic Calendar → Suggested Events */}
+      {duAcaCal && (() => {
+        type DateSuggestion = { id: string; label: string; date: string; kind: string };
+        const suggestions: DateSuggestion[] = [];
+        const addS = (semLabel: string, kind: string, label: string, date: string) => {
+          if (date) suggestions.push({ id: `${semLabel}-${kind}`, label: `${semLabel}: ${label}`, date, kind });
+        };
+        const odd = duAcaCal.oddSemester;
+        const even = duAcaCal.evenSemester;
+
+        addS('Odd Sem', 'classes', 'Classes begin', odd.classesBegin);
+        if (odd.autumnVacation) {
+          addS('Odd Sem', 'vacation-start', 'Autumn vacation starts', odd.autumnVacation.start);
+          addS('Odd Sem', 'vacation-end', 'Autumn vacation ends', odd.autumnVacation.end);
+        }
+        if (odd.midSemesterVacation) {
+          addS('Odd Sem', 'vacation-start', 'Mid-sem vacation starts', odd.midSemesterVacation.start);
+          addS('Odd Sem', 'vacation-end', 'Mid-sem vacation ends', odd.midSemesterVacation.end);
+        }
+        addS('Odd Sem', 'practical-exam', 'Practical exams begin', odd.dispersalPrepLeavePracticalExamBegin);
+        addS('Odd Sem', 'theory-exam', 'Theory exams begin', odd.theoryExaminationsBegin);
+
+        addS('Even Sem', 'classes', 'Classes begin', even.classesBegin);
+        if (even.winterVacation) {
+          addS('Even Sem', 'vacation-start', 'Winter vacation starts', even.winterVacation.start);
+          addS('Even Sem', 'vacation-end', 'Winter vacation ends', even.winterVacation.end);
+        }
+        if (even.summerVacation) {
+          addS('Even Sem', 'vacation-start', 'Summer vacation starts', even.summerVacation.start);
+          addS('Even Sem', 'vacation-end', 'Summer vacation ends', even.summerVacation.end);
+        }
+        addS('Even Sem', 'practical-exam', 'Practical exams begin', even.dispersalPrepLeavePracticalExamBegin);
+        addS('Even Sem', 'theory-exam', 'Theory exams begin', even.theoryExaminationsBegin);
+
+        const visible = suggestions.filter(s => !dismissedSuggestions.has(s.id));
+        if (visible.length === 0) return null;
+
+        const kindEmoji: Record<string, string> = { classes: '📖', 'vacation-start': '🏖️', 'vacation-end': '📖', 'practical-exam': '📝', 'theory-exam': '📝' };
+
+        return (
+          <div className="mb-4 p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 rounded-lg">
+            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-2">
+              Suggested calendar entries from DU academic calendar
+            </p>
+            <div className="space-y-1.5">
+              {visible.map(s => {
+                const d = new Date(s.date);
+                return (
+                  <div key={s.id} className="flex items-center gap-2 text-xs">
+                    <span>{kindEmoji[s.kind] || '📅'}</span>
+                    <span className="flex-1">
+                      {s.label} — {d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    <button
+                      className="text-emerald-600 dark:text-emerald-400 font-medium hover:underline"
+                      onClick={() => {
+                        addCalendarEvent({
+                          title: s.label,
+                          date: s.date,
+                          type: s.kind.includes('exam') ? 'exam' : s.kind.includes('vacation') ? 'event' : 'custom',
+                        });
+                        setDismissedSuggestions(prev => new Set(prev).add(s.id));
+                      }}
+                    >Add</button>
+                    <button
+                      className="text-muted-foreground hover:underline"
+                      onClick={() => setDismissedSuggestions(prev => new Set(prev).add(s.id))}
+                    >Dismiss</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Month Navigation */}
       <motion.div

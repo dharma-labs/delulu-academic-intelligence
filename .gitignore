@@ -20,6 +20,10 @@ node_modules
 # production
 /build
 
+# electron + capacitor build artifacts
+/release/
+/desktop/dist/
+
 # misc
 .DS_Store
 *.pem
@@ -63,26 +67,33 @@ server.log
 /make-ico*.js
 /clean-*.js
 /revert-*.js
-/compare-stash.ps1
-/bump-version.js
 /store-actions-fix.js
 /.package.json.bak
 /desktop-build.log
 /eb.log
+
+# capacitor native platforms (regenerated via cap sync/add)
+/android/
+/ios/
+
+# pdf cache for date-sheet extraction (large, source data)
+/data/pdf-cache/
+
+# more one-off data-extraction helpers
 /extract-*.js
 /final-*.js
 /match-*.js
 /update-courses-upc.js
 /update-manifest.js
 /electron-main.js
-# capacitor native platforms (regenerated)
-/android/
-/ios/
-# pdf cache for date-sheet extraction
-/data/pdf-cache/
 
-/release/
-/desktop/dist/
-/out/
-
-/release-notes.md
+# more one-off dev scripts
+/dl5-tokens.js
+/restructure-nav.js
+/nav-50.js
+/nav-50b.js
+/show-nav.js
+/dump-nav.js
+/audit-tree.js
+/compare-stash.ps1
+/apply-*.js
