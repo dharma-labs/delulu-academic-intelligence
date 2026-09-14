@@ -97,3 +97,11 @@ server.log
 /audit-tree.js
 /compare-stash.ps1
 /apply-*.js
+
+/find-95.js
+/find-aitutor.js
+/find-micro.js
+/find-subjprogress.js
+/find-weekly-goal.js
+/release-notes.md
+/bump-version.js
