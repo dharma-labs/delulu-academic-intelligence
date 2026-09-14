@@ -156,3 +156,5 @@ server.log
 /fix-report-loop.js
 /repair-report.js
 /fix-import.js
+
+/release-notes-52.md
