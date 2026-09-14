@@ -56,6 +56,7 @@ import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { ShortcutsOverlay } from '@/components/shortcuts-overlay';
 import { Onboarding } from '@/components/onboarding';
+import { SemesterSwitcher } from '@/components/semester-switcher';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { ToastProvider } from '@/components/toast';
 import { PwaInstallPrompt } from '@/components/pwa-install';
@@ -750,6 +751,7 @@ function MobileStreakBadge() {
 
 function DesktopTopBar() {
   const { theme, setTheme } = useTheme();
+  const setCommandOpen = useStore((s) => s.setCommandOpen);
   const studySessions = useStore((s) => s.studySessions);
   const subjects = useStore((s) => s.subjects);
   const syllabusUnits = useStore((s) => s.syllabusUnits);
@@ -794,6 +796,12 @@ function DesktopTopBar() {
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-2">
+        <SemesterSwitcher />
+        <button onClick={() => setCommandOpen(true)} className="flex items-center gap-2 h-7 px-2.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-xs" aria-label="Search">
+          <Search className="size-3.5" />
+          <span className="hidden xl:inline">Search</span>
+          <kbd className="hidden xl:inline text-[9px] px-1 py-0.5 rounded border border-border text-muted-foreground">Ctrl K</kbd>
+        </button>
         <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="hidden lg:flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Toggle theme">
           {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
         </button>

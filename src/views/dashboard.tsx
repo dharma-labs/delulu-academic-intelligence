@@ -44,6 +44,7 @@ import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, E
 import { useToast } from '@/components/toast';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
 import { NowHero } from '@/components/now-hero';
+import { TodaySchedule } from '@/components/today-schedule';
 import { SemesterSwitcher } from '@/components/semester-switcher';
 import { AchievementsDialog } from '@/components/achievements-dialog';
 import { cn } from '@/lib/utils';
@@ -684,6 +685,8 @@ export default function DashboardView() {
                   </div>
 
           <NowHero />
+
+          <TodaySchedule />
                 </PopoverContent>
               </Popover>
             </div>
@@ -908,7 +911,9 @@ export default function DashboardView() {
           </div>
         </motion.div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-3"><NowHero /><SemesterSwitcher className="self-start" /></div>
+          <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-3"><NowHero />
+
+          <TodaySchedule /><SemesterSwitcher className="self-start" /></div>
 
         {/* Semester filter tabs */}
         {availableSemesters.length > 1 && (
