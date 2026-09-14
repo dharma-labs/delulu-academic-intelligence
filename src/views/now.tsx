@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useStore, getSubjectAttendance } from '@/lib/store';
+import { useStore } from '@/lib/store';
+import { buildNowContexts, NOW_KIND_LABEL, type NowContext } from '@/lib/now-context';
 import { PageHeader, EmptyState } from '@/components/shared';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -16,16 +17,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-type NowContext = {
-  kind: 'exam' | 'assignment' | 'class' | 'attendance' | 'task';
-  priority: number;
-  title: string;
-  subject: string;
-  meta: string;
-  view: string;
-  subjectId?: string | null;
-};
-
 export default function NowView() {
   const {
     timetableSlots,
@@ -39,116 +30,19 @@ export default function NowView() {
     selectSubject,
   } = useStore();
 
-  const activeSubjects = useMemo(
-    () => subjects.filter((s) => !s.archived && !s.backlog),
-    [subjects]
+  const contexts = useMemo(
+    () =>
+      buildNowContexts({
+        timetableSlots,
+        exams,
+        assignments,
+        tasks,
+        subjects,
+        attendance,
+        attendanceThreshold: profile.attendanceThreshold,
+      }),
+    [timetableSlots, exams, assignments, tasks, subjects, attendance, profile.attendanceThreshold]
   );
-
-  const contexts = useMemo<NowContext[]>(() => {
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const result: NowContext[] = [];
-    const subjectName = (id?: string) =>
-      activeSubjects.find((s) => s.id === id)?.name || '';
-
-    // Next class today (TimetableSlot.day is 0-6, Sunday=0)
-    const todaySlots = timetableSlots
-      .filter((s) => s.day === now.getDay())
-      .map((s) => {
-        const [h, m] = s.startTime.split(':').map(Number);
-        return { slot: s, startMin: (h || 0) * 60 + (m || 0) };
-      })
-      .filter((x) => x.startMin > nowMinutes)
-      .sort((a, b) => a.startMin - b.startMin);
-    if (todaySlots.length > 0) {
-      const { slot, startMin } = todaySlots[0];
-      const minsLeft = startMin - nowMinutes;
-      result.push({
-        kind: 'class',
-        priority: minsLeft <= 60 ? 3 : 5,
-        title: subjectName(slot.subjectId) || 'Next class',
-        subject: slot.room ? `Room ${slot.room}` : slot.type,
-        meta: minsLeft <= 0 ? 'Starting now' : `${minsLeft} min left · ${slot.startTime}`,
-        view: 'timetable',
-        subjectId: slot.subjectId,
-      });
-    }
-
-    // Upcoming exam (Exam.name, Exam.date)
-    const upcomingExams = exams
-      .filter((e) => e.status !== 'completed' && e.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (upcomingExams.length > 0) {
-      const exam = upcomingExams[0];
-      const days = Math.ceil((new Date(exam.date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000);
-      result.push({
-        kind: 'exam',
-        priority: days <= 2 ? 1 : days <= 7 ? 2 : 6,
-        title: exam.name,
-        subject: subjectName(exam.subjectId),
-        meta: days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days · ${format(new Date(exam.date + 'T00:00:00'), 'd MMM')}`,
-        view: 'exams',
-        subjectId: exam.subjectId,
-      });
-    }
-
-    // Nearest assignment deadline (Assignment.deadline, status)
-    const pendingAssignments = assignments
-      .filter((a) => a.status !== 'completed' && a.deadline >= todayStr)
-      .sort((a, b) => a.deadline.localeCompare(b.deadline));
-    if (pendingAssignments.length > 0) {
-      const asg = pendingAssignments[0];
-      const days = Math.ceil((new Date(asg.deadline + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000);
-      result.push({
-        kind: 'assignment',
-        priority: days <= 0 ? 2 : days <= 2 ? 4 : 7,
-        title: asg.title,
-        subject: subjectName(asg.subjectId),
-        meta: days <= 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `Due in ${days} days`,
-        view: 'assignments',
-        subjectId: asg.subjectId,
-      });
-    }
-
-    // Attendance: lowest among subjects below threshold
-    const attData = activeSubjects
-      .map((s) => ({ subject: s, att: getSubjectAttendance({ attendance }, s.id) }))
-      .filter((x) => x.att.total > 0 && x.att.percentage < profile.attendanceThreshold)
-      .sort((a, b) => a.att.percentage - b.att.percentage);
-    if (attData.length > 0) {
-      const worst = attData[0];
-      result.push({
-        kind: 'attendance',
-        priority: worst.att.percentage < profile.attendanceThreshold - 10 ? 4 : 6,
-        title: `${worst.subject.name} attendance`,
-        subject: `${worst.att.percentage}% · threshold ${profile.attendanceThreshold}%`,
-        meta: 'Below threshold — plan to attend upcoming classes',
-        view: 'attendance',
-        subjectId: worst.subject.id,
-      });
-    }
-
-    // Pending tasks (Task.completed, optional dueDate)
-    const openTasks = tasks.filter((t) => !t.completed);
-    if (openTasks.length > 0) {
-      const withDue = openTasks
-        .filter((t) => t.dueDate)
-        .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
-      const nearest = withDue[0];
-      result.push({
-        kind: 'task',
-        priority: 8,
-        title: nearest ? nearest.title : `${openTasks.length} open tasks`,
-        subject: nearest?.subjectId ? subjectName(nearest.subjectId) : '',
-        meta: `${openTasks.length} pending${nearest?.dueDate ? ` · next ${format(new Date(nearest.dueDate + 'T00:00:00'), 'd MMM')}` : ''}`,
-        view: 'tasks',
-        subjectId: nearest?.subjectId,
-      });
-    }
-
-    return result.sort((a, b) => a.priority - b.priority);
-  }, [timetableSlots, exams, assignments, tasks, activeSubjects, attendance, profile]);
 
   const hero = contexts[0];
   const rest = contexts.slice(1, 5);
@@ -197,7 +91,7 @@ export default function NowView() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="size-3.5 text-primary" />
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {hero.kind === 'exam' ? 'Upcoming exam' : hero.kind === 'assignment' ? 'Important deadline' : hero.kind === 'class' ? 'Next class' : hero.kind === 'attendance' ? 'Attendance' : 'Open task'}
+                  {NOW_KIND_LABEL[hero.kind]}
                 </span>
               </div>
               <h2 className="text-xl font-bold tracking-tight truncate">{hero.title}</h2>

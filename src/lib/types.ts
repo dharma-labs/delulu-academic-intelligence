@@ -309,6 +309,7 @@ export interface AppState {
   cuetScores: CUETScore[];
   fileFolders: UserFolder[];
   userFiles: UserFile[];
+  selectedSemester: number | null;
 
   // Focus timer
   focusActive: boolean;
@@ -428,6 +429,7 @@ export interface AppState {
   renameFile: (id: string, name: string) => void;
   deleteFile: (id: string) => void;
   moveFile: (id: string, folderId: string | null) => void;
+  setSelectedSemester: (sem: number | null) => void;
 
   // Focus actions
   startFocus: (subjectId: string, topicId?: string, topicName?: string) => void;

@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
 
 export function useSemesterFilter() {
   const profile = useStore((s) => s.profile);
   const subjects = useStore((s) => s.subjects);
-  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  // Selection lives in the store so every view + the switcher stay in sync.
+  const selectedSemester = useStore((s) => s.selectedSemester);
+  const setSelectedSemester = useStore((s) => s.setSelectedSemester);
   const currentSemester = profile.currentSemester || profile.semester || 1;
   const activeSemester = selectedSemester ?? currentSemester;
   const availableSemesters = useMemo(() => {

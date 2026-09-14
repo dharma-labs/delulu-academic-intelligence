@@ -479,6 +479,14 @@ function CommandPalette({ onShowShortcuts }: { onShowShortcuts: () => void }) {
             <Timer className="size-4" />
             <span>Start Focus</span>
           </CommandItem>
+          <CommandItem onSelect={() => handleSelect(() => navigate('now'))}>
+            <Sparkles className="size-4" />
+            <span>Go to Now</span>
+          </CommandItem>
+          <CommandItem onSelect={() => handleSelect(() => navigate('files'))}>
+            <FolderOpen className="size-4" />
+            <span>Open Files</span>
+          </CommandItem>
           <CommandItem onSelect={() => handleSelect(() => navigate('marks'))}>
             <BarChart3 className="size-4" />
             <span>Go to Marks</span>

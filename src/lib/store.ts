@@ -285,6 +285,7 @@ export const useStore = create<AppState>()(
         reEvalRequests: [],
         cuetScores: [],
         fileFolders: [] as UserFolder[],
+        selectedSemester: null as number | null,
         userFiles: [] as UserFile[],
 
         // ── Focus Timer ──
@@ -840,6 +841,8 @@ export const useStore = create<AppState>()(
               f.id === id ? { ...f, folderId } : f
             ),
           })),
+
+        setSelectedSemester: (sem) => set({ selectedSemester: sem }),
 
         // ═══════════════════════════════════════════════════════════════
         // Focus Actions

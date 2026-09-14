@@ -116,3 +116,13 @@ server.log
 /show-saferesolve.js
 /fix-urlpath.js
 /fix-dotfile.js
+
+/release-notes-51.md
+/dl51-*.js
+/types-fix.js
+/check-sel.js
+/diag-now.js
+/verify-51-src.js
+/inspect-two.js
+/show-cmdpalette.js
+/check-command.js

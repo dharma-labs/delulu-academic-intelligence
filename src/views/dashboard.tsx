@@ -43,6 +43,8 @@ import { Button } from '@/components/ui/button';
 import { MetricCard, StatusBadge, InsightCard, SectionHeader, CompactProgress, EmptyState, AnimatedCounter, progressColorClass } from '@/components/shared';
 import { useToast } from '@/components/toast';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
+import { NowHero } from '@/components/now-hero';
+import { SemesterSwitcher } from '@/components/semester-switcher';
 import { AchievementsDialog } from '@/components/achievements-dialog';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -680,6 +682,8 @@ export default function DashboardView() {
                       </label>
                     ))}
                   </div>
+
+          <NowHero />
                 </PopoverContent>
               </Popover>
             </div>
@@ -903,6 +907,8 @@ export default function DashboardView() {
             </Badge>
           </div>
         </motion.div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-3"><NowHero /><SemesterSwitcher className="self-start" /></div>
 
         {/* Semester filter tabs */}
         {availableSemesters.length > 1 && (
