@@ -150,3 +150,12 @@ export const NOW_KIND_LABEL: Record<NowContextKind, string> = {
   attendance: 'Attendance',
   task: 'Open task',
 };
+
+/** Single obvious action per context kind - used by the Home hero link. */
+export const NOW_ACTION_LABEL: Record<NowContextKind, string> = {
+  exam: 'Open exams',
+  assignment: 'Open assignments',
+  class: 'View timetable',
+  attendance: 'View attendance',
+  task: 'View tasks',
+};

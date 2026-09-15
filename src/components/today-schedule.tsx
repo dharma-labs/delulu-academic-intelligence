@@ -3,85 +3,142 @@
 import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { CalendarDays, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+
+type SlotState = 'done' | 'live' | 'next' | 'upcoming';
 
 /**
- * "Today's Schedule" — compact timeline of today's classes (spec §14/§15).
- * Pure, deterministic; driven only by the real timetable + subjects.
+ * "Today" — a calm vertical timeline of today's classes (spec §14/§15).
+ *
+ * Lives directly on the app background (no card wrapper). Driven only by the
+ * real timetable + subjects; past classes recede, the current/next class is
+ * subtly emphasised.
  */
 export function TodaySchedule({ className }: { className?: string }) {
   const { timetableSlots, subjects, navigate, selectSubject } = useStore();
   const now = new Date();
+  const day = now.getDay();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   const slots = useMemo(() => {
-    const list = timetableSlots
-      .filter((s) => s.day === now.getDay())
+    return timetableSlots
+      .filter((s) => s.day === day)
       .map((s) => {
         const [h, m] = s.startTime.split(':').map(Number);
+        const [eh, em] = s.endTime.split(':').map(Number);
         const name = subjects.find((x) => x.id === s.subjectId)?.name || 'Class';
-        return { ...s, name, startMin: (h || 0) * 60 + (m || 0) };
+        const startMin = (h || 0) * 60 + (m || 0);
+        // Guard against missing/invalid end times - never treat a class as
+        // finished earlier than it started.
+        const endMin = Math.max((eh || 0) * 60 + (em || 0), startMin + 5);
+        return { ...s, name, startMin, endMin };
       })
       .sort((a, b) => a.startMin - b.startMin);
-    return list;
-  }, [timetableSlots, subjects, now.getDay()]);
+  }, [timetableSlots, subjects, day]);
+
+  const nextId = useMemo(
+    () => slots.find((s) => s.startMin > nowMinutes)?.id ?? null,
+    [slots, nowMinutes]
+  );
+
+  const heading = (
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 className="text-sm font-medium">Today</h2>
+      <button
+        type="button"
+        onClick={() => navigate('timetable' as never)}
+        className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Timetable
+        <ChevronRight className="size-3.5" />
+      </button>
+    </div>
+  );
 
   if (slots.length === 0) {
     return (
-      <div className={cn('rounded-2xl border border-border/50 bg-card p-4', className)}>
-        <div className="flex items-center gap-2 mb-1">
-          <CalendarDays className="size-3.5 text-primary" />
-          <span className="text-xs font-semibold">Today's Schedule</span>
-        </div>
-        <p className="text-xs text-muted-foreground">No classes scheduled today.</p>
-      </div>
+      <section className={cn('space-y-3', className)} aria-label="Today">
+        {heading}
+        <p className="text-sm text-muted-foreground">No classes scheduled today.</p>
+      </section>
     );
   }
 
   return (
-    <div className={cn('rounded-2xl border border-border/50 bg-card p-4', className)}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="size-3.5 text-primary" />
-          <span className="text-xs font-semibold">Today's Schedule</span>
-        </div>
-        <button
-          onClick={() => navigate('timetable' as never)}
-          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5"
-        >
-          Timetable <ChevronRight className="size-3" />
-        </button>
-      </div>
+    <section className={cn('space-y-3', className)} aria-label="Today">
+      {heading}
 
-      <div className="space-y-0.5">
-        {slots.map((s) => {
-          const past = s.startMin < nowMinutes;
-          const live = !past && s.startMin - nowMinutes <= 60;
+      <ol className="space-y-0.5">
+        {slots.map((s, i) => {
+          const state: SlotState =
+            s.endMin <= nowMinutes
+              ? 'done'
+              : s.startMin <= nowMinutes
+                ? 'live'
+                : s.id === nextId
+                  ? 'next'
+                  : 'upcoming';
+          const isFirst = i === 0;
+          const isLast = i === slots.length - 1;
+
           return (
-            <button
-              key={s.id}
-              onClick={() => {
-                if (s.subjectId) selectSubject(s.subjectId);
-                navigate('timetable' as never);
-              }}
-              className={cn(
-                'w-full flex items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50',
-                live && 'bg-primary/5'
-              )}
-            >
-              <span className={cn('text-xs font-mono tabular-nums shrink-0 w-12', past ? 'text-muted-foreground/50' : live ? 'text-primary font-semibold' : 'text-muted-foreground')}>
+            <li key={s.id} className="flex items-stretch gap-3">
+              <span
+                className={cn(
+                  'w-12 shrink-0 pt-2 text-right font-mono text-xs tabular-nums',
+                  state === 'live' ? 'font-semibold text-primary' : state === 'done' ? 'text-muted-foreground/50' : 'text-muted-foreground'
+                )}
+              >
                 {s.startTime}
               </span>
-              <span className={cn('text-sm truncate min-w-0', past ? 'text-muted-foreground/60' : 'text-foreground')}>
-                {s.name}
+
+              <span className="relative flex w-2 shrink-0 justify-center" aria-hidden>
+                {(slots.length > 1) && (
+                  <span
+                    className={cn(
+                      'absolute left-1/2 w-px -translate-x-1/2 bg-border',
+                      isFirst ? 'top-3 bottom-0' : isLast ? 'top-0 h-3' : 'inset-y-0'
+                    )}
+                  />
+                )}
+                <span
+                  className={cn(
+                    'relative mt-2.5 rounded-full',
+                    state === 'live' ? 'size-2 bg-primary' : state === 'next' ? 'size-1.5 bg-primary/50' : state === 'done' ? 'size-1.5 bg-border' : 'size-1.5 bg-muted-foreground/30'
+                  )}
+                />
               </span>
-              {s.room && <span className="text-[10px] text-muted-foreground ml-auto shrink-0">Room {s.room}</span>}
-              {live && <span className="text-[9px] text-primary font-semibold shrink-0">now</span>}
-            </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (s.subjectId) selectSubject(s.subjectId);
+                  navigate('timetable' as never);
+                }}
+                className={cn(
+                  'flex min-w-0 flex-1 items-baseline gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted/50',
+                  state === 'done' && 'opacity-55'
+                )}
+              >
+                <span
+                  className={cn(
+                    'min-w-0 truncate text-sm',
+                    state === 'live' ? 'font-medium text-foreground' : state === 'done' ? 'text-muted-foreground' : 'text-foreground'
+                  )}
+                >
+                  {s.name}
+                </span>
+                {s.room && (
+                  <span className="shrink-0 text-xs text-muted-foreground">Room {s.room}</span>
+                )}
+                {state === 'live' && (
+                  <span className="shrink-0 text-xs font-medium text-primary">now</span>
+                )}
+              </button>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ol>
+    </section>
   );
 }

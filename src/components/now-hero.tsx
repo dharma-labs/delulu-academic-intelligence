@@ -2,13 +2,16 @@
 
 import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
-import { buildNowContexts, NOW_KIND_LABEL } from '@/lib/now-context';
+import { buildNowContexts, NOW_KIND_LABEL, NOW_ACTION_LABEL } from '@/lib/now-context';
 import { cn } from '@/lib/utils';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 /**
- * Compact "Delulu Now" hero for the Home screen (5.1 · spec §12).
- * Uses the shared deterministic context engine — no duplicated state.
+ * "Delulu Now" — the Home hero (5.1 spec §12).
+ *
+ * One dominant, calm surface answering "what matters right now". Uses the shared
+ * deterministic context engine (lib/now-context) so there is exactly one
+ * implementation of this logic across Home and the Now view.
  */
 export function NowHero({ className }: { className?: string }) {
   const {
@@ -38,42 +41,63 @@ export function NowHero({ className }: { className?: string }) {
 
   if (!hero) {
     return (
-      <div className={cn('rounded-2xl border border-border/50 bg-card p-4 flex items-center gap-3', className)}>
-        <Sparkles className="size-4 text-primary shrink-0" />
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Delulu Now</p>
-          <p className="text-sm text-muted-foreground">Nothing urgent right now — you're on top of things.</p>
-        </div>
-      </div>
+      <section
+        className={cn(
+          'rounded-3xl bg-primary/[0.04] p-6 md:p-8',
+          className
+        )}
+        aria-label="Delulu Now"
+      >
+        <p className="text-xs font-medium text-muted-foreground">Delulu Now</p>
+        <p className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+          You&apos;re all clear right now.
+        </p>
+        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+          No classes, deadlines or attendance warnings need you today.
+        </p>
+      </section>
     );
   }
 
   return (
     <button
+      type="button"
       onClick={() => {
         if (hero.subjectId) selectSubject(hero.subjectId);
         navigate(hero.view as never);
       }}
       className={cn(
-        'w-full text-left rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 card-interactive',
+        'group w-full rounded-3xl bg-primary/[0.05] p-6 text-left transition-colors duration-200',
+        'hover:bg-primary/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+        'md:p-8',
         className
       )}
+      aria-label="Delulu Now"
     >
-      <div className="flex items-center gap-2 mb-1.5">
-        <Sparkles className="size-3.5 text-primary" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Delulu Now · {NOW_KIND_LABEL[hero.kind]}
-        </span>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-base font-bold tracking-tight truncate">{hero.title}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {hero.subject ? `${hero.subject} · ` : ''}{hero.meta}
-          </p>
-        </div>
-        <ChevronRight className="size-4 text-muted-foreground/60 shrink-0" />
-      </div>
+      <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+        <span className="font-medium">Delulu Now</span>
+        <span aria-hidden className="text-muted-foreground/40">·</span>
+        <span className="font-medium text-primary">{NOW_KIND_LABEL[hero.kind]}</span>
+      </p>
+
+      <p className="mt-3 break-words text-2xl font-semibold leading-tight tracking-tight md:text-4xl">
+        {hero.title}
+      </p>
+
+      {hero.subject && (
+        <p className="mt-2 break-words text-sm text-muted-foreground md:text-base">
+          {hero.subject}
+        </p>
+      )}
+
+      <p className="mt-1 text-sm font-medium text-foreground/80 md:text-base">
+        {hero.meta}
+      </p>
+
+      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+        {NOW_ACTION_LABEL[hero.kind]}
+        <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+      </span>
     </button>
   );
 }

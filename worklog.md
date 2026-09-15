@@ -2077,3 +2077,60 @@ The Academic Intelligence System is at **final production quality**. The app fea
 3. **MEDIUM**: PWA support (service worker, offline mode, install prompt)
 4. **LOW**: ICS calendar export for study sessions
 5. **LOW**: More achievement conditions and reward tiers
+
+
+## Session — Home information hierarchy redesign (2026-09-16)
+
+### Goal
+Turn Home from a generic analytics dashboard into a calm academic operating-system
+surface: spacious, human, contextual, premium. Fewer cards, one accent, real data only.
+
+### New Home hierarchy (mobile + desktop)
+1. Greeting — small ("Good morning, <name>" + date line), no decorative clutter
+2. Delulu Now — dominant hero (rounded-3xl, tinted primary surface, large type, one action)
+3. Today — calm timeline directly on the app background (no card), done classes recede
+4. Snapshot — one grouped label/value surface (Attendance, Syllabus, Performance, Tasks)
+5. Progress — segmented control (Today / Week / Month / Semester / Year / All time), one range shown
+6. One quiet next-step line (recommendation or insight, hidden when nothing meaningful)
+7. Deeper sections (one level down): Subjects, Deadlines, Insights, Study patterns,
+   This week, Where your time went, Focus now, Jump back in, NEP Exit Points, Societies & ECA
+
+### Removed from the first screen
+- Horizontal micro-metrics strip (6 value chips) — folded into Snapshot
+- Health ring + status badge block — health now lives in Progress > Semester ("Academic health")
+- "Weekly Goal" mini bar and "Study This Week" sparkline cards — folded into Progress
+- Duplicate "next class" card (hero already shows it)
+- Per-section icon chips, gradient card headers, all-caps micro labels, subject-color bars on Home
+
+### Files Created
+- src/lib/home-ranges.ts — pure range-summary engine (real records only; honest notes for
+  ranges without a date dimension)
+- src/lib/home-insights.ts — shared recommendations / insights / study-pattern logic
+- src/components/home/home-header.tsx — greeting + widget customisation popover
+- src/components/home/academic-snapshot.tsx — Snapshot surface
+- src/components/home/progress-summary.tsx — segmented control + range metrics
+- src/components/home/home-sections.tsx — useHomeIntel() + all deeper sections
+
+### Files Modified
+- src/views/dashboard.tsx — rewritten to the new hierarchy (mobile + desktop), 1454 -> 272 lines
+- src/components/now-hero.tsx — restructured into the dominant hero (single implementation)
+- src/components/today-schedule.tsx — borderless vertical timeline with live/next/done states
+- src/lib/now-context.ts — added NOW_ACTION_LABEL map (additive only)
+
+### Progress ranges
+- Real range data: Today, Week, Month (study time, attendance, tasks due, assessments,
+  revisions reviewed), Semester (academic health, attendance, syllabus, study time, SGPA),
+  All time (attendance, study time, revisions reviewed, syllabus, CGPA)
+- Approximations (labelled in the UI): Year — study time/attendance are year-to-date, syllabus
+  and performance are current totals because topic completion dates are not stored
+- Not computable, so not shown: "tasks completed" per range (Task has no completedAt) and
+  syllabus movement per range (SyllabusTopic has no completedAt)
+
+### Verification
+- tsc --noEmit: 64 pre-existing errors -> 41; 0 errors in any touched file (23 removed were
+  dashboard motion-variant/union-type errors)
+- ESLint on all touched files: clean
+- SSR smoke render of the real Home (temporary route, removed afterwards): HTTP 200 with both
+  mobile and desktop markup and live store data; no runtime errors
+- Not verified: browser screenshots — no browser backend is available in this environment
+  (agent.browsers.list() returned empty, no MCP browser tools)
