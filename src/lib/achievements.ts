@@ -377,3 +377,68 @@ export function buildAchievementState(data: {
     nightSessions,
   };
 }
+
+// ─── Progress toward an achievement ─────────────────────────────
+//
+// Purely additive, read-only data: how far the user currently is from a
+// countable goal. Derived from the *same* AchievementState the unlock
+// conditions use, so a shown number can never disagree with the unlock.
+// Achievements with no countable goal are simply absent here — they are
+// rendered as locked/in-progress without a fabricated bar.
+
+export interface AchievementProgress {
+  current: number;
+  target: number;
+}
+
+export const ACHIEVEMENT_PROGRESS: Record<string, (state: AchievementState) => AchievementProgress> = {
+  // Study
+  first_session: (s) => ({ current: s.totalSessions, target: 1 }),
+  five_sessions: (s) => ({ current: s.totalSessions, target: 5 }),
+  ten_sessions: (s) => ({ current: s.totalSessions, target: 10 }),
+  study_warrior: (s) => ({ current: s.totalSessions, target: 50 }),
+  hundred_hour_club: (s) => ({ current: Math.floor(s.totalStudyMinutes), target: 6000 }),
+  centurion: (s) => ({ current: Math.floor(s.totalStudyMinutes), target: 6000 }),
+  deep_focus: (s) => ({ current: Math.round(s.longestSessionMinutes), target: 60 }),
+  night_owl: (s) => ({ current: s.nightSessions, target: 10 }),
+  // Attendance
+  perfect_week: (s) => ({ current: s.perfectWeekDays, target: 7 }),
+  perfect_attendance_week: (s) => ({ current: s.perfectWeekDays, target: 7 }),
+  attendance_champion: (s) => ({ current: Math.round(s.avgAttendance), target: 95 }),
+  // Academic
+  straight_as: (s) => ({
+    current: s.assessmentScores.filter((pct) => pct >= 90).length,
+    target: s.assessmentScores.length,
+  }),
+  scholar: (s) => ({ current: Number(s.cgpa.toFixed(2)), target: 9 }),
+  subject_master: (s) => ({
+    current: Math.round(Math.max(0, ...s.subjects.map((x) => x.syllabusCompletion))),
+    target: 100,
+  }),
+  syllabus_complete: (s) => ({
+    current: s.subjects.filter((x) => x.syllabusCompletion >= 100).length,
+    target: s.subjects.length,
+  }),
+  // Streak
+  week_warrior: (s) => ({ current: s.streak, target: 7 }),
+  monthly_master: (s) => ({ current: s.streak, target: 30 }),
+  // Productivity
+  note_taker: (s) => ({ current: s.notesCount, target: 5 }),
+  prolific_writer: (s) => ({ current: s.notesCount, target: 20 }),
+  task_master: (s) => ({ current: s.completedTasks, target: 10 }),
+};
+
+/**
+ * Current progress toward `achievement`, or null when the achievement has no
+ * countable goal (or no data exists yet to measure one).
+ */
+export function getAchievementProgress(
+  achievement: Achievement,
+  state: AchievementState,
+): AchievementProgress | null {
+  const measure = ACHIEVEMENT_PROGRESS[achievement.id];
+  if (!measure) return null;
+  const { current, target } = measure(state);
+  if (!Number.isFinite(target) || target <= 0) return null;
+  return { current: Math.min(current, target), target };
+}

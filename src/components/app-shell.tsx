@@ -51,6 +51,7 @@ import { LayoutDashboard,
   Plus,
   type LucideIcon,
   FolderOpen,
+  Network,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -152,6 +153,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'focus', label: 'Focus', icon: Timer },
       { id: 'revision', label: 'Revision', icon: BrainCircuit },
+      { id: 'knowledge', label: 'Knowledge Tree', icon: Network },
       { id: 'notes', label: 'Notes', icon: StickyNote },
       { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     ],
@@ -397,6 +399,7 @@ const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
   'attendance': { label: 'Attendance', icon: UserCheck },
   'focus': { label: 'Focus', icon: Timer },
   'revision': { label: 'Revision', icon: BrainCircuit },
+  'knowledge': { label: 'Knowledge Tree', icon: Network },
   'notes': { label: 'Notes', icon: StickyNote },
   'calendar': { label: 'Calendar', icon: CalendarDays },
   'timetable': { label: 'Timetable', icon: Clock },

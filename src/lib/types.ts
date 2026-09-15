@@ -233,6 +233,59 @@ export interface UserFolder {
   createdAt: string;
 }
 
+// ─── Knowledge Tree ────────────────────────────────────────────────
+// A user-owned hierarchy: the student decides how knowledge is organised.
+// It is deliberately NOT tied to the university syllabus (see linkedSyllabusTopicId).
+
+export type KnowledgeNodeType =
+  | 'subject'
+  | 'unit'
+  | 'topic'
+  | 'concept'
+  | 'subtopic'
+  | 'question'
+  | 'resource'
+  | 'note'
+  | 'project'
+  | 'custom';
+
+export type KnowledgeStatus =
+  | 'not_started'
+  | 'learning'
+  | 'understood'
+  | 'needs_review'
+  | 'mastered'
+  | 'archived';
+
+export interface KnowledgeNode {
+  id: string;
+  parentId: string | null;      // null = root
+  title: string;
+  type: KnowledgeNodeType;      // sensible default; user may ignore it
+  status: KnowledgeStatus;
+  progress: number;             // 0-100, manual or derived from children
+  description?: string;
+  subjectIds: string[];         // 0..n subjects (knowledge can outlive a semester)
+  semester?: number | null;     // optional academic context
+  tags: string[];
+  priority?: 'low' | 'medium' | 'high';
+  order: number;                // manual ordering among siblings
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * True when the user set `progress` by hand. When a node has children and this
+   * is not true, the displayed progress is the rounded average of its children
+   * (never a made-up number). Not part of the original brief, but required to
+   * distinguish "manual" from "derived" progress without faking a value.
+   */
+  progressManual?: boolean;
+  // optional references to existing records (no duplication of content)
+  linkedNoteIds?: string[];
+  linkedFileIds?: string[];
+  linkedSyllabusTopicId?: string | null;
+}
+
 export interface PastSemester {
   sem: number;
   sgpa: number;
@@ -272,6 +325,7 @@ export type ViewId =
   | 'er-center'
   | 'exams'
   | 'assignments'
+  | 'knowledge'
   | 'settings'
   | 'ai-tutor'
   | 'report'
@@ -309,6 +363,7 @@ export interface AppState {
   cuetScores: CUETScore[];
   fileFolders: UserFolder[];
   userFiles: UserFile[];
+  knowledgeNodes: KnowledgeNode[];
   selectedSemester: number | null;
 
   // Focus timer
@@ -431,9 +486,18 @@ export interface AppState {
   moveFile: (id: string, folderId: string | null) => void;
   setSelectedSemester: (sem: number | null) => void;
 
+  // Knowledge tree actions (user-owned hierarchy — unlimited depth)
+  addKnowledgeNode: (node: Omit<KnowledgeNode, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateKnowledgeNode: (id: string, data: Partial<KnowledgeNode>) => void;
+  deleteKnowledgeNode: (id: string) => void;
+  moveKnowledgeNode: (id: string, newParentId: string | null, newOrder?: number) => void;
+  duplicateKnowledgeNode: (id: string) => void;
+  archiveKnowledgeNode: (id: string, archived: boolean) => void;
+  reorderKnowledgeNode: (id: string, newOrder: number) => void;
+
   // Focus actions
   startFocus: (subjectId: string, topicId?: string, topicName?: string) => void;
-  stopFocus: (notes?: string) => void;
+  stopFocus: (notes?: string, topicName?: string) => void;
 
   // Language & Leaderboard actions
   setLanguage: (language: 'en' | 'hi') => void;

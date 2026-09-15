@@ -116,6 +116,7 @@ export default function FocusView() {
     focusActive,
     focusSubjectId,
     focusElapsed,
+    focusStartTime,
     startFocus,
     stopFocus,
     addStudySession,
@@ -135,6 +136,16 @@ export default function FocusView() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
+  // Anchor elapsed time to the persisted session start so remounts, backgrounding,
+  // and timer throttling never reset or drift the running session.
+  useEffect(() => {
+    if (!focusActive || !focusStartTime) return;
+    const wall = Math.max(0, Math.floor((Date.now() - focusStartTime) / 1000));
+    if (wall > elapsedRef.current) {
+      elapsedRef.current = wall;
+      useStore.setState({ focusElapsed: wall });
+    }
+  }, [focusActive, focusStartTime]);
   const phaseRef = useRef(phase);
   const audioContextRef = useRef<AudioContext | null>(null);
   const ambientSoundRef = useRef<AmbientSound | null>(null);
@@ -214,7 +225,8 @@ export default function FocusView() {
   useEffect(() => {
     if (focusActive && !isPaused) {
       intervalRef.current = setInterval(() => {
-        elapsedRef.current += 1;
+        const wall = focusStartTime ? Math.floor((Date.now() - focusStartTime) / 1000) : 0;
+        elapsedRef.current = Math.max(elapsedRef.current + 1, wall);
         useStore.setState({ focusElapsed: elapsedRef.current });
 
         // Check for goal completion
@@ -229,7 +241,7 @@ export default function FocusView() {
             setTimerPulse(true);
             setTimeout(() => {
               if (phaseRef.current !== 'active') return;
-              stopFocus();
+              stopFocus(undefined, selectedTopic?.name);
               setCompletionDuration(finalDuration);
               setCompletionTopicName(topicName);
               setCompletionNotes('');
@@ -315,7 +327,7 @@ export default function FocusView() {
     setShowStopDialog(false);
     if (naturalCompletionTriggeredRef.current) return;
     const duration = elapsedRef.current;
-    stopFocus();
+    stopFocus(undefined, selectedTopic?.name);
     setCompletionDuration(duration);
     setCompletionTopicName(selectedTopic?.name || '');
     setCompletionNotes('');

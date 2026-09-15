@@ -165,3 +165,11 @@ server.log
 /check-logo.js
 /apply-logo2.js
 /worklog.md
+
+/release-notes-54.md
+/fix-focus.js
+/verify-54.js
+/.zscripts/shots/
+/.zscripts/knowledge-test.js
+/.zscripts/knowledge-e2e.js
+/.zscripts/*.png

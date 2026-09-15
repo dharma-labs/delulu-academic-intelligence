@@ -16,6 +16,7 @@ const viewComponents: Record<ViewId, React.ComponentType> = {
   attendance: dynamic(() => import('@/views/attendance'), { ssr: false }),
   focus: dynamic(() => import('@/views/focus'), { ssr: false }),
   revision: dynamic(() => import('@/views/revision'), { ssr: false }),
+  knowledge: dynamic(() => import('@/views/knowledge'), { ssr: false }),
   notes: dynamic(() => import('@/views/notes'), { ssr: false }),
   calendar: dynamic(() => import('@/views/calendar'), { ssr: false }),
   timetable: dynamic(() => import('@/views/timetable'), { ssr: false }),

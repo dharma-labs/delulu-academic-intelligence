@@ -4,7 +4,7 @@
 
 export const APP_NAME = 'Delulu';
 
-export const APP_VERSION = "5.3.0";
+export const APP_VERSION = "5.4.0";
 
 export const APP_TAGLINE =
   'An Academic Operating System for serious students. Fun brand. Serious product.';

@@ -1,10 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Trophy, Star, Lock, Clock, Flame, BookOpen, Target } from 'lucide-react';
+import { Check, Lock, Trophy } from 'lucide-react';
 import { useStore, calculateCGPA, getStudyStreak } from '@/lib/store';
-import { MetricCard } from '@/components/shared';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -15,75 +13,86 @@ import {
   getTotalXP,
   getLevel,
   buildAchievementState,
+  getAchievementProgress,
   type Achievement,
+  type AchievementProgress,
+  type AchievementState,
 } from '@/lib/achievements';
 
-// ─── Animation ──────────────────────────────────────────────────
-const fadeUp = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-};
+/**
+ * Achievements — a calm, scannable list (not a card grid).
+ *
+ * Everything shown is derived from real store data through lib/achievements:
+ * unlock state from the achievement conditions, progress from
+ * `getAchievementProgress` (same AchievementState, so the two can never
+ * disagree). Nothing is truncated, and locked rows never show a fake bar.
+ */
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.04 } },
-};
+const CATEGORY_ORDER: Achievement['category'][] = ['study', 'attendance', 'academic', 'streak', 'social'];
 
-// ─── Achievement Card ───────────────────────────────────────────
-function AchievementCard({ achievement, unlocked }: { achievement: Achievement; unlocked: boolean }) {
-  const meta = CATEGORY_META[achievement.category];
+type RowState = 'unlocked' | 'progress' | 'locked';
+
+interface AchievementRow {
+  achievement: Achievement;
+  state: RowState;
+  progress: AchievementProgress | null;
+}
+
+// ─── Row ────────────────────────────────────────────────────────
+
+function AchievementListItem({ row }: { row: AchievementRow }) {
+  const { achievement, state, progress } = row;
+  const unlocked = state === 'unlocked';
+  const pct = progress ? Math.round((progress.current / progress.target) * 100) : 0;
 
   return (
-    <div
-      className={cn(
-        'relative rounded-xl border p-3.5 transition-all duration-200',
-        unlocked
-          ? 'metric-card bg-card border-border/80'
-          : 'bg-card/50 border-border/30 opacity-40',
-      )}
-    >
-      {unlocked && (
-        <div
-          className="absolute inset-0 rounded-xl pointer-events-none"
-          style={{
-            boxShadow: '0 0 16px -4px rgba(var(--primary-rgb), 0.12)',
-          }}
-        />
-      )}
-      <div className="relative flex items-start gap-3">
-        <div
-          className={cn(
-            'h-10 w-10 rounded-lg flex items-center justify-center text-lg shrink-0',
-            unlocked ? 'bg-primary/10' : 'bg-secondary',
-          )}
-        >
-          {unlocked ? achievement.icon : <Lock className="size-4 text-muted-foreground" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className={cn('text-sm font-semibold truncate', unlocked ? 'text-foreground' : 'text-muted-foreground')}>
-              {achievement.name}
-            </span>
-          </div>
-          <p className={cn('text-xs leading-relaxed', unlocked ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
-            {achievement.description}
-          </p>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-medium">
-              <Star className="size-2.5 mr-0.5 text-amber-500" />
-              {achievement.xpReward} XP
-            </Badge>
-            <span className={cn('text-[9px] font-semibold uppercase tracking-wider', meta.color, meta.darkColor)}>
-              {meta.label}
-            </span>
-          </div>
-        </div>
+    <li className={cn('flex items-start gap-3 py-3', !unlocked && 'opacity-55')}>
+      <span
+        aria-hidden
+        className={cn(
+          'mt-1.5 size-1.5 shrink-0 rounded-full',
+          unlocked ? 'bg-primary' : state === 'progress' ? 'bg-primary/40' : 'bg-muted-foreground/40',
+        )}
+      />
+
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-sm font-medium break-words', unlocked ? 'text-foreground' : 'text-muted-foreground')}>
+          {achievement.name}
+        </p>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{achievement.description}</p>
       </div>
-    </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+        {unlocked ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            <Check className="size-3.5" aria-hidden />
+            Unlocked
+          </span>
+        ) : progress ? (
+          <>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {progress.current} / {progress.target}
+            </span>
+            <span className="block h-1 w-16 overflow-hidden rounded-full bg-secondary" aria-hidden>
+              <span
+                className="block h-full rounded-full bg-primary/70 transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+          </>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70">
+            <Lock className="size-3" aria-hidden />
+            Locked
+          </span>
+        )}
+        <span className="text-[11px] tabular-nums text-muted-foreground/70">{achievement.xpReward} XP</span>
+      </div>
+    </li>
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────
+// ─── Main component ─────────────────────────────────────────────
 
 interface AchievementsDialogProps {
   open: boolean;
@@ -100,11 +109,11 @@ export function AchievementsDialog({ open, onOpenChange }: AchievementsDialogPro
   const tasks = useStore((s) => s.tasks);
   const profile = useStore((s) => s.profile);
 
-  const { achievementState, unlocked, totalXP, levelInfo, studyHours, cgpa, streak } = useMemo(() => {
+  const { state, unlockedIds, totalXP, levelInfo, studyHours, cgpa, streak } = useMemo(() => {
     const storeStreak = getStudyStreak({ studySessions });
     const storeCGPA = calculateCGPA({ subjects, assessments, profile });
 
-    const state = buildAchievementState({
+    const achievementState: AchievementState = buildAchievementState({
       studySessions,
       attendance,
       syllabusUnits,
@@ -116,48 +125,54 @@ export function AchievementsDialog({ open, onOpenChange }: AchievementsDialogPro
       cgpa: storeCGPA,
     });
 
-    const unlocked = checkAchievements(state);
-    const unlockedIds = unlocked.map((a) => a.id);
-    const totalXP = getTotalXP(unlockedIds);
-    const levelInfo = getLevel(totalXP);
-    const studyHours = (state.totalStudyMinutes / 60).toFixed(1);
+    const unlocked = checkAchievements(achievementState);
+    const totalXP = getTotalXP(unlocked.map((a) => a.id));
 
     return {
-      achievementState: state,
-      unlocked,
+      state: achievementState,
+      unlockedIds: new Set(unlocked.map((a) => a.id)),
       totalXP,
-      levelInfo,
-      studyHours,
+      levelInfo: getLevel(totalXP),
+      studyHours: (achievementState.totalStudyMinutes / 60).toFixed(1),
       cgpa: storeCGPA,
       streak: storeStreak,
     };
-  }, [studySessions, attendance, syllabusUnits, subjects, assessments, notes, tasks]);
+  }, [studySessions, attendance, syllabusUnits, subjects, assessments, notes, tasks, profile]);
 
-  // Group achievements by category
-  const categories = useMemo(() => {
-    const catOrder: Achievement['category'][] = ['study', 'attendance', 'academic', 'streak', 'social'];
-    return catOrder.map((cat) => ({
-      key: cat,
-      meta: CATEGORY_META[cat],
-      achievements: ACHIEVEMENTS.filter((a) => a.category === cat),
-    }));
-  }, []);
-
-  const unlockedIds = useMemo(() => new Set(unlocked.map((a) => a.id)), [unlocked]);
+  // Grouped by category, unlocked first, then in-progress, then locked.
+  const groups = useMemo(() => {
+    const rank: Record<RowState, number> = { unlocked: 0, progress: 1, locked: 2 };
+    return CATEGORY_ORDER.map((category) => {
+      const rows: AchievementRow[] = ACHIEVEMENTS.filter((a) => a.category === category).map((achievement) => {
+        const unlocked = unlockedIds.has(achievement.id);
+        // Only a measurable, started goal shows a bar — never a zeroed one.
+        const measured = unlocked ? null : getAchievementProgress(achievement, state);
+        const progress = measured && measured.current > 0 ? measured : null;
+        const rowState: RowState = unlocked ? 'unlocked' : progress ? 'progress' : 'locked';
+        return { achievement, state: rowState, progress };
+      });
+      rows.sort((a, b) => rank[a.state] - rank[b.state]);
+      return {
+        key: category,
+        label: CATEGORY_META[category]?.label ?? category,
+        rows,
+        unlockedCount: rows.filter((r) => r.state === 'unlocked').length,
+      };
+    }).filter((group) => group.rows.length > 0);
+  }, [state, unlockedIds]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto scrollbar-thin p-0">
-        <div className="p-5 md:p-6 space-y-5">
+      <DialogContent className="max-h-[85vh] max-w-[calc(100%-2rem)] overflow-y-auto scrollbar-thin p-0 sm:max-w-3xl">
+        <div className="p-5 md:p-6 space-y-6">
           {/* Header */}
           <DialogHeader>
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <DialogTitle className="flex items-center gap-2 text-lg">
-                <Trophy className="size-5 text-amber-500" />
+                <Trophy className="size-5 text-primary" aria-hidden />
                 Achievements
               </DialogTitle>
-              <Badge variant="outline" className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 border-amber-500/30 text-amber-600 dark:text-amber-400">
-                <Star className="size-3 mr-1" />
+              <Badge variant="secondary" className="text-[11px] font-medium tabular-nums text-muted-foreground">
                 {totalXP} XP
               </Badge>
             </div>
@@ -166,97 +181,72 @@ export function AchievementsDialog({ open, onOpenChange }: AchievementsDialogPro
             </DialogDescription>
           </DialogHeader>
 
-          {/* Level Progress Hero Card */}
-          <motion.div variants={fadeUp} initial="hidden" animate="show" className="hero-card p-5">
-            <div className="flex items-center gap-5">
-              <div className="flex flex-col items-center justify-center shrink-0">
-                <span className="text-4xl font-bold text-gradient tabular-nums">{levelInfo.level}</span>
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.1em] mt-0.5">Level</span>
+          {/* Level progress */}
+          <section className="rounded-2xl bg-secondary/40 p-4 md:p-5" aria-label="Level progress">
+            <div className="flex items-center gap-4">
+              <div className="flex shrink-0 flex-col items-center">
+                <span className="text-3xl font-semibold tabular-nums tracking-tight">{levelInfo.level}</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Level</span>
               </div>
-              <div className="flex-1 min-w-0 space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {levelInfo.currentXP} / {levelInfo.nextLevelXP} XP to next level
-                    </span>
-                    <span className="text-xs font-bold tabular-nums text-primary">
-                      {Math.round(levelInfo.progress * 100)}%
-                    </span>
-                  </div>
-                  <div className="progress-thin progress-animate h-2.5">
-                    <div
-                      className="bg-primary"
-                      style={{ width: `${levelInfo.progress * 100}%` }}
-                    />
-                  </div>
+
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {levelInfo.currentXP} / {levelInfo.nextLevelXP} XP to next level
+                  </span>
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                    {Math.round(levelInfo.progress * 100)}%
+                  </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="font-semibold text-foreground">{totalXP} XP</span> total earned
-                  {' · '}
-                  <span className="font-semibold text-foreground">{unlocked.length}</span>
-                  {' / '}{ACHIEVEMENTS.length} achievements unlocked
+                <div
+                  className="h-1.5 overflow-hidden rounded-full bg-secondary"
+                  role="progressbar"
+                  aria-label="XP to next level"
+                  aria-valuemin={0}
+                  aria-valuemax={levelInfo.nextLevelXP}
+                  aria-valuenow={levelInfo.currentXP}
+                  aria-valuetext={`${levelInfo.currentXP} of ${levelInfo.nextLevelXP} XP`}
+                >
+                  <div
+                    className="h-full rounded-full bg-primary/80 transition-all duration-500 ease-out"
+                    style={{ width: `${levelInfo.progress * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground tabular-nums">{totalXP} XP</span> earned
+                  <span aria-hidden className="mx-1.5 text-muted-foreground/40">·</span>
+                  <span className="font-medium text-foreground tabular-nums">{unlockedIds.size}</span> of{' '}
+                  {ACHIEVEMENTS.length} unlocked
                 </p>
               </div>
             </div>
-          </motion.div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-            <MetricCard
-              label="Achievements"
-              value={`${unlocked.length}/${ACHIEVEMENTS.length}`}
-              icon={Trophy}
-              iconColor="text-amber-500"
-            />
-            <MetricCard
-              label="Study Hours"
-              value={`${studyHours}h`}
-              icon={Clock}
-              iconColor="text-blue-500"
-            />
-            <MetricCard
-              label="Streak"
-              value={`${streak}d`}
-              icon={Flame}
-              iconColor="text-orange-500"
-            />
-            <MetricCard
-              label="CGPA"
-              value={cgpa.toFixed(1)}
-              icon={Target}
-              iconColor="text-purple-500"
-            />
-          </div>
+            <p className="mt-4 text-[11px] text-muted-foreground/80">
+              <span className="tabular-nums">{studyHours}h</span> studied
+              <span aria-hidden className="mx-1.5 text-muted-foreground/40">·</span>
+              <span className="tabular-nums">{streak}d</span> streak
+              <span aria-hidden className="mx-1.5 text-muted-foreground/40">·</span>
+              CGPA <span className="tabular-nums">{cgpa.toFixed(1)}</span>
+            </p>
+          </section>
 
-          {/* Achievement Categories */}
+          {/* Achievement list, grouped by category */}
           <div className="space-y-6">
-            {categories.map((cat) => {
-              const unlockedInCat = cat.achievements.filter((a) => unlockedIds.has(a.id)).length;
-              return (
-                <div key={cat.key}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="section-label">{cat.meta.label}</span>
-                    <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
-                      {unlockedInCat}/{cat.achievements.length}
-                    </span>
-                  </div>
-                  <motion.div
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 stagger-children"
-                    variants={container}
-                    initial="hidden"
-                    animate="show"
-                  >
-                    {cat.achievements.map((achievement) => (
-                      <AchievementCard
-                        key={achievement.id}
-                        achievement={achievement}
-                        unlocked={unlockedIds.has(achievement.id)}
-                      />
-                    ))}
-                  </motion.div>
+            {groups.map((group) => (
+              <section key={group.key} aria-label={group.label}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="section-label">{group.label}</h3>
+                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {group.unlockedCount}/{group.rows.length}
+                  </span>
                 </div>
-              );
-            })}
+                <ul className="mt-1 divide-y divide-border/50">
+                  {group.rows.map((row) => (
+                    <AchievementListItem key={row.achievement.id} row={row} />
+                  ))}
+                </ul>
+              </section>
+            ))}
           </div>
         </div>
       </DialogContent>

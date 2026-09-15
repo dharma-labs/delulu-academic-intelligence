@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AppState, Subject, SyllabusUnit, SyllabusTopic, Assessment, AttendanceRecord, StudySession, RevisionItem, Note, Task, TimetableSlot, CalendarEvent, Assignment, Exam, PYQ, ERPaper, Society, UserProfile, SignalStatus, ReEvalRequest, CUETScore, UserFile, UserFolder } from './types';
+import type { AppState, Subject, SyllabusUnit, SyllabusTopic, Assessment, AttendanceRecord, StudySession, RevisionItem, Note, Task, TimetableSlot, CalendarEvent, Assignment, Exam, PYQ, ERPaper, Society, UserProfile, SignalStatus, ReEvalRequest, CUETScore, UserFile, UserFolder, KnowledgeNode } from './types';
 import { GRADE_POINTS, GRADE_FROM_PERCENTAGE } from './types';
+import { applyKnowledgeDuplicate, applyKnowledgeMove, collectDescendantIds } from './knowledge';
 
 // ─── Default Profile ───────────────────────────────────────────────
 const DEFAULT_PROFILE: UserProfile = {
@@ -287,6 +288,8 @@ export const useStore = create<AppState>()(
         fileFolders: [] as UserFolder[],
         selectedSemester: null as number | null,
         userFiles: [] as UserFile[],
+        // Knowledge tree starts empty: it is the student's own structure.
+        knowledgeNodes: [] as KnowledgeNode[],
 
         // ── Focus Timer ──
         focusActive: false,
@@ -365,6 +368,12 @@ export const useStore = create<AppState>()(
             exams: state.exams.filter((e) => e.subjectId !== id),
             pyqs: state.pyqs.filter((p) => p.subjectId !== id),
             erPapers: state.erPapers.filter((e) => e.subjectId !== id),
+            // Knowledge nodes keep their structure; only the subject reference is dropped.
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.subjectIds.includes(id)
+                ? { ...n, subjectIds: n.subjectIds.filter((sid) => sid !== id) }
+                : n
+            ),
           })),
 
         // ═══════════════════════════════════════════════════════════════
@@ -845,6 +854,66 @@ export const useStore = create<AppState>()(
         setSelectedSemester: (sem) => set({ selectedSemester: sem }),
 
         // ═══════════════════════════════════════════════════════════════
+        // Knowledge Tree Actions
+        // A user-owned hierarchy: unlimited depth, manual order, no rules
+        // about what may live where.
+        // ═══════════════════════════════════════════════════════════════
+        addKnowledgeNode: (node) => {
+          const now = new Date().toISOString();
+          set((state) => ({
+            knowledgeNodes: [
+              ...state.knowledgeNodes,
+              { ...node, id: uid(), createdAt: now, updatedAt: now },
+            ],
+          }));
+        },
+
+        updateKnowledgeNode: (id, data) =>
+          set((state) => ({
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.id === id ? { ...n, ...data, updatedAt: new Date().toISOString() } : n
+            ),
+          })),
+
+        // Recursive: the node and every descendant go together.
+        deleteKnowledgeNode: (id) =>
+          set((state) => {
+            const removed = new Set<string>([id, ...collectDescendantIds(state.knowledgeNodes, id)]);
+            return {
+              knowledgeNodes: state.knowledgeNodes.filter((n) => !removed.has(n.id)),
+            };
+          }),
+
+        moveKnowledgeNode: (id, newParentId, newOrder) =>
+          set((state) => {
+            const next = applyKnowledgeMove(state.knowledgeNodes, id, newParentId, newOrder);
+            return next ? { knowledgeNodes: next } : {};
+          }),
+
+        reorderKnowledgeNode: (id, newOrder) =>
+          set((state) => {
+            const node = state.knowledgeNodes.find((n) => n.id === id);
+            if (!node) return {};
+            const next = applyKnowledgeMove(state.knowledgeNodes, id, node.parentId, newOrder);
+            return next ? { knowledgeNodes: next } : {};
+          }),
+
+        duplicateKnowledgeNode: (id) =>
+          set((state) => {
+            const next = applyKnowledgeDuplicate(state.knowledgeNodes, id, uid);
+            return next ? { knowledgeNodes: next } : {};
+          }),
+
+        archiveKnowledgeNode: (id, archived) =>
+          set((state) => ({
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.id === id
+                ? { ...n, archived, updatedAt: new Date().toISOString() }
+                : n
+            ),
+          })),
+
+        // ═══════════════════════════════════════════════════════════════
         // Focus Actions
         // ═══════════════════════════════════════════════════════════════
         startFocus: (subjectId, topicId, topicName) =>
@@ -856,7 +925,7 @@ export const useStore = create<AppState>()(
             focusElapsed: 0,
           }),
 
-        stopFocus: (notes) => {
+        stopFocus: (notes, topicName) => {
           const state = get();
           if (!state.focusActive || !state.focusStartTime || !state.focusSubjectId) return;
 
@@ -974,6 +1043,7 @@ export const useStore = create<AppState>()(
             societies: [],
             reEvalRequests: [],
             cuetScores: [],
+            knowledgeNodes: [],
             currentView: 'dashboard' as const,
             selectedSubjectId: null,
             previousView: null,
@@ -1005,6 +1075,7 @@ export const useStore = create<AppState>()(
             societies: [],
             reEvalRequests: [],
             cuetScores: [],
+            knowledgeNodes: [],
             currentView: 'dashboard' as const,
             selectedSubjectId: null,
             previousView: null,
@@ -1041,6 +1112,7 @@ export const useStore = create<AppState>()(
         societies: state.societies,
         reEvalRequests: state.reEvalRequests,
         cuetScores: state.cuetScores,
+        knowledgeNodes: state.knowledgeNodes,
         language: state.language,
         leaderboardOptIn: state.leaderboardOptIn,
       }),
@@ -1080,6 +1152,8 @@ export const useStore = create<AppState>()(
         // File manager migration
         if (p.fileFolders === undefined) p.fileFolders = [];
         if (p.userFiles === undefined) p.userFiles = [];
+        // Knowledge tree migration (new collection — starts empty)
+        if (!Array.isArray(p.knowledgeNodes)) p.knowledgeNodes = [];
         return p;
       },
     }

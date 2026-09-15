@@ -13,6 +13,9 @@ import { TodaySchedule } from '@/components/today-schedule';
 import { AcademicSnapshot } from '@/components/home/academic-snapshot';
 import { ProgressSummary } from '@/components/home/progress-summary';
 import { HomeHeader } from '@/components/home/home-header';
+import { UpcomingTasksSection } from '@/components/home/upcoming-tasks';
+import { TodaysSubjectsSection } from '@/components/home/todays-subjects';
+import { StudyProgressSection } from '@/components/home/study-progress';
 import {
   DeadlinesSection,
   HomeInsightLine,
@@ -21,7 +24,6 @@ import {
   RecommendationsSection,
   SocietiesSection,
   StudyPatternsSection,
-  SubjectFlowSection,
   WeeklyActivitySection,
   WeeklyFocusSection,
   useHomeIntel,
@@ -29,6 +31,7 @@ import {
 import { NEPExitCalculator } from '@/components/nep-exit-calculator';
 import { AchievementsDialog } from '@/components/achievements-dialog';
 import { QuickNoteDialog } from '@/components/quick-note-dialog';
+import { KnowledgeLine } from '@/components/home/knowledge-line';
 
 // -- Section visibility (unchanged behaviour, refreshed wording) --
 const DESKTOP_WIDGETS = [
@@ -174,7 +177,7 @@ export default function DashboardView() {
   return (
     <>
       {/* ══════════════════════════════════════════════════════════════
-          MOBILE — same hierarchy, tighter spacing
+          MOBILE — strictly stacked, same reading order
           ══════════════════════════════════════════════════════════════ */}
       <div className="md:hidden space-y-8 fab-content-pad">
         <HomeHeader widgets={MOBILE_WIDGETS} hiddenWidgets={hiddenWidgets} onToggleWidget={toggleWidget} />
@@ -185,10 +188,6 @@ export default function DashboardView() {
         </motion.div>
 
         <motion.div variants={fadeUp} initial="hidden" animate="show">
-          <TodaySchedule />
-        </motion.div>
-
-        <motion.div variants={fadeUp} initial="hidden" animate="show">
           <AcademicSnapshot />
         </motion.div>
 
@@ -196,13 +195,27 @@ export default function DashboardView() {
           <ProgressSummary />
         </motion.div>
 
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <UpcomingTasksSection />
+        </motion.div>
+
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <TodaysSubjectsSection />
+        </motion.div>
+
+        {!hiddenWidgets.includes('subject-progress') && (
+          <StudyProgressSection items={intel.subjectFlow} limit={4} />
+        )}
+
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <TodaySchedule />
+        </motion.div>
+
         {!hiddenWidgets.includes('insight') && (
           <HomeInsightLine recommendations={intel.recommendations} insights={intel.insights} onOpen={handleAction} />
         )}
 
-        {!hiddenWidgets.includes('subject-progress') && (
-          <SubjectFlowSection items={intel.subjectFlow} limit={4} />
-        )}
+        <KnowledgeLine />
 
         {!hiddenWidgets.includes('quick-actions') && (
           <QuickActionsSection
@@ -216,7 +229,8 @@ export default function DashboardView() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          DESKTOP — same hierarchy, more air
+          DESKTOP — main column (2fr) + side column (1fr), collapsing to a
+          single column below ~1100px.
           ══════════════════════════════════════════════════════════════ */}
       <motion.div className="hidden md:block space-y-10 pb-4" variants={container} initial="hidden" animate="show">
         <motion.div variants={fadeUp}>
@@ -227,24 +241,56 @@ export default function DashboardView() {
           <NowHero />
         </motion.div>
 
-        <motion.div variants={fadeUp} className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-          <TodaySchedule />
-          <AcademicSnapshot />
-        </motion.div>
+        <div className="grid grid-cols-1 gap-10 min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          {/* Main column */}
+          <div className="min-w-0 space-y-10">
+            <motion.div variants={fadeUp}>
+              <AcademicSnapshot />
+            </motion.div>
 
-        <motion.div variants={fadeUp}>
-          <ProgressSummary />
-        </motion.div>
+            <motion.div
+              variants={fadeUp}
+              className="grid grid-cols-1 gap-10 min-[1400px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+            >
+              <ProgressSummary />
+              <UpcomingTasksSection />
+            </motion.div>
+
+            <motion.div variants={fadeUp}>
+              <TodaysSubjectsSection />
+            </motion.div>
+
+            {!hiddenWidgets.includes('academic-flow') && (
+              <motion.div variants={fadeUp}>
+                <StudyProgressSection items={intel.subjectFlow} />
+              </motion.div>
+            )}
+          </div>
+
+          {/* Side column */}
+          <div className="min-w-0 space-y-10">
+            <motion.div variants={fadeUp}>
+              <TodaySchedule />
+            </motion.div>
+
+            {!hiddenWidgets.includes('deadlines') && (
+              <motion.div variants={fadeUp}>
+                <DeadlinesSection items={intel.deadlines} />
+              </motion.div>
+            )}
+          </div>
+        </div>
 
         <motion.div variants={fadeUp}>
           <HomeInsightLine recommendations={intel.recommendations} insights={intel.insights} onOpen={handleAction} />
         </motion.div>
 
-        <div className="space-y-10">
-          {!hiddenWidgets.includes('academic-flow') && <SubjectFlowSection items={intel.subjectFlow} />}
+        <motion.div variants={fadeUp}>
+          <KnowledgeLine />
+        </motion.div>
 
+        <div className="space-y-10">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-            {!hiddenWidgets.includes('deadlines') && <DeadlinesSection items={intel.deadlines} />}
             {!hiddenWidgets.includes('insights') && <InsightsSection items={intel.insights} />}
             {!hiddenWidgets.includes('study-patterns') && <StudyPatternsSection items={intel.patterns} />}
             {!hiddenWidgets.includes('weekly-activity') && <WeeklyActivitySection days={intel.heatDays} />}

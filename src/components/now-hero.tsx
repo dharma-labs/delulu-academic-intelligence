@@ -39,22 +39,35 @@ export function NowHero({ className }: { className?: string }) {
     return ctx[0] ?? null;
   }, [timetableSlots, exams, assignments, tasks, subjects, attendance, profile.attendanceThreshold]);
 
+  /** Decorative brand illustration on the right of the hero — never a control. */
+  const brandMark = (
+    <img
+      src="/logo.png"
+      alt=""
+      aria-hidden
+      className="pointer-events-none absolute -right-2 top-1/2 h-32 w-32 -translate-y-1/2 opacity-[0.07] select-none md:h-40 md:w-40 dark:opacity-[0.12]"
+    />
+  );
+
   if (!hero) {
     return (
       <section
         className={cn(
-          'rounded-3xl bg-primary/[0.04] p-6 md:p-8',
+          'relative overflow-hidden rounded-3xl bg-primary/[0.04] p-6 md:p-8',
           className
         )}
         aria-label="Delulu Now"
       >
-        <p className="text-xs font-medium text-muted-foreground">Delulu Now</p>
-        <p className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-          You&apos;re all clear right now.
-        </p>
-        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          No classes, deadlines or attendance warnings need you today.
-        </p>
+        {brandMark}
+        <div className="relative">
+          <p className="text-xs font-medium text-muted-foreground">Delulu Now</p>
+          <p className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+            You&apos;re all clear right now.
+          </p>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            No classes, deadlines or attendance warnings need you today.
+          </p>
+        </div>
       </section>
     );
   }
@@ -67,37 +80,41 @@ export function NowHero({ className }: { className?: string }) {
         navigate(hero.view as never);
       }}
       className={cn(
-        'group w-full rounded-3xl bg-primary/[0.05] p-6 text-left transition-colors duration-200',
+        'group relative w-full overflow-hidden rounded-3xl bg-primary/[0.05] p-6 text-left transition-colors duration-200',
         'hover:bg-primary/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
         'md:p-8',
         className
       )}
       aria-label="Delulu Now"
     >
-      <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-        <span className="font-medium">Delulu Now</span>
-        <span aria-hidden className="text-muted-foreground/40">·</span>
-        <span className="font-medium text-primary">{NOW_KIND_LABEL[hero.kind]}</span>
-      </p>
+      {brandMark}
 
-      <p className="mt-3 break-words text-2xl font-semibold leading-tight tracking-tight md:text-4xl">
-        {hero.title}
-      </p>
-
-      {hero.subject && (
-        <p className="mt-2 break-words text-sm text-muted-foreground md:text-base">
-          {hero.subject}
+      <div className="relative">
+        <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+          <span className="font-medium">Delulu Now</span>
+          <span aria-hidden className="text-muted-foreground/40">·</span>
+          <span className="font-medium text-primary">{NOW_KIND_LABEL[hero.kind]}</span>
         </p>
-      )}
 
-      <p className="mt-1 text-sm font-medium text-foreground/80 md:text-base">
-        {hero.meta}
-      </p>
+        <p className="mt-3 break-words text-2xl font-semibold leading-tight tracking-tight md:text-4xl">
+          {hero.title}
+        </p>
 
-      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
-        {NOW_ACTION_LABEL[hero.kind]}
-        <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-      </span>
+        {hero.subject && (
+          <p className="mt-2 break-words text-sm text-muted-foreground md:text-base">
+            {hero.subject}
+          </p>
+        )}
+
+        <p className="mt-1 text-sm font-medium text-foreground/80 md:text-base">
+          {hero.meta}
+        </p>
+
+        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+          {NOW_ACTION_LABEL[hero.kind]}
+          <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </span>
+      </div>
     </button>
   );
 }
