@@ -392,6 +392,8 @@ function trackRecentView(viewId: string) {
 
 const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
   'dashboard': { label: 'Dashboard', icon: LayoutDashboard },
+  'now': { label: 'Now', icon: Sparkles },
+  'files': { label: 'Files', icon: FolderOpen },
   'subjects': { label: 'Subjects', icon: BookOpen },
   'subject-detail': { label: 'Subject Detail', icon: BookOpen },
   'syllabus': { label: 'Syllabus', icon: BookOpen },

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'delulu-v1';
+const CACHE_NAME = 'delulu-v2';
 const STATIC_ASSETS = [
   '/',
   '/icon-192.png',

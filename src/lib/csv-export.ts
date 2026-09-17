@@ -5,7 +5,7 @@ import type { Assessment, AttendanceRecord, Subject, StudySession, TimetableSlot
 // ─── CSV Helper ───────────────────────────────────────────────────
 
 /** Escape a single CSV field – wraps in quotes if it contains commas, quotes, or newlines. */
-function escapeField(value: string): string {
+export function escapeField(value: string): string {
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }

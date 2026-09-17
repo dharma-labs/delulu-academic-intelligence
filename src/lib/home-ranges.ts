@@ -9,6 +9,8 @@ import type {
   Task,
 } from './types';
 import { classifyAttendance } from './attendance-helpers';
+import { formatDuration } from './duration';
+export { formatDuration };
 
 /**
  * Range summaries for the Home "Progress" section.
@@ -102,15 +104,6 @@ function averageSyllabusProgress(syllabusUnits: SyllabusUnit[], subjectIds: stri
     sum += topics.length > 0 ? Math.round((topics.filter((t) => t.completed).length / topics.length) * 100) : 0;
   }
   return Math.round(sum / subjectIds.length);
-}
-
-export function formatDuration(seconds: number): string {
-  const totalMinutes = Math.floor(seconds / 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function attendanceTone(percentage: number, threshold: number): HomeMetricTone {

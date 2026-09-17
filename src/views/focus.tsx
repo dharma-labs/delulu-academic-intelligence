@@ -1,4 +1,5 @@
 'use client';
+import { formatDuration as formatDurationCanonical } from '@/lib/duration';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -93,15 +94,8 @@ function formatElapsed(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function formatDuration(totalSeconds: number): string {
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
-}
+const formatDuration = (totalSeconds: number): string =>
+  formatDurationCanonical(totalSeconds, { precise: true });
 
 function todayDateStr(): string {
   return new Date().toISOString().split('T')[0];

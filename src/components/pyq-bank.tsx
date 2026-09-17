@@ -8,7 +8,6 @@ import { loadCourses } from '@/lib/du-data-loader';
 import {
   FileText,
   ExternalLink,
-  Upload,
   ChevronDown,
   ChevronRight,
   Search,

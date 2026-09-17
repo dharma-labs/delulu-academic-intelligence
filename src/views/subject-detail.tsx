@@ -40,6 +40,7 @@ import {
 } from '@/lib/store';
 import { SUBJECT_COLORS, GRADE_POINTS, GRADE_FROM_PERCENTAGE } from '@/lib/types';
 import { classifyAttendance } from '@/lib/attendance-helpers';
+import { formatDuration } from '@/lib/duration';
 import type { SignalStatus, Assessment, Exam, RevisionItem, Note, SyllabusUnit, SyllabusTopic } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
@@ -145,13 +146,6 @@ function pctColor(pct: number): string {
   if (pct >= 50) return 'text-[var(--delulu-info)]';
   if (pct >= 30) return 'text-[var(--delulu-warning)]';
   return 'text-[var(--delulu-danger)]';
-}
-
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 const fadeUp = {

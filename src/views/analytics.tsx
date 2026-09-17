@@ -1,4 +1,5 @@
 'use client';
+import { escapeField } from '@/lib/csv-export';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useStore, getSubjectAttendance, getSubjectProgress, getDueRevisionItems } from '@/lib/store';
@@ -20,11 +21,6 @@ type StudyDistItem = { subjectId: string; name: string; color: string; minutes: 
 type AssessSummary = { id: string; name: string; obtainedMarks: number; maxMarks: number };
 
 type SubjectSummaryExport = { name: string; attendance: number; syllabus: number; avgScore: number; studyMinutes: number; sessions: number; signal: string };
-
-function escapeField(value: string): string {
-  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
 
 export default function AnalyticsView() {
   const [ready, setReady] = useState(false);
