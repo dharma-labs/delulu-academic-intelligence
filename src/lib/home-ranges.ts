@@ -8,7 +8,7 @@ import type {
   SyllabusUnit,
   Task,
 } from './types';
-import { classifyAttendance } from './attendance-helpers';
+import { classifyAttendance, pooledAttendancePercent } from './attendance-helpers';
 import { formatDuration } from './duration';
 export { formatDuration };
 
@@ -81,7 +81,7 @@ function attendanceStats(records: AttendanceRecord[]): { present: number; total:
   return { present, total, percentage: total > 0 ? Math.round((present / total) * 100) : 0 };
 }
 
-/** Average of per-subject attendance percentages (same semantics as the dashboard). */
+/** Overall attendance for the scoped subjects — pooled, like every other surface. */
 function averageSubjectAttendance(records: AttendanceRecord[], subjectIds: string[]): { percentage: number; present: number; total: number } {
   if (subjectIds.length === 0) return { percentage: 0, present: 0, total: 0 };
   let sum = 0;
@@ -93,7 +93,7 @@ function averageSubjectAttendance(records: AttendanceRecord[], subjectIds: strin
     present += stats.present;
     total += stats.total;
   }
-  return { percentage: Math.round(sum / subjectIds.length), present, total };
+  return { percentage: pooledAttendancePercent(records.filter((r) => subjectIds.includes(r.subjectId))), present, total };
 }
 
 function averageSyllabusProgress(syllabusUnits: SyllabusUnit[], subjectIds: string[]): number {

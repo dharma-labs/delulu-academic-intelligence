@@ -45,9 +45,11 @@ export default function ReportView() {
     const totalSessions = studySessions.length;
     const totalStudyHours = Math.round(studySessions.reduce((a, s) => a + s.duration, 0) / 3600);
 
-    const avgAttendance = subjectReports.length > 0
-      ? Math.round(subjectReports.reduce((a, r) => a + r.attendance.percentage, 0) / subjectReports.length)
-      : 0;
+    // Pooled (weighted by classes held) — matches the Attendance view and the dashboard.
+    const attRecords = attendance.filter((a) => activeSubjects.some((sub) => sub.id === a.subjectId));
+    const attTotal = attRecords.reduce((a, r) => a + r.totalClasses, 0);
+    const attPresent = attRecords.filter((r) => r.present).reduce((a, r) => a + r.totalClasses, 0);
+    const avgAttendance = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : 0;
 
     return { sgpa, cgpa, weekMinutes, subjectReports, totalAssessments, avgAssessmentPct, totalSessions, totalStudyHours, avgAttendance };
   }, [activeSubjects, assessments, attendance, studySessions, profile]);

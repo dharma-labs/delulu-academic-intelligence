@@ -1,3 +1,5 @@
+import type { AttendanceRecord } from './types';
+
 export type AttendanceState = 'comfortable' | 'getting_tight' | 'at_risk';
 
 export type ThreeStateAttendance = 'on-track' | 'below-threshold' | 'needs-attention';
@@ -19,6 +21,15 @@ export function classesCanBeMissed(present: number, total: number, threshold: nu
   if (total === 0) return 0;
   const maxTotal = present / (threshold / 100);
   return Math.max(0, Math.floor(maxTotal - total));
+}
+
+/** The ONE definition of overall attendance percentage.
+ *  Pooled — weighted by classes held. The mean-of-per-subject-percentages variant
+ *  used on some surfaces produced a different number for the same data. */
+export function pooledAttendancePercent(records: AttendanceRecord[]): number {
+  const total = records.reduce((s, r) => s + r.totalClasses, 0);
+  const present = records.filter((r) => r.present).reduce((s, r) => s + r.totalClasses, 0);
+  return total === 0 ? 0 : Math.round((present / total) * 100);
 }
 
 export const ATTENDANCE_STATE_CONFIG: Record<AttendanceState, { label: string; className: string }> = {

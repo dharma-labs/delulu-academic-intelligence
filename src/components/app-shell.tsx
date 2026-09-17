@@ -1050,6 +1050,9 @@ export function AppShell() {
               <MobileStreakBadge />
             </div>
             <div className="flex items-center gap-1.5 ml-auto">
+              <div className="md:hidden flex items-center">
+                <SemesterSwitcher />
+              </div>
               <ThemeToggle />
               <button
                 onClick={() => setCommandOpen(true)}

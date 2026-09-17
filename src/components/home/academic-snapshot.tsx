@@ -50,9 +50,9 @@ export function AcademicSnapshot({ className }: { className?: string }) {
 
     // ── Attendance ──
     const attTotal = semesterSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).total, 0);
-    const avgAttendance = semesterSubjects.length > 0
-      ? Math.round(semesterSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).percentage, 0) / semesterSubjects.length)
-      : 0;
+    const attPresent = semesterSubjects.reduce((s, sub) => s + getSubjectAttendance({ attendance }, sub.id).present, 0);
+    // Pooled (weighted by classes held) so this matches the Attendance view exactly.
+    const avgAttendance = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : 0;
     const hasAttendance = attTotal > 0;
 
     if (semesterSubjects.length > 0) {
