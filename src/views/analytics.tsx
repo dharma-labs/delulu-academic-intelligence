@@ -37,7 +37,7 @@ export default function AnalyticsView() {
   const [studyDist, setStudyDist] = useState<StudyDistItem[]>([]);
   const [recentAssessments, setRecentAssessments] = useState<AssessSummary[]>([]);
   const [completionRate, setCompletionRate] = useState(0);
-  const [threshold, setThreshold] = useState(75);
+  const [threshold, setThreshold] = useState(() => useStore.getState().profile.attendanceThreshold);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'semester'>('week');
   const [chartTheme, setChartTheme] = useState({ primary: '#3B82F6', primaryRgb: '59, 130, 246', card: '#FFFFFF', foreground: '#0F172A', border: '#E2E8F0' });
   const [totalStudyHours, setTotalStudyHours] = useState(0);
@@ -115,7 +115,7 @@ export default function AnalyticsView() {
   }, []);
 
   const getColor = (pct: number) => {
-    if (pct >= 75) return 'text-[var(--delulu-success)]';
+    if (pct >= threshold) return 'text-[var(--delulu-success)]';
     if (pct >= 50) return 'text-[var(--delulu-info)]';
     if (pct >= 30) return 'text-[var(--delulu-warning)]';
     return 'text-[var(--delulu-danger)]';
@@ -227,7 +227,7 @@ export default function AnalyticsView() {
                     : 0;
                   const studyMin = Math.round(subSessions.reduce((a, x) => a + x.duration, 0) / 60);
                   let signal = 'On Track';
-                  if (att.percentage < 75) signal = 'Below Threshold';
+                  if (att.percentage < threshold) signal = 'Below Threshold';
                   else if (prog < 30) signal = 'Needs Attention';
                   return { name: sub.name, attendance: att.percentage, syllabus: prog, avgScore, studyMinutes: studyMin, sessions: subSessions.length, signal };
                 });

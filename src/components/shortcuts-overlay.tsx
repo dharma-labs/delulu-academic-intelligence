@@ -40,12 +40,6 @@ const SHORTCUTS: ShortcutSection[] = [
     ],
   },
   {
-    title: 'Actions',
-    items: [
-      { keys: 'N', label: 'New item (context-sensitive)' },
-    ],
-  },
-  {
     title: 'General',
     items: [
       { keys: '⌘,', label: 'Open Settings' },

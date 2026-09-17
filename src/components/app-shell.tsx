@@ -392,7 +392,7 @@ function trackRecentView(viewId: string) {
 }
 
 const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
-  'dashboard': { label: 'Dashboard', icon: LayoutDashboard },
+  'dashboard': { label: 'Home', icon: LayoutDashboard },
   'now': { label: 'Now', icon: Sparkles },
   'files': { label: 'Files', icon: FolderOpen },
   'subjects': { label: 'Subjects', icon: BookOpen },
@@ -412,7 +412,7 @@ const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
   'exams': { label: 'Exams', icon: FileText },
   'assignments': { label: 'Assignments', icon: ClipboardList },
   'settings': { label: 'Settings', icon: Settings },
-  'report': { label: 'Report', icon: GraduationCap },
+  'report': { label: 'Reports', icon: GraduationCap },
 };
 
 // ─── Command palette ─────────────────────────────────────────────────
@@ -945,6 +945,17 @@ function MobileFAB() {
 export function AppShell() {
   const subjects = useStore((s) => s.subjects);
   const hasOnboarded = useStore((s) => s.hasOnboarded);
+
+  // Deep-link bootstrap: the PWA manifest shortcuts land on /?view=<id>. Nothing parsed
+  // that parameter before, so the shortcuts were inert.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const requested = new URLSearchParams(window.location.search).get('view');
+    if (requested && requested in VIEW_META) {
+      useStore.getState().navigate(requested as never);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1015,11 +1026,6 @@ export function AppShell() {
       if (!isInput && !hasModifier && e.key === 'd') {
         e.preventDefault();
         setTheme(theme === 'dark' ? 'light' : 'dark');
-      }
-      // N key for context-sensitive new action (no modifiers, not in input)
-      if (!isInput && !hasModifier && e.key === 'n') {
-        e.preventDefault();
-        document.dispatchEvent(new CustomEvent('shortcut:new-action'));
       }
     };
     document.addEventListener('keydown', handleKeyDown);
