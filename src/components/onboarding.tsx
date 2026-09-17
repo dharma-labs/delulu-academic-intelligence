@@ -66,6 +66,7 @@ export function Onboarding() {
   const subjects = useStore((s) => s.subjects);
   const updateProfile = useStore((s) => s.updateProfile);
   const addSubject = useStore((s) => s.addSubject);
+  const completeOnboarding = useStore((s) => s.completeOnboarding);
   const navigate = useStore((s) => s.navigate);
 
   const [open, setOpen] = useState(true);
@@ -126,9 +127,10 @@ export function Onboarding() {
       });
     }
 
+    completeOnboarding();
     setOpen(false);
     navigate('subjects');
-  }, [name, semester, branch, targetCGPA, attendanceThreshold, subjectName, subjectCode, subjectCredits, subjectColor, updateProfile, addSubject, navigate]);
+  }, [name, semester, branch, targetCGPA, attendanceThreshold, subjectName, subjectCode, subjectCredits, subjectColor, updateProfile, addSubject, navigate, completeOnboarding]);
 
   // Don't render if user has subjects
   if (subjects.length > 0) return null;

@@ -409,7 +409,6 @@ const VIEW_META: Record<string, { label: string; icon: LucideIcon }> = {
   'exams': { label: 'Exams', icon: FileText },
   'assignments': { label: 'Assignments', icon: ClipboardList },
   'settings': { label: 'Settings', icon: Settings },
-  'ai-tutor': { label: 'AI Tutor', icon: Bot },
   'report': { label: 'Report', icon: GraduationCap },
 };
 
@@ -942,6 +941,7 @@ function MobileFAB() {
 
 export function AppShell() {
   const subjects = useStore((s) => s.subjects);
+  const hasOnboarded = useStore((s) => s.hasOnboarded);
   const setCommandOpen = useStore((s) => s.setCommandOpen);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1053,7 +1053,7 @@ export function AppShell() {
           </div>
 
           {/* Onboarding — shows when no subjects exist */}
-          {subjects.length === 0 && <Onboarding />}
+          {subjects.length === 0 && !hasOnboarded && <Onboarding />}
 
           <ViewRouter />
         </div>

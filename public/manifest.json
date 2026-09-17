@@ -35,10 +35,5 @@
       "url": "/",
       "description": "Open your academic dashboard"
     },
-    {
-      "name": "AI Tutor",
-      "url": "/?view=ai-tutor",
-      "description": "Chat with AI tutor"
-    }
   ]
 }

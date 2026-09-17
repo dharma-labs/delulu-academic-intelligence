@@ -38,7 +38,8 @@ import {
   getSubjectSignal,
   reviewRevisionItem,
 } from '@/lib/store';
-import { SUBJECT_COLORS, GRADE_POINTS } from '@/lib/types';
+import { SUBJECT_COLORS, GRADE_POINTS, GRADE_FROM_PERCENTAGE } from '@/lib/types';
+import { classifyAttendance } from '@/lib/attendance-helpers';
 import type { SignalStatus, Assessment, Exam, RevisionItem, Note, SyllabusUnit, SyllabusTopic } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
@@ -765,15 +766,13 @@ function MarksTab({ subjectId }: { subjectId: string }) {
   const grade = getSubjectGrade({ assessments }, subjectId);
 
   const targetGrade = subject?.targetGrade || 'A';
-  const targetPct = GRADE_POINTS[targetGrade]
-    ? (() => {
-        const thresholds: [number, string][] = [
-          [90, 'O'], [80, 'A'], [70, 'A-'], [60, 'B+'], [55, 'B'], [50, 'B-'], [45, 'C'], [40, 'P'],
-        ];
-        const entry = thresholds.find(([, g]) => g === targetGrade);
-        return entry ? entry[0] : 80;
-      })()
-    : 80;
+  // Derived from the single canonical grade table so this page can never disagree with it.
+  const targetPct = (() => {
+    for (let p = 100; p >= 0; p--) {
+      if (GRADE_FROM_PERCENTAGE(p) === targetGrade) return p;
+    }
+    return 80;
+  })();
 
   const caAssessments = assessments.filter((a) => a.category !== 'other');
   const caTotal = caAssessments.reduce((s, a) => s + a.maxMarks, 0);
@@ -1064,11 +1063,12 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
   const [markDate, setMarkDate] = useState(today);
   const markRecord = records.find((r) => r.date === markDate);
 
+  const attStateCanonical = classifyAttendance(att.percentage, profile.attendanceThreshold);
   const status = att.total === 0
     ? 'NO DATA'
-    : att.percentage >= profile.attendanceThreshold
+    : attStateCanonical === 'comfortable'
       ? 'SAFE'
-      : att.percentage >= profile.attendanceThreshold - 10
+      : attStateCanonical === 'getting_tight'
         ? 'WATCH'
         : 'RISK';
 
@@ -1636,7 +1636,7 @@ export default function SubjectDetailView() {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', code: '', credits: 3, color: '', targetGrade: 'A' });
+  const [editForm, setEditForm] = useState({ name: '', code: '', credits: 3, color: '', targetGrade: 'A', internalMarksObtained: '', endSemMarksObtained: '' });
 
   if (!subject || !selectedSubjectId) {
     return (
@@ -1664,6 +1664,10 @@ export default function SubjectDetailView() {
       credits: subject.credits,
       color: subject.color,
       targetGrade: subject.targetGrade || 'A',
+      internalMarksObtained:
+        subject.internalMarksObtained !== undefined ? String(subject.internalMarksObtained) : '',
+      endSemMarksObtained:
+        subject.endSemMarksObtained !== undefined ? String(subject.endSemMarksObtained) : '',
     });
     setEditOpen(true);
   };
@@ -1676,6 +1680,14 @@ export default function SubjectDetailView() {
       credits: editForm.credits,
       color: editForm.color,
       targetGrade: editForm.targetGrade,
+      internalMarksObtained:
+        editForm.internalMarksObtained === ''
+          ? undefined
+          : Math.max(0, Number(editForm.internalMarksObtained)),
+      endSemMarksObtained:
+        editForm.endSemMarksObtained === ''
+          ? undefined
+          : Math.max(0, Number(editForm.endSemMarksObtained)),
     });
     setEditOpen(false);
   };
@@ -1840,6 +1852,30 @@ export default function SubjectDetailView() {
                     aria-label={`Select color ${c}`}
                   />
                 ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>IA obtained (of {subject.internalMarksMax})</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={subject.internalMarksMax}
+                  value={editForm.internalMarksObtained}
+                  placeholder='Not entered'
+                  onChange={(e) => setEditForm((f) => ({ ...f, internalMarksObtained: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>ESE obtained (of {subject.endSemMarksMax})</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={subject.endSemMarksMax}
+                  value={editForm.endSemMarksObtained}
+                  placeholder='Not entered'
+                  onChange={(e) => setEditForm((f) => ({ ...f, endSemMarksObtained: e.target.value }))}
+                />
               </div>
             </div>
             <div className="grid gap-2">

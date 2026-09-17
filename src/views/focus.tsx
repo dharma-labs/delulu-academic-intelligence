@@ -143,7 +143,7 @@ export default function FocusView() {
     const wall = Math.max(0, Math.floor((Date.now() - focusStartTime) / 1000));
     if (wall > elapsedRef.current) {
       elapsedRef.current = wall;
-      useStore.setState({ focusElapsed: wall });
+      useStore.getState().setFocusElapsed(wall);
     }
   }, [focusActive, focusStartTime]);
   const phaseRef = useRef(phase);
@@ -227,7 +227,7 @@ export default function FocusView() {
       intervalRef.current = setInterval(() => {
         const wall = focusStartTime ? Math.floor((Date.now() - focusStartTime) / 1000) : 0;
         elapsedRef.current = Math.max(elapsedRef.current + 1, wall);
-        useStore.setState({ focusElapsed: elapsedRef.current });
+        useStore.getState().setFocusElapsed(elapsedRef.current);
 
         // Check for goal completion
         const goalSecs = goalMinutes ? parseInt(goalMinutes) * 60 : 0;

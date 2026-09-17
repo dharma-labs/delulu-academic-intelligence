@@ -26,7 +26,6 @@ const viewComponents: Record<ViewId, React.ComponentType> = {
   exams: dynamic(() => import('@/views/exams'), { ssr: false }),
   assignments: dynamic(() => import('@/views/assignments'), { ssr: false }),
   settings: dynamic(() => import('@/views/settings'), { ssr: false }),
-  'ai-tutor': dynamic(() => import('@/views/ai-tutor'), { ssr: false }),
   report: dynamic(() => import('@/views/report'), { ssr: false }),
   files: dynamic(() => import('@/components/file-manager'), { ssr: false }),
   now: dynamic(() => import('@/views/now'), { ssr: false }),

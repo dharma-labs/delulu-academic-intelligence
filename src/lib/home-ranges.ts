@@ -8,6 +8,7 @@ import type {
   SyllabusUnit,
   Task,
 } from './types';
+import { classifyAttendance } from './attendance-helpers';
 
 /**
  * Range summaries for the Home "Progress" section.
@@ -113,8 +114,9 @@ export function formatDuration(seconds: number): string {
 }
 
 function attendanceTone(percentage: number, threshold: number): HomeMetricTone {
-  if (percentage >= threshold) return 'success';
-  if (percentage >= threshold - 10) return 'warning';
+  const state = classifyAttendance(percentage, threshold);
+  if (state === 'comfortable') return 'success';
+  if (state === 'getting_tight') return 'warning';
   return 'danger';
 }
 

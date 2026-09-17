@@ -28,14 +28,13 @@ export const ATTENDANCE_STATE_CONFIG: Record<AttendanceState, { label: string; c
 };
 
 // -- Three-state attendance display (behavioral: no red, no alarm language) --
-const THREE_STATE_THRESHOLD = 66.67;
-const THREE_STATE_CRITICAL = 50;
-
-export function getAttendanceState(percentage: number): AttendanceDisplay {
-  if (percentage >= THREE_STATE_THRESHOLD) {
+// Bands come from classifyAttendance so every surface agrees on what "at risk" means.
+export function getAttendanceState(percentage: number, threshold: number = 66.67): AttendanceDisplay {
+  const state = classifyAttendance(percentage, threshold);
+  if (state === 'comfortable') {
     return { label: 'On Track', colorClass: 'text-emerald-600', bgClass: 'bg-emerald-50', variant: 'on-track' };
   }
-  if (percentage >= THREE_STATE_CRITICAL) {
+  if (state === 'getting_tight') {
     return { label: 'Below Threshold', colorClass: 'text-amber-600', bgClass: 'bg-amber-50', variant: 'below-threshold' };
   }
   return { label: 'Needs Attention', colorClass: 'text-slate-600', bgClass: 'bg-slate-50', variant: 'needs-attention' };

@@ -19,6 +19,7 @@ import {
 
 import { useStore } from '@/lib/store';
 import { getSubjectAttendance } from '@/lib/store';
+import { classifyAttendance } from '@/lib/attendance-helpers';
 import { exportAttendanceCSV } from '@/lib/csv-export';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,8 +47,9 @@ function getAttendanceStatus(
   percentage: number,
   threshold: number
 ): 'SAFE' | 'WATCH' | 'RISK' {
-  if (percentage >= threshold + 10) return 'SAFE';
-  if (percentage >= threshold - 5) return 'WATCH';
+  const state = classifyAttendance(percentage, threshold);
+  if (state === 'comfortable') return 'SAFE';
+  if (state === 'getting_tight') return 'WATCH';
   return 'RISK';
 }
 

@@ -327,7 +327,6 @@ export type ViewId =
   | 'assignments'
   | 'knowledge'
   | 'settings'
-  | 'ai-tutor'
   | 'report'
   | 'files'
   | 'now';
@@ -368,6 +367,7 @@ export interface AppState {
 
   // Focus timer
   focusActive: boolean;
+  hasOnboarded: boolean;
   focusSubjectId: string | null;
   focusTopicId: string | null;
   focusStartTime: number | null;
@@ -498,6 +498,7 @@ export interface AppState {
   // Focus actions
   startFocus: (subjectId: string, topicId?: string, topicName?: string) => void;
   stopFocus: (notes?: string, topicName?: string) => void;
+  setFocusElapsed: (seconds: number) => void;
 
   // Language & Leaderboard actions
   setLanguage: (language: 'en' | 'hi') => void;
@@ -507,6 +508,8 @@ export interface AppState {
   exportData: () => string;
   importData: (json: string) => void;
   restoreDemoData: () => void;
+  completeOnboarding: () => void;
+  loadDemoData: () => void;
   resetState: () => void;
 }
 

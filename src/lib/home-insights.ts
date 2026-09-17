@@ -1,4 +1,5 @@
 import { format, startOfWeek } from 'date-fns';
+import { GRADE_FROM_PERCENTAGE } from './types';
 import type {
   Assessment,
   Assignment,
@@ -254,7 +255,7 @@ export function buildStudyPatterns(input: HomeIntelInput): HomeInsight[] {
   if (input.assessments.length >= 2) {
     const recent = [...input.assessments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
     const avgPct = recent.reduce((a, x) => a + (x.obtainedMarks / x.maxMarks) * 100, 0) / recent.length;
-    const predicted = avgPct >= 90 ? 'O' : avgPct >= 80 ? 'A+' : avgPct >= 70 ? 'A' : avgPct >= 60 ? 'B+' : avgPct >= 50 ? 'B' : 'C';
+    const predicted = GRADE_FROM_PERCENTAGE(avgPct);
     patterns.push({
       type: 'positive',
       title: 'Grade trend',

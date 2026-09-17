@@ -22,6 +22,16 @@ const DEFAULT_PROFILE: UserProfile = {
 
 // ─── Date helpers ──────────────────────────────────────────────────
 const todayStr = () => new Date().toISOString().split('T')[0];
+
+// Demo data is opt-in: a first run starts empty so onboarding can capture the profile.
+const ONBOARDED_KEY = 'delulu-has-onboarded';
+const isOnboarded = () => {
+  try {
+    return typeof window !== 'undefined' && localStorage.getItem(ONBOARDED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 const daysAgo = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -253,6 +263,7 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => {
       const seed = seedDemoData();
+      const firstRun = !isOnboarded();
 
       return {
         // ── Navigation ──
@@ -266,20 +277,21 @@ export const useStore = create<AppState>()(
         profile: { ...DEFAULT_PROFILE },
 
         // ── Data (seeded) ──
-        subjects: seed.subjects,
-        syllabusUnits: seed.syllabusUnits,
-        assessments: seed.assessments,
-        attendance: seed.attendance,
-        studySessions: seed.studySessions,
-        revisionItems: seed.revisionItems,
-        notes: seed.notes,
-        tasks: seed.tasks,
-        timetableSlots: seed.timetableSlots,
-        calendarEvents: seed.calendarEvents,
-        assignments: seed.assignments,
-        exams: seed.exams,
-        pyqs: seed.pyqs,
-        erPapers: seed.erPapers,
+        hasOnboarded: isOnboarded(),
+        subjects: firstRun ? [] : seed.subjects,
+        syllabusUnits: firstRun ? [] : seed.syllabusUnits,
+        assessments: firstRun ? [] : seed.assessments,
+        attendance: firstRun ? [] : seed.attendance,
+        studySessions: firstRun ? [] : seed.studySessions,
+        revisionItems: firstRun ? [] : seed.revisionItems,
+        notes: firstRun ? [] : seed.notes,
+        tasks: firstRun ? [] : seed.tasks,
+        timetableSlots: firstRun ? [] : seed.timetableSlots,
+        calendarEvents: firstRun ? [] : seed.calendarEvents,
+        assignments: firstRun ? [] : seed.assignments,
+        exams: firstRun ? [] : seed.exams,
+        pyqs: firstRun ? [] : seed.pyqs,
+        erPapers: firstRun ? [] : seed.erPapers,
         societies: [],
 
         // ── Re-evaluation & CUET ──
@@ -368,6 +380,7 @@ export const useStore = create<AppState>()(
             exams: state.exams.filter((e) => e.subjectId !== id),
             pyqs: state.pyqs.filter((p) => p.subjectId !== id),
             erPapers: state.erPapers.filter((e) => e.subjectId !== id),
+            reEvalRequests: state.reEvalRequests.filter((r) => r.subjectId !== id),
             // Knowledge nodes keep their structure; only the subject reference is dropped.
             knowledgeNodes: state.knowledgeNodes.map((n) =>
               n.subjectIds.includes(id)
@@ -432,6 +445,9 @@ export const useStore = create<AppState>()(
               topics: u.topics.filter((t) => t.id !== id),
             })),
             revisionItems: state.revisionItems.filter((r) => r.topicId !== id),
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.linkedSyllabusTopicId === id ? { ...n, linkedSyllabusTopicId: null } : n
+            ),
           })),
 
         toggleTopicComplete: (id) =>
@@ -546,6 +562,11 @@ export const useStore = create<AppState>()(
         deleteNote: (id) =>
           set((state) => ({
             notes: state.notes.filter((n) => n.id !== id),
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.linkedNoteIds?.includes(id)
+                ? { ...n, linkedNoteIds: n.linkedNoteIds.filter((x) => x !== id) }
+                : n
+            ),
           })),
 
         // ═══════════════════════════════════════════════════════════════
@@ -662,6 +683,7 @@ export const useStore = create<AppState>()(
         deleteExam: (id) =>
           set((state) => ({
             exams: state.exams.filter((e) => e.id !== id),
+            pyqs: state.pyqs.filter((p) => p.examId !== id),
           })),
 
         // ═══════════════════════════════════════════════════════════════
@@ -842,6 +864,11 @@ export const useStore = create<AppState>()(
         deleteFile: (id) =>
           set((state) => ({
             userFiles: state.userFiles.filter((f) => f.id !== id),
+            knowledgeNodes: state.knowledgeNodes.map((n) =>
+              n.linkedFileIds?.includes(id)
+                ? { ...n, linkedFileIds: n.linkedFileIds.filter((x) => x !== id) }
+                : n
+            ),
           })),
 
         moveFile: (id, folderId) =>
@@ -953,6 +980,9 @@ export const useStore = create<AppState>()(
           });
         },
 
+        setFocusElapsed: (seconds) =>
+          set({ focusElapsed: seconds }),
+
         // ═══════════════════════════════════════════════════════════════
         // Language & Leaderboard Actions
         // ═══════════════════════════════════════════════════════════════
@@ -1056,6 +1086,19 @@ export const useStore = create<AppState>()(
             focusElapsed: 0,
           });
         },
+
+        /** Marks onboarding complete so the first-run gate stays closed. */
+        completeOnboarding: () => {
+          try {
+            localStorage.setItem(ONBOARDED_KEY, '1');
+          } catch {
+            /* storage unavailable */
+          }
+          set({ hasOnboarded: true, currentView: 'subjects' as const });
+        },
+
+        /** Opt-in demo data (Settings Restore demo data; future "try demo"). */
+        loadDemoData: () => set({ ...seedDemoData() }),
 
         resetState: () => {
           set({
