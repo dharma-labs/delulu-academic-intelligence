@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { format, isToday, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   ArrowLeft,
   MoreHorizontal,
@@ -148,7 +149,7 @@ function pctColor(pct: number): string {
   return 'text-[var(--delulu-danger)]';
 }
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
@@ -1240,7 +1241,7 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
   const upcomingItems = items.filter((r) => r.nextReview > today);
 
   const handleReview = (itemId: string, quality: number) => {
-    reviewRevisionItem(store, itemId, quality);
+    reviewRevisionItem(itemId, quality);
     setReviewingId(null);
   };
 

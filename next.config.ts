@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     unoptimized: true, // required for static export + Electron file:// loading
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
 };

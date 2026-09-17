@@ -30,6 +30,7 @@ interface MetricCardProps {
   sparkline?: number[];
   sparklineColor?: string;
   className?: string;
+  style?: import('react').CSSProperties;
   onClick?: () => void;
 }
 
@@ -46,12 +47,14 @@ export function MetricCard({
   sparkline,
   sparklineColor,
   className,
+  style,
   onClick,
 }: MetricCardProps) {
   const maxVal = sparkline ? Math.max(...sparkline, 1) : 0;
   return (
     <div
       className={cn('metric-card metric-card-accent-top card-hover-lift', onClick && 'cursor-pointer', accent && ACCENT_CLASS[accent], className)}
+      style={style}
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2 md:mb-3">

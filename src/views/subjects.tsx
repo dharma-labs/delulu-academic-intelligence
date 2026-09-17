@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   Plus,
   Search,
@@ -70,7 +71,7 @@ import { IAESplitView } from '@/components/ia-ese-split';
 import { useUPCAutoPopulate } from '@/lib/use-upc-autopopulate';
 import { getAttendanceState } from '@/lib/attendance-helpers';
 // -- Animation helpers ------------------------------------------------
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -78,7 +79,7 @@ const container = {
   },
 };
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: {
     opacity: 1,

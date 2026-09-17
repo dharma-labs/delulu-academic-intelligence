@@ -1215,12 +1215,8 @@ export const useStore = create<AppState>()(
  * @param quality - quality of recall (0-5). >= 3 means pass.
  * @returns void (mutates the store)
  */
-export function reviewRevisionItem(
-  store: ReturnType<typeof useStore>,
-  itemId: string,
-  quality: number
-) {
-  const item = store.getState().revisionItems.find((r) => r.id === itemId);
+export function reviewRevisionItem(itemId: string, quality: number) {
+  const item = useStore.getState().revisionItems.find((r) => r.id === itemId);
   if (!item) return;
 
   const q = Math.max(0, Math.min(5, quality));
@@ -1248,7 +1244,7 @@ export function reviewRevisionItem(
   nextReviewDate.setDate(nextReviewDate.getDate() + interval);
   const nextReview = nextReviewDate.toISOString().split('T')[0];
 
-  store.getState().updateRevisionItem(itemId, {
+  useStore.getState().updateRevisionItem(itemId, {
     easeFactor,
     interval,
     repetitions,

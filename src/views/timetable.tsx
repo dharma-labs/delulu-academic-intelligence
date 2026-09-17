@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   Plus,
   ChevronLeft,
@@ -89,7 +90,7 @@ function getNowIndicatorTop(): number {
 }
 
 // -- Animation --------------------------------------------------------
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };

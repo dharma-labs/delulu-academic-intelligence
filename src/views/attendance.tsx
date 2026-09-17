@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { format, parseISO, getDay } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   Check,
   X,
@@ -33,11 +34,11 @@ import {
 } from '@/components/shared';
 
 // -- Animation helpers ------------------------------------------------
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.06 } },
 };
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };

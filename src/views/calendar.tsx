@@ -16,6 +16,7 @@ import {
   parseISO,
 } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   ChevronLeft,
   ChevronRight,
@@ -59,11 +60,11 @@ import { loadAcademicCalendar, dataAsOfBadge } from '@/lib/du-data-loader';
 import type { DUAcaCalData } from '@/lib/du-data-loader';
 
 // -- Animation helpers ------------------------------------------------
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };

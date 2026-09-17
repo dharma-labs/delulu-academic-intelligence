@@ -150,7 +150,7 @@ export default function RevisionView() {
     itemId: string,
     quality: number
   ) => {
-    reviewRevisionItem(store, itemId, quality);
+    reviewRevisionItem(itemId, quality);
     setReviewedIds((prev) => new Set(prev).add(itemId));
   }, [store]);
 

@@ -18,7 +18,7 @@ import { progressColorClass } from '@/components/shared';
 type SubjectSummary = { id: string; name: string; color: string; percentage: number };
 type HeatmapDay = { dateStr: string; minutes: number };
 type StudyDistItem = { subjectId: string; name: string; color: string; minutes: number };
-type AssessSummary = { id: string; name: string; obtainedMarks: number; maxMarks: number };
+type AssessSummary = { id: string; name: string; date: string; obtainedMarks: number; maxMarks: number };
 
 type SubjectSummaryExport = { name: string; attendance: number; syllabus: number; avgScore: number; studyMinutes: number; sessions: number; signal: string };
 
@@ -388,7 +388,7 @@ export default function AnalyticsView() {
                 className="py-8"
               />
             ) : (
-              <ResponsiveContainer width="100%" height={200} maintainAspectRatio={false}>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={weekBarData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${chartTheme.primaryRgb}, 0.08)`} vertical={false} />
                   <XAxis
@@ -434,7 +434,7 @@ export default function AnalyticsView() {
                 className="py-8"
               />
             ) : (
-              <ResponsiveContainer width="100%" height={200} maintainAspectRatio={false}>
+              <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={cgpaTrendData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${chartTheme.primaryRgb}, 0.08)`} vertical={false} />
                   <XAxis
@@ -483,7 +483,7 @@ export default function AnalyticsView() {
               />
             ) : (
               <div className="flex items-center gap-4">
-                <ResponsiveContainer width="50%" height={200} maintainAspectRatio={false}>
+                <ResponsiveContainer width="50%" height={200}>
                   <PieChart>
                     <Pie
                       data={pieData}

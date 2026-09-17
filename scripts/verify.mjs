@@ -7,7 +7,7 @@
  */
 import { execSync } from 'node:child_process';
 
-const STRICT_TYPES = false;
+const STRICT_TYPES = true;
 
 function run(cmd) {
   try {

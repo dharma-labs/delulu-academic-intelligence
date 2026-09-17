@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   Plus,
   Pencil,
@@ -16,6 +17,7 @@ import {
   AlertTriangle,
   Flag,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 
 import { useStore, getTodayTasks, getOverdueTasks } from '@/lib/store';
@@ -64,12 +66,12 @@ import {
 import { cn } from '@/lib/utils';
 
 // --- Animation helpers ---
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
 
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
 };
@@ -415,7 +417,7 @@ export default function TasksView() {
       return 0;
     });
 
-  const tabData: Record<string, { tasks: Task[]; emptyTitle: string; emptyDesc: string; emptyIcon: React.ElementType; emptyAction?: { label: string; onClick: () => void } }> = {
+  const tabData: Record<string, { tasks: Task[]; emptyTitle: string; emptyDesc: string; emptyIcon: LucideIcon; emptyAction?: { label: string; onClick: () => void } }> = {
     today: {
       tasks: sortByPriority(todayTasks),
       emptyTitle: 'All clear!',
