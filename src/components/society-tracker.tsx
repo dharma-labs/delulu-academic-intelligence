@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ export function SocietyTracker() {
     name: '',
     role: 'Member',
     category: 'cultural' as Society['category'],
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: todayYMD(),
     notes: '',
   });
 
@@ -71,7 +72,7 @@ export function SocietyTracker() {
       active: true,
       notes: form.notes || undefined,
     });
-    setForm({ name: '', role: 'Member', category: 'cultural', startDate: new Date().toISOString().split('T')[0], notes: '' });
+    setForm({ name: '', role: 'Member', category: 'cultural', startDate: todayYMD(), notes: '' });
     setOpen(false);
   };
 

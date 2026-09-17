@@ -1,5 +1,6 @@
 'use client';
 import { formatDuration as formatDurationCanonical } from '@/lib/duration';
+import { ymd, todayYMD } from '@/lib/date-utils';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -98,7 +99,7 @@ const formatDuration = (totalSeconds: number): string =>
   formatDurationCanonical(totalSeconds, { precise: true });
 
 function todayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayYMD();
 }
 
 // --- Component ---

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { ymd, todayYMD } from './date-utils';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AppState, Subject, SyllabusUnit, SyllabusTopic, Assessment, AttendanceRecord, StudySession, RevisionItem, Note, Task, TimetableSlot, CalendarEvent, Assignment, Exam, PYQ, ERPaper, Society, UserProfile, SignalStatus, ReEvalRequest, CUETScore, UserFile, UserFolder, KnowledgeNode } from './types';
 import { GRADE_POINTS, GRADE_FROM_PERCENTAGE } from './types';
@@ -21,7 +22,7 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 // ─── Date helpers ──────────────────────────────────────────────────
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => todayYMD();
 
 // Demo data is opt-in: a first run starts empty so onboarding can capture the profile.
 const ONBOARDED_KEY = 'delulu-has-onboarded';
@@ -35,12 +36,12 @@ const isOnboarded = () => {
 const daysAgo = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return ymd(d);
 };
 const daysFromNow = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return ymd(d);
 };
 
 const uid = () => crypto.randomUUID();
@@ -131,7 +132,7 @@ function seedDemoData() {
     date.setDate(date.getDate() - d);
     const dow = date.getDay();
     if (dow === 0 || dow === 6) continue; // skip weekends
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = ymd(date);
     // Each subject has class on certain days
     const subjectsToday = subjects.filter((_, i) => {
       // Rough schedule: Mon/Wed s1,s3,s5  Tue/Thu s2,s4
@@ -214,7 +215,7 @@ function seedDemoData() {
     const dur = sp.minDur + Math.floor(Math.random() * (sp.maxDur - sp.minDur));
     const dateObj = new Date();
     dateObj.setDate(dateObj.getDate() - sp.daysBack);
-    const dateStr = dateObj.toISOString().split('T')[0];
+    const dateStr = ymd(dateObj);
     studySessions.push({ id: uid(), subjectId: sp.subjectId, topicName: sp.topicName, duration: dur, date: dateStr, type: 'focus' });
   }
   // Add a few revision sessions
@@ -1242,7 +1243,7 @@ export function reviewRevisionItem(itemId: string, quality: number) {
 
   const nextReviewDate = new Date();
   nextReviewDate.setDate(nextReviewDate.getDate() + interval);
-  const nextReview = nextReviewDate.toISOString().split('T')[0];
+  const nextReview = ymd(nextReviewDate);
 
   useStore.getState().updateRevisionItem(itemId, {
     easeFactor,
@@ -1477,7 +1478,7 @@ export function getStudyTimeThisWeek(
   startOfWeek.setDate(now.getDate() - dayOfWeek);
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const startStr = startOfWeek.toISOString().split('T')[0];
+  const startStr = ymd(startOfWeek);
 
   return state.studySessions
     .filter((s) => s.date >= startStr)
@@ -1498,7 +1499,7 @@ export function getStudyStreak(
   for (let i = 0; i < 365; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = ymd(d);
     if ((sessionsByDate.get(dateStr) || 0) >= 1) {
       streak++;
     } else {

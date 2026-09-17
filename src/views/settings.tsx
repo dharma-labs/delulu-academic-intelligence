@@ -1,6 +1,7 @@
 'use client';
 
 import { useStore } from '@/lib/store';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,7 +110,7 @@ export default function SettingsView() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `delulu-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `delulu-backup-${todayYMD()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Data exported successfully');

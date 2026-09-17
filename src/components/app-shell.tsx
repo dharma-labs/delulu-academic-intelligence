@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { useStore, getSemesterHealth, getStudyStreak, getStudyTimeToday } from '@/lib/store';
 import type { ViewId } from '@/lib/types';
 import { ViewRouter } from '@/components/view-router';
@@ -75,7 +76,7 @@ function useNavBadges() {
     const badges: Partial<Record<ViewId, number>> = {};
 
     // Overdue tasks
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayYMD();
     const overdueTasks = tasks.filter(t => !t.completed && t.dueDate && t.dueDate < today);
     if (overdueTasks.length > 0) badges['tasks'] = overdueTasks.length;
 
@@ -89,13 +90,13 @@ function useNavBadges() {
     // Upcoming exams (within 7 days)
     const weekFromNow = new Date();
     weekFromNow.setDate(weekFromNow.getDate() + 7);
-    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= weekFromNow.toISOString().split('T')[0]);
+    const upcomingExams = exams.filter(e => e.status === 'upcoming' && e.date >= today && e.date <= ymd(weekFromNow));
     if (upcomingExams.length > 0) badges['exams'] = upcomingExams.length;
 
     // Upcoming assignments (within 3 days)
     const threeDays = new Date();
     threeDays.setDate(threeDays.getDate() + 3);
-    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= threeDays.toISOString().split('T')[0]);
+    const upcomingAssign = assignments.filter(a => a.status !== 'completed' && a.deadline >= today && a.deadline <= ymd(threeDays));
     if (upcomingAssign.length > 0) badges['assignments'] = upcomingAssign.length;
 
     return badges;

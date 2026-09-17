@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain,
@@ -54,7 +55,7 @@ function getMasteryStatus(repetitions: number): {
 type UrgencyLevel = 'high' | 'medium' | 'low';
 
 function getUrgency(nextReview: string): UrgencyLevel {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYMD();
   const daysOverdue = differenceInDays(parseISO(today), parseISO(nextReview));
   if (daysOverdue > 3) return 'high';
   if (daysOverdue >= 1) return 'medium';
@@ -105,7 +106,7 @@ export default function RevisionView() {
   );
 
   const today = useMemo(
-    () => new Date().toISOString().split('T')[0],
+    () => todayYMD(),
     []
   );
 
@@ -126,7 +127,7 @@ export default function RevisionView() {
   const upcomingItems = useMemo(() => {
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-    const futureStr = sevenDaysFromNow.toISOString().split('T')[0];
+    const futureStr = ymd(sevenDaysFromNow);
     return revisionItems
       .filter((r) => r.nextReview > today && r.nextReview <= futureStr)
       .sort((a, b) => a.nextReview.localeCompare(b.nextReview));

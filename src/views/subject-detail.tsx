@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { format, isToday, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
@@ -374,7 +375,7 @@ function WeeklyStudyMiniChart({ studySessions }: { studySessions: { date: string
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = ymd(d);
       const dayMinutes = Math.floor(studySessions
         .filter((s) => s.date === dateStr)
         .reduce((sum, s) => sum + s.duration / 60, 0));
@@ -753,7 +754,7 @@ function MarksTab({ subjectId }: { subjectId: string }) {
     category: 'ca_test' as Assessment['category'],
     maxMarks: 100,
     obtainedMarks: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayYMD(),
     notes: '',
   });
 
@@ -788,7 +789,7 @@ function MarksTab({ subjectId }: { subjectId: string }) {
       date: form.date,
       notes: form.notes,
     });
-    setForm({ name: '', category: 'ca_test', maxMarks: 100, obtainedMarks: 0, date: new Date().toISOString().split('T')[0], notes: '' });
+    setForm({ name: '', category: 'ca_test', maxMarks: 100, obtainedMarks: 0, date: todayYMD(), notes: '' });
     setShowAdd(false);
   };
 
@@ -1054,7 +1055,7 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
   const deleteAttendance = useStore((s) => s.deleteAttendance);
 
   const att = getSubjectAttendance({ attendance: records }, subjectId);
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYMD();
   const [markDate, setMarkDate] = useState(today);
   const markRecord = records.find((r) => r.date === markDate);
 
@@ -1236,7 +1237,7 @@ function RevisionTab({ subjectId }: { subjectId: string }) {
   const store = useStore();
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYMD();
   const dueItems = items.filter((r) => r.nextReview <= today);
   const upcomingItems = items.filter((r) => r.nextReview > today);
 
@@ -1463,7 +1464,7 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
     name: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayYMD(),
     type: 'midsem' as Exam['type'],
     totalMarks: 100,
     status: 'upcoming' as Exam['status'],
@@ -1483,7 +1484,7 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
       obtainedMarks: form.status === 'completed' ? form.obtainedMarks : undefined,
       preparationNotes: form.preparationNotes,
     });
-    setForm({ name: '', date: new Date().toISOString().split('T')[0], type: 'midsem', totalMarks: 100, status: 'upcoming', obtainedMarks: undefined, preparationNotes: '' });
+    setForm({ name: '', date: todayYMD(), type: 'midsem', totalMarks: 100, status: 'upcoming', obtainedMarks: undefined, preparationNotes: '' });
     setShowAdd(false);
   };
 

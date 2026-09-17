@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { ymd, todayYMD } from '@/lib/date-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import {
@@ -77,13 +78,13 @@ const fadeUp: Variants = {
 };
 
 // --- Helpers ---
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => todayYMD();
 
 function formatDueDate(dateStr: string): string {
   const today = todayStr();
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const tomorrowStr = ymd(tomorrow);
   const date = parseISO(dateStr);
 
   if (dateStr === today) return 'Today';
