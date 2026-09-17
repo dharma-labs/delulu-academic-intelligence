@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useRef, useEffect } from 'react';
-import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone, Globe, Trophy, GraduationCap, Crown, AtSign, Mail } from 'lucide-react';
+import { User, Clock, Database, Palette, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone, Globe, Trophy, GraduationCap, Crown, AtSign, Mail } from 'lucide-react';
 import { APP_NAME, APP_VERSION, APP_TAGLINE, DEVELOPER_CREDIT, DEVELOPER_INSTAGRAM, DEVELOPER_INSTAGRAM_URL, DEVELOPER_EMAIL } from '@/lib/app-info';
 import { PageHeader, InsightCard } from '@/components/shared';
 import { LanguageToggle } from '@/components/language-toggle';
@@ -370,18 +370,6 @@ export default function SettingsView() {
               }
             />
           </div>
-        </SettingsSection>
-      </div>
-
-      {/* ─── AI TUTOR ─── */}
-      <div className="border-t border-border/50 pt-4 mt-4">
-        <SettingsSection icon={Bot} title="AI TUTOR" className="mb-4">
-          <InsightCard
-            type="info"
-            icon={Bot}
-            title="No configuration needed"
-            description="AI Tutor uses the built-in LLM skill. It works out of the box when online. The app works fully offline without it."
-          />
         </SettingsSection>
       </div>
 
