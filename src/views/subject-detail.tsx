@@ -41,6 +41,7 @@ import {
   reviewRevisionItem,
 } from '@/lib/store';
 import { SUBJECT_COLORS, GRADE_POINTS, GRADE_FROM_PERCENTAGE } from '@/lib/types';
+import { eseMarksNeeded } from '@/lib/marks-projection';
 import { classifyAttendance } from '@/lib/attendance-helpers';
 import { formatDuration } from '@/lib/duration';
 import type { SignalStatus, Assessment, Exam, RevisionItem, Note, SyllabusUnit, SyllabusTopic } from '@/lib/types';
@@ -773,10 +774,12 @@ function MarksTab({ subjectId }: { subjectId: string }) {
   const caAssessments = assessments.filter((a) => a.category !== 'other');
   const caTotal = caAssessments.reduce((s, a) => s + a.maxMarks, 0);
   const caObtained = caAssessments.reduce((s, a) => s + a.obtainedMarks, 0);
-  const requiredEndSemPct = caTotal > 0
-    ? Math.max(0, ((targetPct - (caObtained / Math.max(1, caTotal)) * 40) / 60) * 100)
-    : targetPct;
-  const isReachable = requiredEndSemPct <= 100;
+  // One projection, shared with the IA/ESE split component, using the subject's real maxima.
+  const endSemMarksMax = subject?.endSemMarksMax ?? 75;
+  const iaMarksMax = caTotal > 0 ? caTotal : (subject?.internalMarksMax ?? 25);
+  const requiredEndSemMarks = eseMarksNeeded(caObtained, iaMarksMax, endSemMarksMax, targetPct);
+  const requiredEndSemPct = endSemMarksMax > 0 ? Math.round((requiredEndSemMarks / endSemMarksMax) * 100) : 0;
+  const isReachable = requiredEndSemMarks <= endSemMarksMax;
 
   const handleSubmit = () => {
     if (!form.name.trim()) return;

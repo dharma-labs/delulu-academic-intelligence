@@ -5,6 +5,7 @@ import { BookOpen, Target, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GRADE_POINTS } from '@/lib/types';
+import { eseMarksNeeded } from '@/lib/marks-projection';
 import type { Subject } from '@/lib/types';
 
 interface IAESplitProps { subject: Subject; }
@@ -15,11 +16,9 @@ export function IAESplitView({ subject }: IAESplitProps) {
   const iaMax = subject.internalMarksMax;
   const eseObtained = subject.endSemMarksObtained;
   const eseMax = subject.endSemMarksMax;
-  const totalMax = iaMax + eseMax;
   const targetGP = GRADE_POINTS[targetGrade] ?? 0;
   const targetPct = targetGP * 10;
-  const targetTotal = (targetPct / 100) * totalMax;
-  const neededEse = Math.max(0, Math.ceil(targetTotal - iaObtained));
+  const neededEse = eseMarksNeeded(iaObtained, iaMax, eseMax, targetPct);
   const possible = neededEse <= eseMax;
   const gradeOptions = Object.entries(GRADE_POINTS).sort((a, b) => b[1] - a[1]).map(([grade, gp]) => ({ grade, gp }));
 
