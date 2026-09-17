@@ -222,6 +222,20 @@ function startServer() {
       return;
     }
 
+    // /data/*.json requires a browser-only signal. Evaluated on the RESOLVED path so
+    // /x/../data/... and case variants on NTFS cannot bypass it. Browsers send
+    // Sec-Fetch-Site (none for the document, same-origin for its own fetches);
+    // curl and native loopback clients send none.
+    const relPath = path.relative(root, filePath).replace(/\\/g, '/').toLowerCase();
+    if (relPath.startsWith('data/') && relPath.endsWith('.json')) {
+      const site = req.headers['sec-fetch-site'];
+      if (site !== 'none' && site !== 'same-origin') {
+        res.writeHead(403, securityHeaders());
+        res.end('Forbidden');
+        return;
+      }
+    }
+
     fs.readFile(filePath, (err, data) => {
       if (err) {
         // SPA fallback: serve index.html for unknown extensionless routes.

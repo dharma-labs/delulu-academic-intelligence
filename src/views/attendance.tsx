@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { format, parseISO, getDay } from 'date-fns';
+import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import {
   Check,
@@ -131,16 +132,18 @@ export default function AttendanceView() {
 
   // Bulk attendance — today's timetable slots
   const today = new Date();
-  const todayDow = getDay(today) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
   const todayStrVal = format(today, 'yyyy-MM-dd');
+  const [markDate, setMarkDate] = useState(todayStrVal); // date being marked
 
-  const todaySlots = timetableSlots.filter((slot) => slot.day === todayDow);
+  // Weekday + slot list follow the SELECTED date, not today
+  const markDow = getDay(parseISO(markDate)) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  const todaySlots = timetableSlots.filter((slot) => slot.day === markDow);
 
   // Check which subjects already have attendance today
   const todayAttendanceMap = (() => {
     const map = new Map<string, boolean>();
     attendance.forEach((a) => {
-      if (a.date === todayStrVal) {
+      if (a.date === markDate) {
         map.set(a.subjectId, a.present);
       }
     });
@@ -151,7 +154,7 @@ export default function AttendanceView() {
   const handleQuickMark = (subjectId: string, present: boolean) => {
     addAttendance({
       subjectId,
-      date: todayStrVal,
+      date: markDate,
       present,
       totalClasses: 1,
     });
@@ -171,16 +174,26 @@ export default function AttendanceView() {
         title='Attendance'
         subtitle='Track and manage your class attendance'
         actions={
-          <Button
-            variant='outline'
-            size='sm'
-            className='text-xs'
-            onClick={() => exportAttendanceCSV(attendance, subjects, timetableSlots)}
-            disabled={attendance.length === 0}
-          >
-            <Download className='h-3.5 w-3.5 mr-1.5' />
-            Export CSV
-          </Button>
+          <div className='flex items-center gap-2'>
+            <Input
+              type='date'
+              value={markDate}
+              max={todayStrVal}
+              onChange={(e) => setMarkDate(e.target.value || todayStrVal)}
+              className='h-8 w-[150px] text-xs'
+              aria-label='Attendance date'
+            />
+            <Button
+              variant='outline'
+              size='sm'
+              className='text-xs'
+              onClick={() => exportAttendanceCSV(attendance, subjects, timetableSlots)}
+              disabled={attendance.length === 0}
+            >
+              <Download className='h-3.5 w-3.5 mr-1.5' />
+              Export CSV
+            </Button>
+          </div>
         }
       />
 
@@ -277,12 +290,12 @@ export default function AttendanceView() {
                           {todayPresent ? (
                             <>
                               <Check className='h-3.5 w-3.5 text-emerald-500' />
-                              <span className='text-emerald-600 dark:text-emerald-400'>Present today</span>
+                              <span className='text-emerald-600 dark:text-emerald-400'>Present</span>
                             </>
                           ) : (
                             <>
                               <X className='h-3.5 w-3.5 text-red-500' />
-                              <span className='text-red-600 dark:text-red-400'>Absent today</span>
+                              <span className='text-red-600 dark:text-red-400'>Absent</span>
                             </>
                           )}
                         </div>
@@ -345,7 +358,7 @@ export default function AttendanceView() {
       {todaySlots.length > 0 && (
         <div>
           <SectionHeader
-            title="Mark Today's Attendance"
+            title="Mark Attendance"
             action={
               <span className='text-xs text-muted-foreground font-medium'>{format(today, 'EEEE, dd MMM')}</span>
             }

@@ -143,10 +143,10 @@ export default function SettingsView() {
 
   const handleReset = () => {
     if (resetText !== 'RESET') return;
-    useStore.getState().resetData();
+    useStore.getState().restoreDemoData();
     setLocalProfile(useStore.getState().profile);
     setResetText('');
-    toast.success('All data has been reset');
+    toast.success('Demo data restored');
   };
 
   const handleDeleteEverything = () => {
@@ -333,20 +333,20 @@ export default function SettingsView() {
             <InsightCard
               type="warning"
               icon={Trash2}
-              title="Reset all data to defaults"
-              description="This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data."
+              title="Restore demo data"
+              description="Replaces your data with the built-in demo dataset (subjects, marks, notes, tasks). Your uploaded files are kept."
               action={
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm">
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />Reset All Data
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />Restore Demo Data
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete all your subjects, marks, attendance, notes, tasks, and other data. Type <strong>RESET</strong> to confirm.
+                        This will replace your data with the demo dataset. Type <strong>RESET</strong> to confirm.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <Input
@@ -362,7 +362,7 @@ export default function SettingsView() {
                         disabled={resetText !== 'RESET'}
                         className="bg-destructive text-white hover:bg-destructive/90"
                       >
-                        Reset Everything
+                        Restore Demo Data
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -501,7 +501,7 @@ export default function SettingsView() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
-                <h3 className="text-sm font-semibold text-foreground">Reset All Data</h3>
+                <h3 className="text-sm font-semibold text-foreground">Delete everything permanently</h3>
               </div>
               <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                 Permanently delete all your academic data, subjects, notes, and settings. This action cannot be undone.
@@ -514,7 +514,7 @@ export default function SettingsView() {
                   size="sm"
                   className="shrink-0"
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />Reset Everything
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete Everything
                 </Button>
               </DialogTrigger>
               <DialogContent>

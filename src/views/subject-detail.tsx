@@ -1061,7 +1061,8 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
 
   const att = getSubjectAttendance({ attendance: records }, subjectId);
   const today = new Date().toISOString().split('T')[0];
-  const todayRecord = records.find((r) => r.date === today);
+  const [markDate, setMarkDate] = useState(today);
+  const markRecord = records.find((r) => r.date === markDate);
 
   const status = att.total === 0
     ? 'NO DATA'
@@ -1085,10 +1086,10 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
   }, [att, profile.attendanceThreshold]);
 
   const handleQuickMark = (present: boolean) => {
-    if (todayRecord) return;
+    if (markRecord) return;
     addAttendance({
       subjectId,
-      date: today,
+      date: markDate,
       present,
       totalClasses: 1,
     });
@@ -1148,15 +1149,24 @@ function AttendanceTab({ subjectId }: { subjectId: string }) {
 
       {/* Quick mark */}
       <div className="metric-card">
-        <span className="section-label">Mark Today's Attendance</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="section-label">Mark Attendance</span>
+          <Input
+            type="date"
+            value={markDate}
+            max={today}
+            onChange={(e) => setMarkDate(e.target.value || today)}
+            className="h-8 w-[150px] text-xs"
+          />
+        </div>
         <div className="mt-3">
-          {todayRecord ? (
+          {markRecord ? (
             <div className="flex items-center gap-2">
-              <CheckCircle2 className={`size-5 ${todayRecord.present ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}`} />
+              <CheckCircle2 className={`size-5 ${markRecord.present ? 'text-[var(--delulu-success)]' : 'text-[var(--delulu-danger)]'}`} />
               <span className="text-sm">
-                Marked as <span className="font-medium">{todayRecord.present ? 'Present' : 'Absent'}</span> today
+                Marked as <span className="font-medium">{markRecord.present ? 'Present' : 'Absent'}</span> today
               </span>
-              <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => deleteAttendance(todayRecord.id)}>
+              <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => deleteAttendance(markRecord.id)}>
                 Undo
               </Button>
             </div>

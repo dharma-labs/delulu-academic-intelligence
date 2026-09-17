@@ -14,7 +14,7 @@ architecture, what was hardened in 4.2, and honest remaining risks.
 ┌──────────────────────────────────────────────────────┐
 │ Electron main (trusted)                              │
 │  - Serves static bundle over 127.0.0.1:<ephemeral>   │
-│  - Per-launch capability token (HttpOnly cookie)     │
+│  - Sec-Fetch-Site gate on /data/*.json (no auth)     │
 │  - CSP + security headers on every response          │
 │  - Path-traversal-proof static resolver              │
 │  - External URL validation (https: only)             │
@@ -37,7 +37,7 @@ architecture, what was hardened in 4.2, and honest remaining risks.
 |----|------|--------|--------------|
 | SEC-1 | BrowserWindow | `sandbox: true`, `webSecurity: true`, `allowRunningInsecureContent: false` added alongside existing `contextIsolation: true`, `nodeIntegration: false` | Config inspection |
 | SEC-2 | Local server | Ephemeral port (`listen(0, 127.0.0.1)`) replaces fixed 4571; port read from `server.address()` | `node --check` + launch test |
-| SEC-3 | Local server | Per-launch capability token; bootstrap via `?auth=<token>` on index, then HttpOnly `SameSite=Strict` cookie; requests without either → 403 | Launch + curl tests |
+| SEC-3 | Local server | **No capability token is implemented.** The `?auth=`/HttpOnly-cookie bootstrap described in earlier releases was removed in 5.1 (it could 403 the app's own document). Current enforcement: bundled `/data/*.json` require a browser-only signal - `Sec-Fetch-Site: none` (document) or `same-origin` (the app's own fetches); requests with no `Sec-Fetch-Site` (curl, native loopback clients) get 403. Evaluated on the resolved path, so `/../` and case variants cannot bypass it. | `curl` tests with and without `Sec-Fetch-Site` |
 | SEC-4 | Local server | `Host` header must be `127.0.0.1:<port>`; `Origin` (when present) must match app origin; `Sec-Fetch-Site: cross-site` rejected | curl tests with forged headers |
 | SEC-5 | Path traversal | Strict containment resolver: single decode, rejects `..`, backslashes, residual percent-encoding, NUL, dotfiles; `path.resolve` + `startsWith(root + sep)` | Traversal test list (§ below) |
 | SEC-6 | Headers | CSP (`default-src 'self'`, no `unsafe-eval`, `frame-src 'self' blob:` for PDF previews, `img-src blob:` for previews), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` on every response | Header inspection |
@@ -79,7 +79,7 @@ architecture, what was hardened in 4.2, and honest remaining risks.
 - **127.0.0.1 is not 0.0.0.0.** The server was never LAN-exposed. The realistic
   attacker is a **same-machine** process or a malicious web page in the user's
   browser (DNS rebinding / cross-site requests) — mitigated by Host/Origin/
-  Sec-Fetch-Site/capability-token checks.
+  Sec-Fetch-Site checks (no token exists).
 - **DevTools access is not RCE.** Blocking production DevTools is UX hardening;
   a local user already controls their own session and their own data.
 - **localStorage academic data is not secret.** Marks/attendance/notes carry no
@@ -106,7 +106,7 @@ architecture, what was hardened in 4.2, and honest remaining risks.
 3. Frontend code is public — never ship secrets.
 4. External URLs are hostile — validate before opening.
 5. Filesystem paths are hostile — resolve and contain.
-6. Localhost is not automatically trusted — this server checks Host/Origin/token.
+6. Localhost is not automatically trusted — this server checks Host/Origin/Sec-Fetch-Site.
 7. Local storage is not a security boundary.
 8. Updates must be authenticated when they exist.
 

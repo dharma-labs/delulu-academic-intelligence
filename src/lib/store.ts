@@ -472,7 +472,7 @@ export const useStore = create<AppState>()(
         // ═══════════════════════════════════════════════════════════════
         addAttendance: (record) =>
           set((state) => ({
-            attendance: [...state.attendance, { ...record, id: uid() }],
+            attendance: [...state.attendance, { ...record, date: record.date ?? todayStr(), id: uid() }],
           })),
 
         updateAttendance: (id, data) =>
@@ -998,13 +998,14 @@ export const useStore = create<AppState>()(
             }
 
             // Validate required fields
-            const validKeys: (keyof typeof data)[] = [
+            const validKeys = [
               'profile', 'subjects', 'syllabusUnits', 'assessments',
               'attendance', 'studySessions', 'revisionItems', 'notes',
               'tasks', 'timetableSlots', 'calendarEvents', 'assignments',
               'exams', 'pyqs', 'erPapers', 'societies',
               'reEvalRequests', 'cuetScores',
-            ];
+              'fileFolders', 'userFiles',
+            ] as const;
 
             const updates: Partial<AppState> = {};
             for (const key of validKeys) {
@@ -1022,7 +1023,8 @@ export const useStore = create<AppState>()(
           }
         },
 
-        resetData: () => {
+        // Renamed from resetData: RESTORES the demo dataset (does not delete uploaded files).
+        restoreDemoData: () => {
           const seed = seedDemoData();
           set({
             profile: { ...DEFAULT_PROFILE },
@@ -1076,6 +1078,8 @@ export const useStore = create<AppState>()(
             reEvalRequests: [],
             cuetScores: [],
             knowledgeNodes: [],
+            fileFolders: [],
+            userFiles: [],
             currentView: 'dashboard' as const,
             selectedSubjectId: null,
             previousView: null,
@@ -1115,14 +1119,12 @@ export const useStore = create<AppState>()(
         knowledgeNodes: state.knowledgeNodes,
         language: state.language,
         leaderboardOptIn: state.leaderboardOptIn,
+        fileFolders: state.fileFolders,
+        userFiles: state.userFiles,
       }),
-      // Migrate: inject study sessions if existing data has none
+      // Migrate: backfill new fields only. Never re-seed user data.
       migrate: (persisted) => {
         const p = persisted as any;
-        if (p.studySessions && p.studySessions.length === 0) {
-          const seed = seedDemoData();
-          p.studySessions = seed.studySessions;
-        }
         // DU migration: add new profile fields
         if (p.profile) {
           if (p.profile.pastSemesters === undefined) p.profile.pastSemesters = [];

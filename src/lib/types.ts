@@ -407,7 +407,7 @@ export interface AppState {
   deleteAssessment: (id: string) => void;
 
   // Attendance actions
-  addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
+  addAttendance: (record: Omit<AttendanceRecord, 'id' | 'date'> & { date?: string }) => void;
   updateAttendance: (id: string, data: Partial<AttendanceRecord>) => void;
   deleteAttendance: (id: string) => void;
 
@@ -506,7 +506,7 @@ export interface AppState {
   // Data management
   exportData: () => string;
   importData: (json: string) => void;
-  resetData: () => void;
+  restoreDemoData: () => void;
   resetState: () => void;
 }
 
