@@ -368,6 +368,7 @@ export interface AppState {
   // Focus timer
   focusActive: boolean;
   hasOnboarded: boolean;
+  subjectDetailTab: string | null;
   focusSubjectId: string | null;
   focusTopicId: string | null;
   focusStartTime: number | null;
@@ -509,6 +510,7 @@ export interface AppState {
   importData: (json: string) => void;
   restoreDemoData: () => void;
   completeOnboarding: () => void;
+  setSubjectDetailTab: (tab: string | null) => void;
   loadDemoData: () => void;
   resetState: () => void;
 }

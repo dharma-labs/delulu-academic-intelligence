@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useState, useMemo } from 'react';
 import { Plus, FileSearch, AlertTriangle, Clock, CheckCircle2, Circle, Trash2, ExternalLink, Pencil, RefreshCw } from 'lucide-react';
 import { format, parseISO, differenceInDays, isPast } from 'date-fns';
-import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { PageHeader, MetricCard, StatusBadge, EmptyState, SectionHeader, InsightCard } from '@/components/shared';
+import { useToast } from '@/components/toast';
 import type { ERPaper } from '@/lib/types';
 
 const PRIORITY_CONFIG = {
@@ -29,6 +29,7 @@ const STATUS_MAP: Record<string, { label: string; status: 'attention' | 'improvi
 };
 
 export default function ERCenterView() {
+  const { toast: showToast } = useToast();
   const { erPapers, subjects, addERPaper, updateERPaper, deleteERPaper } = useStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -96,10 +97,10 @@ export default function ERCenterView() {
   };
 
   const handleSave = () => {
-    if (!form.title || !form.subjectId) { toast.error('Title and subject are required'); return; }
+    if (!form.title || !form.subjectId) { showToast({ title: 'Title and subject are required', variant: 'error' }); return; }
     if (editingId) {
       updateERPaper(editingId, form);
-      toast.success('Paper updated');
+      showToast({ title: 'Paper updated', variant: 'success' });
     } else {
       addERPaper({
         subjectId: form.subjectId!, title: form.title!, author: form.author || '',
@@ -107,7 +108,7 @@ export default function ERCenterView() {
         priority: (form.priority as ERPaper['priority']) || 'normal',
         deadline: form.deadline, url: form.url, notes: form.notes,
       });
-      toast.success('Paper added');
+      showToast({ title: 'Paper added', variant: 'success' });
     }
     setDialogOpen(false);
   };
@@ -116,7 +117,7 @@ export default function ERCenterView() {
     const order: ERPaper['status'][] = ['pending', 'in_progress', 'completed'];
     const next = order[(order.indexOf(paper.status) + 1) % 3];
     updateERPaper(paper.id, { status: next });
-    toast.success(`Status: ${STATUS_MAP[next].label}`);
+    showToast({ title: `Status: ${STATUS_MAP[next].label}`, variant: 'success' });
   };
 
   const totalCount = erPapers.length;
@@ -310,7 +311,7 @@ export default function ERCenterView() {
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(paper)}>
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { deleteERPaper(paper.id); toast.success('Paper removed'); }}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { deleteERPaper(paper.id); showToast({ title: 'Paper removed', variant: 'success' }); }}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>

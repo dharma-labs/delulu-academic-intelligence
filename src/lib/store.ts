@@ -271,6 +271,7 @@ export const useStore = create<AppState>()(
         currentView: 'dashboard' as const,
         selectedSubjectId: null,
         previousView: null,
+        subjectDetailTab: null,
         sidebarCollapsed: false,
         commandOpen: false,
 
@@ -1087,6 +1088,9 @@ export const useStore = create<AppState>()(
             focusElapsed: 0,
           });
         },
+
+        /** Which subject-detail tab is active (deep links from the knowledge tree). */
+        setSubjectDetailTab: (tab) => set({ subjectDetailTab: tab }),
 
         /** Marks onboarding complete so the first-run gate stays closed. */
         completeOnboarding: () => {

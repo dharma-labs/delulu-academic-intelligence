@@ -11,7 +11,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useState, useRef, useEffect } from 'react';
 import { User, Clock, Database, Palette, Bot, Download, Upload, Trash2, Save, Sun, Moon, Monitor, XCircle, AlertTriangle, Info, Smartphone, MonitorSmartphone, Globe, Trophy, GraduationCap, Crown, AtSign, Mail } from 'lucide-react';
 import { APP_NAME, APP_VERSION, APP_TAGLINE, DEVELOPER_CREDIT, DEVELOPER_INSTAGRAM, DEVELOPER_INSTAGRAM_URL, DEVELOPER_EMAIL } from '@/lib/app-info';
-import { toast } from 'sonner';
 import { PageHeader, InsightCard } from '@/components/shared';
 import { LanguageToggle } from '@/components/language-toggle';
 import { LeaderboardOptIn } from '@/components/leaderboard-opt-in';
@@ -113,7 +112,7 @@ export default function SettingsView() {
     a.download = `delulu-backup-${todayYMD()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Data exported successfully');
+    showToast({ title: 'Data exported successfully', variant: 'success' });
   };
 
   const handleImportPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,9 +131,9 @@ export default function SettingsView() {
         const json = ev.target?.result as string;
         useStore.getState().importData(json);
         setLocalProfile(useStore.getState().profile);
-        toast.success('Data imported successfully');
+        showToast({ title: 'Data imported successfully', variant: 'success' });
       } catch {
-        toast.error('Invalid backup file');
+        showToast({ title: 'Invalid backup file', variant: 'error' });
       }
     };
     reader.readAsText(importFile);
@@ -147,7 +146,7 @@ export default function SettingsView() {
     useStore.getState().restoreDemoData();
     setLocalProfile(useStore.getState().profile);
     setResetText('');
-    toast.success('Demo data restored');
+    showToast({ title: 'Demo data restored', variant: 'success' });
   };
 
   const handleDeleteEverything = () => {

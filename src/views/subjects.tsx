@@ -157,7 +157,7 @@ function SubjectFormDialog({
   const [form, setForm] = useState<SubjectFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { lookup } = useUPCAutoPopulate();
-  const [upcSuggestion, setUpcSuggestion] = useState<{upcCode: string; credits: number; courseType: string; name: string; verified: boolean} | null>(null);
+  const [upcSuggestion, setUpcSuggestion] = useState<{upcCode: string; credits: number; courseType: string; name: string; verified: boolean; internalMarksMax?: number; endSemMarksMax?: number} | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
 
 
@@ -173,6 +173,8 @@ function SubjectFormDialog({
       setUpcSuggestion({
         upcCode: result.upcCode,
         credits: result.credits || 0,
+        internalMarksMax: result.internalMarksMax,
+        endSemMarksMax: result.endSemMarksMax,
         courseType: (result as any).courseType || 'DSC',
         name: form.name,
         verified: (result as any).verified !== false,
@@ -231,8 +233,8 @@ function SubjectFormDialog({
         targetGrade: form.targetGrade,
       semester: 1,
       courseType: 'DSC' as const,
-      internalMarksMax: 25,
-      endSemMarksMax: 75,
+      internalMarksMax: upcSuggestion?.internalMarksMax ?? 25,
+      endSemMarksMax: upcSuggestion?.endSemMarksMax ?? 75,
       backlog: form.backlog,
       });
 

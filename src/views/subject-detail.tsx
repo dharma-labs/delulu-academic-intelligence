@@ -1618,6 +1618,8 @@ function ExamsTab({ subjectId }: { subjectId: string }) {
 // ======================================================================
 export default function SubjectDetailView() {
   const selectedSubjectId = useStore((s) => s.selectedSubjectId);
+  const subjectDetailTab = useStore((s) => s.subjectDetailTab);
+  const setSubjectDetailTab = useStore((s) => s.setSubjectDetailTab);
   const subject = useStore((s) => s.subjects.find((x) => x.id === s.selectedSubjectId));
   const syllabusUnits = useStore((s) => s.syllabusUnits);
   const assessments = useStore((s) => s.assessments);
@@ -1779,7 +1781,7 @@ export default function SubjectDetailView() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-5">
+      <Tabs value={subjectDetailTab ?? 'overview'} onValueChange={(v) => setSubjectDetailTab(v)} className="space-y-5">
         <TabsList className="w-full justify-start overflow-x-auto scrollbar-none sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50 md:static md:bg-transparent md:backdrop-blur-none md:border-b-0 md:z-auto">
           <TabsTrigger value="overview" className="min-h-[40px] px-3 py-2 text-xs font-medium">Overview</TabsTrigger>
           <TabsTrigger value="syllabus" className="min-h-[40px] px-3 py-2 text-xs font-medium">Syllabus</TabsTrigger>

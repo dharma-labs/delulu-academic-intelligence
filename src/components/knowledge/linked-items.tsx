@@ -38,6 +38,7 @@ export function LinkedItemsSection({
   const syllabusUnits = useStore((s) => s.syllabusUnits);
   const navigate = useStore((s) => s.navigate);
   const selectSubject = useStore((s) => s.selectSubject);
+  const setSubjectDetailTab = useStore((s) => s.setSubjectDetailTab);
 
   const [notePickerOpen, setNotePickerOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
@@ -239,6 +240,7 @@ export function LinkedItemsSection({
                 type="button"
                 onClick={() => {
                   selectSubject(linkedTopic.subjectId);
+                  setSubjectDetailTab('syllabus');
                   navigate('syllabus' as never);
                 }}
                 className="shrink-0 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
