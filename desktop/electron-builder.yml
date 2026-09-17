@@ -9,6 +9,10 @@ files:
   - desktop/preload.js
   - desktop/dist/**/*
   - package.json
+  # The renderer is a static export and desktop/main.js requires only electron +
+  # Node built-ins, so no production node_modules are needed at runtime.
+  # (Collecting them also made electron-builder crawl ~800 packages and stall.)
+  - '!node_modules/**/*'
 asar: true
 npmRebuild: false
 electronLanguages:
